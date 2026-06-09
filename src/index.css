@@ -59,6 +59,8 @@
   /* Easing — stronger than the built-in CSS curves */
   --ease-snappy: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-fluid: cubic-bezier(0.77, 0, 0.175, 1);
+  /* iOS-like drawer curve (Ionic) — fast out, gentle settle */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 html,
@@ -190,6 +192,11 @@ body {
   .animate-enter,
   .stagger-in > * {
     animation: none;
+  }
+
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-container"] {
+    transition-duration: 0ms;
   }
 }
 

@@ -10,6 +10,11 @@ import { cn } from "@/lib/utils"
 const THEMES = { light: "", dark: ".dark" } as const
 
 const INITIAL_DIMENSION = { width: 320, height: 200 } as const
+// Debounce the ResizeObserver so the chart re-renders once after a resize
+// settles instead of on every animation frame (e.g. while the sidebar width
+// transition runs). Recharts re-renders the whole chart per resize tick, so
+// this is what keeps layout animations smooth.
+const RESIZE_DEBOUNCE_MS = 160
 type TooltipNameType = number | string
 
 export type ChartConfig = Record<
@@ -73,6 +78,7 @@ function ChartContainer({
         <ChartStyle id={chartId} config={config} />
         <RechartsPrimitive.ResponsiveContainer
           initialDimension={initialDimension}
+          debounce={RESIZE_DEBOUNCE_MS}
         >
           {children}
         </RechartsPrimitive.ResponsiveContainer>

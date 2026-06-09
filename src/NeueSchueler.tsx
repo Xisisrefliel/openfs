@@ -242,7 +242,7 @@ export function NeueSchueler() {
       />
 
       <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
-        <div className="stagger-in mx-auto grid w-full max-w-[1080px] items-start gap-4 lg:grid-cols-6 2xl:gap-5">
+        <div className="stagger-in mx-auto grid w-full max-w-[1080px] gap-4 lg:grid-cols-6 2xl:gap-5">
           {/* Stammdaten */}
           <Section
             title="Stammdaten"
@@ -302,57 +302,6 @@ export function NeueSchueler() {
             </FieldGroup>
           </Section>
 
-          {/* Kontakt */}
-          <Section
-            title="Kontakt"
-            Icon={Phone}
-            accent="bg-sky-500/10 text-sky-600"
-            className="lg:col-span-2"
-          >
-            <FieldGroup className="gap-3">
-              <Field>
-                <FieldLabel htmlFor="phone">Telefon</FieldLabel>
-                <div className="relative">
-                  <Phone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    className="pl-9"
-                    value={form.phone}
-                    onChange={event => update("phone", event.target.value)}
-                    placeholder="+49 151 23456780"
-                  />
-                </div>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="email">E-Mail</FieldLabel>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    className="pl-9"
-                    value={form.email}
-                    onChange={event => update("email", event.target.value)}
-                    placeholder="lena.braun@example.com"
-                  />
-                </div>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="address">Adresse</FieldLabel>
-                <div className="relative">
-                  <MapPin className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
-                  <Textarea
-                    id="address"
-                    className="min-h-16 pl-9"
-                    value={form.address}
-                    onChange={event => update("address", event.target.value)}
-                    placeholder="Weidingweg 31, 64297 Darmstadt"
-                  />
-                </div>
-              </Field>
-            </FieldGroup>
-          </Section>
-
           {/* Zuteilung */}
           <Section
             title="Zuteilung"
@@ -403,6 +352,57 @@ export function NeueSchueler() {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
+              </Field>
+            </FieldGroup>
+          </Section>
+
+          {/* Kontakt */}
+          <Section
+            title="Kontakt"
+            Icon={Phone}
+            accent="bg-sky-500/10 text-sky-600"
+            className="lg:col-span-2"
+          >
+            <FieldGroup className="gap-3">
+              <Field>
+                <FieldLabel htmlFor="phone">Telefon</FieldLabel>
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    className="pl-9"
+                    value={form.phone}
+                    onChange={event => update("phone", event.target.value)}
+                    placeholder="+49 151 23456780"
+                  />
+                </div>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="email">E-Mail</FieldLabel>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    className="pl-9"
+                    value={form.email}
+                    onChange={event => update("email", event.target.value)}
+                    placeholder="lena.braun@example.com"
+                  />
+                </div>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="address">Adresse</FieldLabel>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
+                  <Textarea
+                    id="address"
+                    className="min-h-16 pl-9"
+                    value={form.address}
+                    onChange={event => update("address", event.target.value)}
+                    placeholder="Weidingweg 31, 64297 Darmstadt"
+                  />
+                </div>
               </Field>
             </FieldGroup>
           </Section>

@@ -30,6 +30,7 @@ import {
 
 import { Dashboard } from "./Dashboard";
 import { Buchhaltung } from "./Buchhaltung";
+import { Kalendar } from "./Kalendar";
 import { Fahrschueler } from "./Fahrschueler";
 import { Fahrzeuge } from "./Fahrzeuge";
 import { NeueSchueler } from "./NeueSchueler";
@@ -100,7 +101,7 @@ const navGroups: {
     items: [
       { label: "Terminanfragen", Icon: CalendarClock },
       { label: "Fahrschule", Icon: Building2 },
-      { label: "Kalender", Icon: CalendarDays },
+      { label: "Kalender", Icon: CalendarDays, route: "/kalendar" },
       { label: "Fahrlehrer/in", Icon: Users },
       { label: "Fahrzeuge", Icon: Car, route: "/fahrzeuge" },
       { label: "Fahrschüler", Icon: GraduationCap, route: "/fahrschueler" },
@@ -268,7 +269,7 @@ function ShellControls() {
       return;
     }
 
-    const timer = window.setTimeout(() => setShowBackdrop(true), 220);
+    const timer = window.setTimeout(() => setShowBackdrop(true), 320);
     return () => window.clearTimeout(timer);
   }, [state]);
 
@@ -314,6 +315,8 @@ export function App() {
       <Fahrschueler />
     ) : path === "/buchhaltung" ? (
       <Buchhaltung />
+    ) : path === "/kalendar" ? (
+      <Kalendar />
     ) : path === "/fahrzeuge" ? (
       <Fahrzeuge />
     ) : path === "/neue-schueler" ? (
