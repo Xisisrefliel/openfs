@@ -31,6 +31,7 @@ import {
 import { Dashboard } from "./Dashboard";
 import { Buchhaltung } from "./Buchhaltung";
 import { Kalendar } from "./Kalendar";
+import { nonFahrstundeTypes } from "@/lib/calendar-data";
 import { Fahrschueler } from "./Fahrschueler";
 import { Fahrzeuge } from "./Fahrzeuge";
 import { NeueSchueler } from "./NeueSchueler";
@@ -116,21 +117,30 @@ const navGroups: {
   },
 ];
 
+function readLocation() {
+  if (typeof window === "undefined") return { path: "/", search: "" };
+  return { path: window.location.pathname, search: window.location.search };
+}
+
 function usePath() {
-  const [path, setPath] = useState(
-    typeof window !== "undefined" ? window.location.pathname : "/",
-  );
+  const [loc, setLoc] = useState(readLocation);
   useEffect(() => {
-    const onPop = () => setPath(window.location.pathname);
+    const onPop = () => setLoc(readLocation());
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
   const navigate = (to: string) => {
-    if (to === window.location.pathname) return;
+    const url = new URL(to, window.location.origin);
+    if (
+      url.pathname === window.location.pathname &&
+      url.search === window.location.search
+    ) {
+      return;
+    }
     window.history.pushState({}, "", to);
-    setPath(to);
+    setLoc({ path: url.pathname, search: url.search });
   };
-  return { path, navigate };
+  return { path: loc.path, search: loc.search, navigate };
 }
 
 function DevAgentation() {
@@ -167,6 +177,8 @@ function AppSidebar({
                 <SidebarMenuButton
                   tooltip={label}
                   isActive={route ? path === route : false}
+                  disabled={!route}
+                  aria-disabled={!route}
                   onClick={() => route && navigate(route)}
                 >
                   <Icon />
@@ -197,6 +209,8 @@ function AppSidebar({
                             <SidebarMenuSubButton asChild>
                               <a
                                 href={route ?? "#"}
+                                aria-disabled={!route}
+                                tabIndex={route ? undefined : -1}
                                 onClick={(event) => {
                                   event.preventDefault();
                                   if (route) navigate(route);
@@ -305,7 +319,11 @@ function ShellControls() {
 }
 
 export function App() {
-  const { path, navigate } = usePath();
+  const { path, search, navigate } = usePath();
+  const calendarTypeFilter =
+    new URLSearchParams(search).get("filter") === "non-fahrstunde"
+      ? nonFahrstundeTypes
+      : undefined;
   const page =
     path === "/profil" ? (
       <Profil />
@@ -316,7 +334,10 @@ export function App() {
     ) : path === "/buchhaltung" ? (
       <Buchhaltung />
     ) : path === "/kalendar" ? (
-      <Kalendar />
+      <Kalendar
+        key={calendarTypeFilter ? "kalendar-non-fahrstunde" : "kalendar"}
+        initialTypeFilter={calendarTypeFilter}
+      />
     ) : path === "/fahrzeuge" ? (
       <Fahrzeuge />
     ) : path === "/neue-schueler" ? (
@@ -330,7 +351,7 @@ export function App() {
       <SidebarProvider className="bg-sidebar">
         <ShellControls />
         <AppSidebar path={path} navigate={navigate} />
-        <SidebarInset className="h-[calc(100svh-1rem)] min-h-0 overflow-hidden border-l border-border/70 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_16px_48px_-28px_rgba(0,0,0,0.35)] md:!m-2 md:!rounded-2xl">
+        <SidebarInset className="h-[calc(100svh-1rem)] min-h-0 overflow-hidden border border-border/70 !shadow-[0_8px_32px_-24px_rgba(22,23,24,0.28)] md:!m-2 md:!rounded-2xl">
           {page}
         </SidebarInset>
       </SidebarProvider>

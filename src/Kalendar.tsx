@@ -18,10 +18,22 @@ import {
 import { PageHeader } from "./components/PageHeader.tsx";
 import {
   CalendarEventCard,
-  type CalEvent,
   type CalendarEventCardTheme,
-  type EventType,
 } from "./components/CalendarEventCard.tsx";
+import { EventEditDialog } from "./components/EventEditDialog.tsx";
+import {
+  addDays,
+  type CalEvent,
+  type EventType,
+  eventTypeOptions,
+  getCalendarEvents,
+  isSameDay,
+  parseISODate,
+  startOfWeek,
+  toISODate,
+  toMinutes,
+  TODAY,
+} from "@/lib/calendar-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -64,13 +76,7 @@ const HOUR_MARKS = Array.from(
 );
 
 /* Demo "now" — anchored to the seeded week so the indicator lands sensibly. */
-const TODAY = new Date(2026, 5, 9); // Di, 09.06.2026
 const NOW_MINUTES = 13 * 60 + 30;
-
-const toMinutes = (value: string) => {
-  const [h = 0, m = 0] = value.split(":").map(Number);
-  return h * 60 + m;
-};
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -89,7 +95,7 @@ const topForMinutes = (minutes: number) =>
   ((minutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
 
 /* ------------------------------------------------------------------ */
-/* Event types + seed data                                            */
+/* Event type themes                                                  */
 /* ------------------------------------------------------------------ */
 
 const calendarEventThemes: Record<EventType, CalendarEventCardTheme> = {
@@ -130,109 +136,6 @@ const calendarEventThemes: Record<EventType, CalendarEventCardTheme> = {
   },
 };
 
-const seedEvents: CalEvent[] = [
-  {
-    id: "evt-theory-mo-1800",
-    day: 0,
-    start: "18:00",
-    end: "19:30",
-    title: "Thema 9: Verkehrsverhalten bei Fahrmanöver; Verkehrsbeobachtung",
-    subtitle: "Köksal G.",
-    location: "Fahrschule Gül",
-    instructor: "Köksal G.",
-    type: "Theorie",
-  },
-  {
-    id: "evt-drive-di-0900",
-    day: 1,
-    start: "09:00",
-    end: "09:45",
-    title: "Fahrstunde · Stadt",
-    subtitle: "Lena Braun",
-    instructor: "Nadine Aksoy",
-    vehicle: "Golf",
-    type: "Praktisch",
-  },
-  {
-    id: "evt-theory-di-1800",
-    day: 1,
-    start: "18:00",
-    end: "19:30",
-    title: "Thema 10: Ruhender Verkehr",
-    subtitle: "Köksal G.",
-    location: "Fahrschule Gül",
-    instructor: "Köksal G.",
-    type: "Theorie",
-  },
-  {
-    id: "evt-drive-mi-1100",
-    day: 2,
-    start: "11:00",
-    end: "12:30",
-    title: "Überlandfahrt · Klasse B",
-    subtitle: "Jonas Meyer",
-    instructor: "Emre Guel",
-    vehicle: "BMW X1",
-    type: "Praktisch",
-  },
-  {
-    id: "evt-drive-do-0830",
-    day: 3,
-    start: "08:30",
-    end: "09:15",
-    title: "Fahrübungsstunde · B197",
-    subtitle: "Zahra Rezaie",
-    instructor: "Köksal G.",
-    vehicle: "Golf",
-    type: "Praktisch",
-    tentative: true,
-  },
-  {
-    id: "evt-testprep-do-1400",
-    day: 3,
-    start: "14:00",
-    end: "15:30",
-    title: "Vorstellung · Prüfungsvorbereitung",
-    subtitle: "Aylin Demir",
-    instructor: "Emre Guel",
-    vehicle: "BMW X1",
-    type: "Vorstellung zur prakt. Prüfung",
-  },
-  {
-    id: "evt-theory-test-fr-1000",
-    day: 4,
-    start: "10:00",
-    end: "10:45",
-    title: "Theorieprüfung · TÜV",
-    subtitle: "Tom Richter",
-    location: "TÜV Süd",
-    instructor: "Nadine Aksoy",
-    type: "Theorieprüfung",
-  },
-  {
-    id: "evt-drive-fr-1600",
-    day: 4,
-    start: "16:00",
-    end: "17:00",
-    title: "Fahrstunde · Autobahn",
-    subtitle: "Mara Köhler",
-    instructor: "Nadine Aksoy",
-    vehicle: "Golf",
-    type: "Praktisch",
-  },
-  {
-    id: "evt-first-aid-sa-0900",
-    day: 5,
-    start: "09:00",
-    end: "11:00",
-    title: "Erste-Hilfe Kurs",
-    subtitle: "Gruppe A",
-    location: "Fahrschule Gül",
-    instructor: "Köksal G.",
-    type: "Andere",
-  },
-];
-
 /* ------------------------------------------------------------------ */
 /* Filter configuration                                               */
 /* ------------------------------------------------------------------ */
@@ -240,35 +143,10 @@ const seedEvents: CalEvent[] = [
 const instructorOptions = ["Köksal G.", "Nadine Aksoy", "Emre Guel"];
 const niederlassungOptions = ["Fahrschule Gül"];
 const vehicleOptions = ["Golf", "BMW X1"];
-const eventTypeOptions: EventType[] = [
-  "Praktisch",
-  "Theorie",
-  "Vorstellung zur prakt. Prüfung",
-  "Theorieprüfung",
-  "Andere",
-];
 
 /* ------------------------------------------------------------------ */
-/* Date helpers                                                       */
+/* Date formatters                                                    */
 /* ------------------------------------------------------------------ */
-
-const startOfWeek = (date: Date) => {
-  const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const day = (result.getDay() + 6) % 7; // Monday = 0
-  result.setDate(result.getDate() - day);
-  return result;
-};
-
-const addDays = (date: Date, amount: number) => {
-  const result = new Date(date);
-  result.setDate(result.getDate() + amount);
-  return result;
-};
-
-const isSameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
 
 const monthLong = (date: Date) =>
   date.toLocaleDateString("de-DE", { month: "long" });
@@ -354,8 +232,12 @@ function FilterGroup({
 
 type DragState = {
   id: string;
+  mode: "move";
   duration: number;
   pointerOffsetY: number;
+} | {
+  id: string;
+  mode: "resize-start" | "resize-end";
 };
 
 function EventBlock({
@@ -364,6 +246,7 @@ function EventBlock({
   columns,
   isDragging,
   onDragStart,
+  onResizeStart,
   onEdit,
   onDelete,
 }: {
@@ -374,6 +257,11 @@ function EventBlock({
   onDragStart: (
     event: CalEvent,
     pointerEvent: ReactPointerEvent<HTMLButtonElement>
+  ) => void;
+  onResizeStart: (
+    event: CalEvent,
+    edge: "start" | "end",
+    pointerEvent: ReactPointerEvent<HTMLElement>
   ) => void;
   onEdit: (event: CalEvent) => void;
   onDelete: (event: CalEvent) => void;
@@ -401,6 +289,7 @@ function EventBlock({
         pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
         onDragStart(event, pointerEvent);
       }}
+      onResizeStart={(edge, pointerEvent) => onResizeStart(event, edge, pointerEvent)}
       onEdit={() => onEdit(event)}
       onDelete={() => onDelete(event)}
       style={
@@ -442,15 +331,23 @@ function layoutDay(dayEvents: CalEvent[]) {
 /* Kalendar page                                                      */
 /* ------------------------------------------------------------------ */
 
-export function Kalendar() {
+export function Kalendar({
+  initialTypeFilter,
+}: {
+  initialTypeFilter?: EventType[];
+} = {}) {
   const [anchor, setAnchor] = useState<Date>(TODAY);
   const [selected, setSelected] = useState<Date | undefined>(TODAY);
-  const [calendarEvents, setCalendarEvents] = useState<CalEvent[]>(seedEvents);
+  const [calendarEvents, setCalendarEvents] =
+    useState<CalEvent[]>(getCalendarEvents);
   const [instructors, setInstructors] = useState<Set<string>>(new Set());
   const [niederlassungen, setNiederlassungen] = useState<Set<string>>(new Set());
   const [vehicles, setVehicles] = useState<Set<string>>(new Set());
-  const [types, setTypes] = useState<Set<string>>(new Set());
+  const [types, setTypes] = useState<Set<string>>(
+    () => new Set(initialTypeFilter ?? [])
+  );
   const [dragging, setDragging] = useState<DragState | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalEvent | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const dayGridRef = useRef<HTMLDivElement>(null);
 
@@ -461,47 +358,82 @@ export function Kalendar() {
     }
   }, []);
 
+  const weekStart = useMemo(() => startOfWeek(anchor), [anchor]);
+
   useEffect(() => {
     if (!dragging) return;
 
-    const moveEventToPointer = (clientX: number, clientY: number) => {
+    const updateEventFromPointer = (clientX: number, clientY: number) => {
       const grid = dayGridRef.current;
       if (!grid) return;
 
       const rect = grid.getBoundingClientRect();
-      const dayWidth = rect.width / DAY_COUNT;
-      const day = clamp(
-        Math.floor((clientX - rect.left) / dayWidth),
-        0,
-        DAY_COUNT - 1
+      const pointerMinutes = snapMinutes(
+        ((clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60
       );
-      const rawStartMinutes =
-        ((clientY - rect.top - dragging.pointerOffsetY) / HOUR_HEIGHT) * 60 +
-        START_HOUR * 60;
-      const startMinutes = clamp(
-        snapMinutes(rawStartMinutes),
-        START_HOUR * 60,
-        END_HOUR * 60 - dragging.duration
-      );
-      const endMinutes = startMinutes + dragging.duration;
 
       setCalendarEvents(current =>
-        current.map(event =>
-          event.id === dragging.id
-            ? {
-                ...event,
-                day,
-                start: formatMinutes(startMinutes),
-                end: formatMinutes(endMinutes),
-              }
-            : event
-        )
+        current.map(event => {
+          if (event.id !== dragging.id) return event;
+
+          if (dragging.mode === "move") {
+            const dayWidth = rect.width / DAY_COUNT;
+            const day = clamp(
+              Math.floor((clientX - rect.left) / dayWidth),
+              0,
+              DAY_COUNT - 1
+            );
+            const rawStartMinutes =
+              ((clientY - rect.top - dragging.pointerOffsetY) / HOUR_HEIGHT) * 60 +
+              START_HOUR * 60;
+            const startMinutes = clamp(
+              snapMinutes(rawStartMinutes),
+              START_HOUR * 60,
+              END_HOUR * 60 - dragging.duration
+            );
+            const endMinutes = startMinutes + dragging.duration;
+
+            return {
+              ...event,
+              date: toISODate(addDays(weekStart, day)),
+              start: formatMinutes(startMinutes),
+              end: formatMinutes(endMinutes),
+            };
+          }
+
+          const startMinutes = toMinutes(event.start);
+          const endMinutes = toMinutes(event.end);
+
+          if (dragging.mode === "resize-start") {
+            const nextStartMinutes = clamp(
+              pointerMinutes,
+              START_HOUR * 60,
+              endMinutes - SNAP_MINUTES
+            );
+
+            return {
+              ...event,
+              start: formatMinutes(nextStartMinutes),
+            };
+          }
+
+          const nextEndMinutes = clamp(
+            pointerMinutes,
+            startMinutes + SNAP_MINUTES,
+            END_HOUR * 60
+          );
+
+          return {
+            ...event,
+            end: formatMinutes(nextEndMinutes),
+          };
+        })
       );
     };
 
     const handlePointerMove = (event: PointerEvent) => {
       event.preventDefault();
-      moveEventToPointer(event.clientX, event.clientY);
+      updateEventFromPointer(event.clientX, event.clientY);
     };
     const stopDragging = () => setDragging(null);
 
@@ -516,9 +448,8 @@ export function Kalendar() {
       window.removeEventListener("pointerup", stopDragging);
       window.removeEventListener("pointercancel", stopDragging);
     };
-  }, [dragging]);
+  }, [dragging, weekStart]);
 
-  const weekStart = useMemo(() => startOfWeek(anchor), [anchor]);
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
   const days = useMemo(
     () => Array.from({ length: DAY_COUNT }, (_, i) => addDays(weekStart, i)),
@@ -554,8 +485,23 @@ export function Kalendar() {
     const rect = pointerEvent.currentTarget.getBoundingClientRect();
     setDragging({
       id: event.id,
+      mode: "move",
       duration: toMinutes(event.end) - toMinutes(event.start),
       pointerOffsetY: pointerEvent.clientY - rect.top,
+    });
+  };
+
+  const handleEventResizeStart = (
+    event: CalEvent,
+    edge: "start" | "end",
+    pointerEvent: ReactPointerEvent<HTMLElement>
+  ) => {
+    pointerEvent.preventDefault();
+    pointerEvent.stopPropagation();
+    pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
+    setDragging({
+      id: event.id,
+      mode: edge === "start" ? "resize-start" : "resize-end",
     });
   };
 
@@ -564,9 +510,19 @@ export function Kalendar() {
   };
 
   const handleEventEdit = (event: CalEvent) => {
-    // TODO: open the edit dialog/sheet for this event.
-    console.log("edit event", event.id);
+    // Defer so the context menu finishes closing (and clears its
+    // body `pointer-events: none`) before the dialog mounts — otherwise
+    // the dialog can open non-interactive.
+    setTimeout(() => setEditingEvent(event), 0);
   };
+
+  const handleEventSave = (id: string, updates: CalEvent) => {
+    setCalendarEvents(current =>
+      current.map(event => (event.id === id ? updates : event))
+    );
+  };
+
+  const isCurrentWeek = isSameDay(weekStart, startOfWeek(TODAY));
 
   const rangeLabel =
     weekStart.getMonth() === weekEnd.getMonth()
@@ -617,6 +573,11 @@ export function Kalendar() {
               <ChevronRight />
             </Button>
           </div>
+          {!isCurrentWeek && (
+            <Button type="button" variant="outline" size="sm" onClick={goToToday}>
+              Heute
+            </Button>
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -717,7 +678,7 @@ export function Kalendar() {
                 {days.map(day => {
                   const today = isSameDay(day, TODAY);
                   const count = visibleEvents.filter(
-                    event => isSameDay(addDays(weekStart, event.day), day)
+                    event => isSameDay(parseISODate(event.date), day)
                   ).length;
                   return (
                     <div
@@ -795,7 +756,7 @@ export function Kalendar() {
                 {days.map(day => {
                   const today = isSameDay(day, TODAY);
                   const dayEvents = visibleEvents.filter(
-                    event => isSameDay(addDays(weekStart, event.day), day)
+                    event => isSameDay(parseISODate(event.date), day)
                   );
                   const { placed, columns } = layoutDay(dayEvents);
                   return (
@@ -826,6 +787,7 @@ export function Kalendar() {
                           columns={columns}
                           isDragging={dragging?.id === event.id}
                           onDragStart={handleEventDragStart}
+                          onResizeStart={handleEventResizeStart}
                           onEdit={handleEventEdit}
                           onDelete={handleEventDelete}
                         />
@@ -851,6 +813,17 @@ export function Kalendar() {
           </div>
         </main>
       </div>
+
+      <EventEditDialog
+        event={editingEvent}
+        open={editingEvent !== null}
+        onOpenChange={open => {
+          if (!open) setEditingEvent(null);
+        }}
+        onSave={handleEventSave}
+        instructorOptions={instructorOptions}
+        vehicleOptions={vehicleOptions}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Printer, Trash2 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
+import { students } from "@/lib/student-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,63 +24,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const learners = [
-  {
-    name: "Lena Braun",
-    phone: "+49 151 23456780",
-    className: "B",
-    lastLogin: "Heute, 08:42",
-    createdAt: "12.05.2026",
-    progress: 78,
-    preExams: "3 bestanden",
-    exam: "18.06.2026",
-    status: "Aktiv",
-  },
-  {
-    name: "Tom Richter",
-    phone: "+49 160 8876543",
-    className: "A",
-    lastLogin: "Gestern, 19:10",
-    createdAt: "03.05.2026",
-    progress: 46,
-    preExams: "1 offen",
-    exam: "Nicht geplant",
-    status: "In Prüfung",
-  },
-  {
-    name: "Aylin Demir",
-    phone: "+49 176 4455123",
-    className: "B197",
-    lastLogin: "08.06.2026",
-    createdAt: "21.04.2026",
-    progress: 91,
-    preExams: "5 bestanden",
-    exam: "12.06.2026",
-    status: "Bereit",
-  },
-  {
-    name: "Jonas Meyer",
-    phone: "+49 152 3099881",
-    className: "BE",
-    lastLogin: "05.06.2026",
-    createdAt: "09.04.2026",
-    progress: 32,
-    preExams: "Keine",
-    exam: "Nicht geplant",
-    status: "Aktiv",
-  },
-  {
-    name: "Mara Köhler",
-    phone: "+49 171 7788990",
-    className: "B",
-    lastLogin: "01.06.2026",
-    createdAt: "18.03.2026",
-    progress: 64,
-    preExams: "2 bestanden",
-    exam: "25.06.2026",
-    status: "Pausiert",
-  },
-];
+// The /theorie view derived from the shared student roster — same people
+// as /fahrschueler, projected onto the theory-course fields.
+const learners = students.map(student => ({
+  name: `${student.firstName} ${student.lastName}`,
+  phone: student.phone,
+  className: student.classes,
+  lastLogin: student.theory.lastLogin,
+  createdAt: student.registrationDate,
+  progress: student.theory.progress,
+  preExams: student.theory.preExams,
+  exam: student.theory.exam,
+  status: student.theory.status,
+}));
 
 const statusTone: Record<string, string> = {
   Aktiv: "bg-blue-50 text-blue-700 ring-blue-600/20",

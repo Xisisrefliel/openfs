@@ -5,9 +5,7 @@ import {
   BarChart3,
   CalendarClock,
   CalendarDays,
-  Check,
   ChevronRight,
-  Clock,
   Euro,
   FileWarning,
   MapPin,
@@ -40,8 +38,47 @@ import { PageHeader } from "./components/PageHeader.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import {
+  addDays,
+  type CalEvent,
+  eventTypeShortLabel,
+  getCalendarEvents,
+  isFahrstunde,
+  isSameDay,
+  parseISODate,
+  startOfWeek,
+  toMinutes,
+  TODAY,
+} from "@/lib/calendar-data";
+import { students } from "@/lib/student-data";
 
 type IconCmp = React.ComponentType<{ className?: string }>;
+
+/* Navigate without threading the router down — mirrors the "Schüler
+   anmelden" button and the usePath() popstate listener in App.tsx. */
+function goTo(url: string) {
+  window.history.pushState({}, "", url);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared calendar data — every widget below is derived from this so   */
+/* the dashboard always agrees with /kalendar.                         */
+/* ------------------------------------------------------------------ */
+
+const weekStart = startOfWeek(TODAY);
+const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+const allEvents = getCalendarEvents();
+
+const byDateTime = (a: CalEvent, b: CalEvent) =>
+  a.date === b.date
+    ? toMinutes(a.start) - toMinutes(b.start)
+    : a.date < b.date
+      ? -1
+      : 1;
+
+const eventsOn = (day: Date) =>
+  allEvents.filter(event => isSameDay(parseISODate(event.date), day));
 
 const dashboardCardClass =
   "rounded-lg border border-border/80 ring-0 shadow-none";
@@ -81,41 +118,94 @@ function Navigation() {
 /* Grid — stat cards                                                   */
 /* ------------------------------------------------------------------ */
 
-const stats: {
+// Counts derived from the shared libraries — one source of truth.
+const activeStudents = students.filter(student => student.status === "aktiv").length;
+const fahrstundenThisWeek = allEvents.filter(isFahrstunde).length;
+const fahrstundenToday = eventsOn(TODAY).filter(isFahrstunde).length;
+
+type Stat = {
   label: string;
   value: string;
-  delta: string;
-  up: boolean;
   Icon: IconCmp;
   iconClass: string;
-}[] = [
-  { label: "Aktive Fahrschüler", value: "248", delta: "+12", up: true, Icon: Users, iconClass: "bg-indigo-500/10 text-indigo-600" },
-  { label: "Fahrstunden (Woche)", value: "186", delta: "+8%", up: true, Icon: CalendarDays, iconClass: "bg-amber-500/10 text-amber-600" },
-  { label: "Umsatz (Monat)", value: "€ 42.350", delta: "+5,2%", up: true, Icon: Euro, iconClass: "bg-emerald-500/10 text-emerald-600" },
-  { label: "Offene Rechnungen", value: "14", delta: "-3", up: false, Icon: FileWarning, iconClass: "bg-rose-500/10 text-rose-600" },
+  href: string;
+  trend?: { delta: string; up: boolean };
+  hint?: string;
+};
+
+const stats: Stat[] = [
+  {
+    label: "Aktive Fahrschüler",
+    value: String(activeStudents),
+    Icon: Users,
+    iconClass: "bg-indigo-500/10 text-indigo-600",
+    href: "/fahrschueler",
+    hint: `von ${students.length}`,
+  },
+  {
+    label: "Fahrstunden (Woche)",
+    value: String(fahrstundenThisWeek),
+    Icon: CalendarDays,
+    iconClass: "bg-amber-500/10 text-amber-600",
+    href: "/kalendar",
+    hint: `${fahrstundenToday} heute`,
+  },
+  {
+    label: "Umsatz (Monat)",
+    value: "€ 42.350",
+    Icon: Euro,
+    iconClass: "bg-emerald-500/10 text-emerald-600",
+    href: "/buchhaltung",
+    trend: { delta: "+5,2%", up: true },
+  },
+  {
+    label: "Offene Rechnungen",
+    value: "14",
+    Icon: FileWarning,
+    iconClass: "bg-rose-500/10 text-rose-600",
+    href: "/buchhaltung",
+    trend: { delta: "-3", up: false },
+  },
 ];
 
 function Grid() {
   return (
     <section className="stagger-in grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {stats.map(({ label, value, delta, up, Icon, iconClass }) => (
-        <Card key={label} size="sm" className={dashboardCardClass}>
-          <CardHeader>
-            <div className={cn("flex size-9 items-center justify-center rounded-lg", iconClass)}>
-              <Icon className="size-[18px]" />
-            </div>
-            <CardAction>
-              <Badge variant={up ? "secondary" : "destructive"}>
-                {up ? <TrendingUp /> : <TrendingDown />}
-                {delta}
-              </Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <div className="font-heading text-2xl font-medium tracking-tight">{value}</div>
-            <div className="text-sm text-muted-foreground">{label}</div>
-          </CardContent>
-        </Card>
+      {stats.map(({ label, value, Icon, iconClass, href, trend, hint }) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => goTo(href)}
+          className="h-full rounded-lg text-left outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Card
+            size="sm"
+            className={cn(
+              dashboardCardClass,
+              "h-full transition-colors hover:border-border hover:bg-muted/40"
+            )}
+          >
+            <CardHeader>
+              <div className={cn("flex size-9 items-center justify-center rounded-lg", iconClass)}>
+                <Icon className="size-[18px]" />
+              </div>
+              <CardAction>
+                {trend ? (
+                  <Badge variant={trend.up ? "secondary" : "destructive"}>
+                    {trend.up ? <TrendingUp /> : <TrendingDown />}
+                    {trend.delta}
+                  </Badge>
+                ) : hint ? (
+                  <Badge variant="secondary">{hint}</Badge>
+                ) : null}
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <div className="font-heading text-2xl font-medium tracking-tight">{value}</div>
+              <div className="text-sm text-muted-foreground">{label}</div>
+            </CardContent>
+          </Card>
+        </button>
       ))}
     </section>
   );
@@ -125,18 +215,17 @@ function Grid() {
 /* Chart — weekly lessons bar chart                                    */
 /* ------------------------------------------------------------------ */
 
-const chartData = [
-  { day: "Mo", value: 28 },
-  { day: "Di", value: 34 },
-  { day: "Mi", value: 22 },
-  { day: "Do", value: 41 },
-  { day: "Fr", value: 38 },
-  { day: "Sa", value: 19 },
-  { day: "So", value: 4 },
-];
+const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+// Fahrstunden (practical driving lessons) per weekday, straight from the
+// calendar events — same items the /kalendar grid renders.
+const chartData = weekDays.map((day, i) => ({
+  day: WEEKDAY_LABELS[i],
+  value: eventsOn(day).filter(isFahrstunde).length,
+}));
 
 const chartConfig = {
-  value: { label: "Stunden", color: "var(--chart-1)" },
+  value: { label: "Fahrstunden", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
 function Chart() {
@@ -151,9 +240,9 @@ function Chart() {
           </span>
           Fahrstunden diese Woche
         </CardTitle>
-        <CardDescription>{total} Stunden insgesamt</CardDescription>
+        <CardDescription>{total} Fahrstunden insgesamt</CardDescription>
         <CardAction>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={() => goTo("/kalendar")}>
             Alle ansehen
             <ChevronRight />
           </Button>
@@ -169,7 +258,7 @@ function Chart() {
               {chartData.map(entry => (
                 <Cell
                   key={entry.day}
-                  fill={entry.value === max ? "var(--color-sky-500)" : "var(--color-sky-200)"}
+                  fill={entry.value > 0 && entry.value === max ? "var(--color-sky-500)" : "var(--color-sky-200)"}
                 />
               ))}
             </Bar>
@@ -184,21 +273,17 @@ function Chart() {
 /* List — upcoming appointments                                        */
 /* ------------------------------------------------------------------ */
 
-const appointments: {
-  time: string;
-  name: string;
-  type: string;
-  status: "confirmed" | "pending";
-  place: string;
-}[] = [
-  { time: "08:30", name: "Lena Brandt", type: "Fahrstunde · Überland", status: "confirmed", place: "Treffpunkt Hbf" },
-  { time: "10:00", name: "Tom Richter", type: "Theorieprüfung", status: "confirmed", place: "TÜV Süd" },
-  { time: "11:45", name: "Aylin Demir", type: "Fahrstunde · Stadt", status: "pending", place: "Schulhof" },
-  { time: "14:15", name: "Jonas Weber", type: "Autobahnfahrt", status: "confirmed", place: "Treffpunkt Hbf" },
-  { time: "16:00", name: "Mara Köhler", type: "Praktische Prüfung", status: "pending", place: "TÜV Süd" },
-];
+// Everything that isn't a routine driving lesson — theory, exams, exam prep,
+// courses. Clicking through opens the calendar filtered to exactly these.
+const nonFahrstundeEvents = allEvents
+  .filter(event => !isFahrstunde(event))
+  .sort(byDateTime);
+
+const weekdayShort = (date: Date) =>
+  date.toLocaleDateString("de-DE", { weekday: "short" }).replace(".", "");
 
 function List() {
+  const openCalendar = () => goTo("/kalendar?filter=non-fahrstunde");
   return (
     <Card className={dashboardCardClass}>
       <CardHeader className={dashboardCardHeaderClass}>
@@ -206,11 +291,13 @@ function List() {
           <span className="flex size-6 items-center justify-center rounded-md bg-violet-500/10 text-violet-600">
             <CalendarClock className="size-3.5" />
           </span>
-          Heutige Termine
+          Anstehende Termine
         </CardTitle>
-        <CardDescription>{appointments.length} geplant</CardDescription>
+        <CardDescription>
+          {nonFahrstundeEvents.length} ohne Fahrstunden
+        </CardDescription>
         <CardAction>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={openCalendar}>
             Kalender
             <ChevronRight />
           </Button>
@@ -219,30 +306,45 @@ function List() {
       <CardContent>
         <ScrollArea className="h-[300px] 2xl:h-[380px]">
           <div className="flex flex-col gap-1 pr-3">
-            {appointments.map(({ time, name, type, status, place }) => (
-              <div
-                key={time}
-                className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted"
-              >
-                <span className="w-12 shrink-0 text-center text-sm font-medium tabular-nums">
-                  {time}
-                </span>
-                <Separator orientation="vertical" className="h-9" />
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium">{name}</span>
-                  <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                    {type}
-                    <span className="text-border">·</span>
-                    <MapPin className="size-3 shrink-0" />
-                    {place}
+            {nonFahrstundeEvents.map(event => {
+              const place = event.location ?? event.vehicle;
+              return (
+                <button
+                  key={event.id}
+                  type="button"
+                  onClick={openCalendar}
+                  className="group/row flex items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-muted"
+                >
+                  <span className="flex w-12 shrink-0 flex-col items-center">
+                    <span className="text-[11px] uppercase text-muted-foreground">
+                      {weekdayShort(parseISODate(event.date))}
+                    </span>
+                    <span className="text-sm font-medium tabular-nums">
+                      {event.start}
+                    </span>
                   </span>
-                </div>
-                <Badge variant={status === "confirmed" ? "secondary" : "outline"}>
-                  {status === "confirmed" ? <Check /> : <Clock />}
-                  {status === "confirmed" ? "Bestätigt" : "Offen"}
-                </Badge>
-              </div>
-            ))}
+                  <Separator orientation="vertical" className="h-9" />
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm font-medium">
+                      {event.title}
+                    </span>
+                    <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                      {event.subtitle}
+                      {place && (
+                        <>
+                          <span className="text-border">·</span>
+                          <MapPin className="size-3 shrink-0" />
+                          {place}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <Badge variant="secondary">
+                    {eventTypeShortLabel[event.type]}
+                  </Badge>
+                </button>
+              );
+            })}
           </div>
         </ScrollArea>
       </CardContent>
@@ -254,32 +356,20 @@ function List() {
 /* Calendar — month view with agenda                                   */
 /* ------------------------------------------------------------------ */
 
-type CalEvent = { time: string; title: string };
-const YEAR = 2026;
-const MONTH = 5; // June (0-indexed)
-
-const calendarEvents: Record<number, CalEvent[]> = {
-  3: [{ time: "09:00", title: "Theorie Gruppe A" }],
-  9: [
-    { time: "10:00", title: "Theorieprüfung · Tom R." },
-    { time: "16:00", title: "Praktische Prüfung · Mara K." },
-  ],
-  12: [
-    { time: "14:00", title: "Theorie Gruppe B" },
-    { time: "17:30", title: "Aufbauseminar" },
-  ],
-  18: [{ time: "11:00", title: "Fahrlehrer-Meeting" }],
-  23: [{ time: "09:30", title: "TÜV Sammeltermin" }],
-  27: [{ time: "13:00", title: "Erste-Hilfe Kurs" }],
-};
-
-const eventDates = Object.keys(calendarEvents).map(d => new Date(YEAR, MONTH, Number(d)));
+// Days that have at least one event, for the calendar's dot markers.
+const eventDates = [...new Set(allEvents.map(event => event.date))].map(
+  parseISODate
+);
 
 function MonthCalendar() {
-  const [selected, setSelected] = useState<Date | undefined>(new Date(YEAR, MONTH, 9));
-  const dayNum = selected?.getDate() ?? 0;
-  const dayEvents = calendarEvents[dayNum] ?? [];
-  const isToday = dayNum === 9;
+  const [selected, setSelected] = useState<Date | undefined>(TODAY);
+  const dayEvents = selected
+    ? eventsOn(selected).sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
+    : [];
+  const isToday = selected ? isSameDay(selected, TODAY) : false;
+  const dayLabel = selected
+    ? selected.toLocaleDateString("de-DE", { day: "numeric", month: "long" })
+    : "";
 
   return (
     <Card className={dashboardCardClass}>
@@ -298,7 +388,7 @@ function MonthCalendar() {
           required
           selected={selected}
           onSelect={setSelected}
-          defaultMonth={new Date(YEAR, MONTH, 1)}
+          defaultMonth={new Date(TODAY.getFullYear(), TODAY.getMonth(), 1)}
           weekStartsOn={1}
           showOutsideDays={false}
           className="mx-auto p-0 [--cell-size:--spacing(8)]"
@@ -319,7 +409,7 @@ function MonthCalendar() {
         <div className="flex flex-col">
           <div className="flex items-baseline justify-between pb-2">
             <span className="text-sm font-medium">
-              {dayNum}. Juni
+              {dayLabel}
               {isToday && <span className="ml-1.5 text-xs text-muted-foreground">Heute</span>}
             </span>
             <span className="text-xs text-muted-foreground">
@@ -328,25 +418,27 @@ function MonthCalendar() {
           </div>
 
           {dayEvents.length > 0 ? (
-            <div key={dayNum} className="flex flex-col gap-1">
-              {dayEvents.map((e, idx) => (
-                <div
-                  key={idx}
-                  className="animate-agenda-row group/row flex items-center gap-2.5 rounded-lg px-1 py-2 transition-colors hover:bg-muted"
+            <div key={dayLabel} className="flex flex-col gap-1">
+              {dayEvents.map((event, idx) => (
+                <button
+                  key={event.id}
+                  type="button"
+                  onClick={() => goTo("/kalendar")}
+                  className="animate-agenda-row group/row flex items-center gap-2.5 rounded-lg px-1 py-2 text-left transition-colors hover:bg-muted"
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
                   <span className="h-8 w-1 shrink-0 rounded-full bg-amber-500" />
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium">{e.title}</span>
-                    <span className="text-xs tabular-nums text-muted-foreground">{e.time} Uhr</span>
+                    <span className="truncate text-sm font-medium">{event.title}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">{event.start} Uhr</span>
                   </div>
                   <ArrowRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/row:translate-x-0.5" />
-                </div>
+                </button>
               ))}
             </div>
           ) : (
             <div
-              key={dayNum}
+              key={dayLabel}
               className="animate-agenda-fade flex flex-col items-center justify-center gap-1 py-6 text-center"
             >
               <CalendarDays className="size-5 text-muted-foreground" />
