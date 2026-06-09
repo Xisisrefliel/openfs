@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { Dashboard } from "./Dashboard";
+import { Fahrschueler } from "./Fahrschueler";
 import { Profil } from "./Profil";
 import { Theorie } from "./Theorie";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +76,7 @@ const navGroups: {
   label: string;
   Icon: IconCmp;
   iconColor: string;
-  items: { label: string; Icon: IconCmp }[];
+  items: { label: string; Icon: IconCmp; route?: string }[];
 }[] = [
   {
     label: "Marketing",
@@ -98,7 +99,7 @@ const navGroups: {
       { label: "Kalender", Icon: CalendarDays },
       { label: "Fahrlehrer/in", Icon: Users },
       { label: "Fahrzeuge", Icon: Car },
-      { label: "Fahrschüler", Icon: GraduationCap },
+      { label: "Fahrschüler", Icon: GraduationCap, route: "/fahrschueler" },
       { label: "Theorie Gruppen", Icon: BookOpen },
       { label: "Buchhaltung", Icon: Receipt },
       { label: "Statistik", Icon: BarChart3 },
@@ -185,10 +186,16 @@ function AppSidebar({
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {items.map(({ label: subLabel, Icon: SubIcon }) => (
+                      {items.map(({ label: subLabel, Icon: SubIcon, route }) => (
                         <SidebarMenuSubItem key={subLabel}>
                           <SidebarMenuSubButton asChild>
-                            <a href="#" onClick={e => e.preventDefault()}>
+                            <a
+                              href={route ?? "#"}
+                              onClick={event => {
+                                event.preventDefault();
+                                if (route) navigate(route);
+                              }}
+                            >
                               <SubIcon className={iconColor} />
                               <span>{subLabel}</span>
                             </a>
@@ -280,6 +287,8 @@ export function App() {
       <Profil />
     ) : path === "/theorie" ? (
       <Theorie />
+    ) : path === "/fahrschueler" ? (
+      <Fahrschueler />
     ) : (
       <Dashboard />
     );
