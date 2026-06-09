@@ -6,20 +6,22 @@ import type {
   SetStateAction,
 } from "react";
 import {
-  Car,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  GripVertical,
-  MapPin,
   Moon,
   Printer,
   Plus,
   Search,
-  UserRound,
 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
+import {
+  CalendarEventCard,
+  type CalEvent,
+  type CalendarEventCardTheme,
+  type EventType,
+} from "./components/CalendarEventCard.tsx";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -89,35 +91,6 @@ const topForMinutes = (minutes: number) =>
 /* ------------------------------------------------------------------ */
 /* Event types + seed data                                            */
 /* ------------------------------------------------------------------ */
-
-type EventType =
-  | "Praktisch"
-  | "Theorie"
-  | "Vorstellung zur prakt. Prüfung"
-  | "Theorieprüfung"
-  | "Andere";
-
-type CalEvent = {
-  id: string;
-  day: number; // 0 = Monday … 6 = Sunday
-  start: string;
-  end: string;
-  title: string;
-  subtitle?: string;
-  location?: string;
-  instructor: string;
-  vehicle?: string;
-  type: EventType;
-  tentative?: boolean;
-};
-
-type CalendarEventCardTheme = {
-  rail: string;
-  badge: string;
-  icon: string;
-  focus: string;
-  shortLabel: string;
-};
 
 const calendarEventThemes: Record<EventType, CalendarEventCardTheme> = {
   Praktisch: {
@@ -385,111 +358,14 @@ type DragState = {
   pointerOffsetY: number;
 };
 
-function CalendarEventCard({
-  event,
-  compact,
-  isDragging,
-  style,
-  theme,
-  onPointerDown,
-}: {
-  event: CalEvent;
-  compact: boolean;
-  isDragging: boolean;
-  style: CSSProperties;
-  theme: CalendarEventCardTheme;
-  onPointerDown: (pointerEvent: ReactPointerEvent<HTMLButtonElement>) => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-grabbed={isDragging}
-      aria-label={`${event.title}, ${event.start} bis ${event.end}`}
-      draggable={false}
-      onPointerDown={onPointerDown}
-      style={style}
-      className={cn(
-        "group absolute touch-none select-none overflow-hidden rounded-lg border bg-card text-left text-card-foreground shadow-[0_1px_2px_rgba(22,23,24,0.05)] outline-hidden transition-[box-shadow,transform,border-color] duration-150 ease-out focus-visible:ring-2",
-        "cursor-grab active:cursor-grabbing hover:-translate-y-px hover:shadow-lift",
-        theme.focus,
-        event.tentative && "border-dashed bg-background/80",
-        isDragging ? "z-30 scale-[1.015] shadow-lift" : "z-20"
-      )}
-    >
-      <div className="flex h-full min-w-0 gap-2 p-1.5">
-        <span
-          className={cn("w-1 shrink-0 rounded-full", theme.rail)}
-          aria-hidden="true"
-        />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-1">
-            <span className="min-w-0 truncate text-[11px] font-semibold leading-none text-foreground tabular-nums">
-              {event.start}–{event.end}
-            </span>
-            <span className="flex shrink-0 items-center gap-1">
-              <span
-                className={cn(
-                  "inline-flex shrink-0 items-center justify-center truncate rounded-sm text-center font-medium leading-none ring-1",
-                  compact
-                    ? "h-3.5 max-w-[3.6rem] px-1 text-[9px]"
-                    : "h-4 max-w-[4.75rem] px-1.5 text-[10px]",
-                  theme.badge
-                )}
-              >
-                {theme.shortLabel}
-              </span>
-              {!compact && (
-                <GripVertical className="size-3.5 shrink-0 text-muted-foreground/70 opacity-70 transition-opacity group-hover:opacity-100" />
-              )}
-            </span>
-          </div>
-          <div
-            className={cn(
-              "mt-1 min-w-0 font-medium leading-tight text-foreground",
-              compact ? "truncate text-[11px]" : "line-clamp-2 text-[12px]"
-            )}
-          >
-            {event.title}
-          </div>
-          {compact && event.subtitle && (
-            <div className="mt-0.5 truncate text-[10px] leading-none text-muted-foreground">
-              {event.subtitle}
-            </div>
-          )}
-          {!compact && (
-            <div className="mt-auto flex min-w-0 items-center gap-2 pt-1 text-[11px] leading-none text-muted-foreground">
-              {event.subtitle && (
-                <span className="flex min-w-0 items-center gap-1 truncate">
-                  <UserRound className={cn("size-3 shrink-0", theme.icon)} />
-                  <span className="truncate">{event.subtitle}</span>
-                </span>
-              )}
-              {event.vehicle && (
-                <span className="flex shrink-0 items-center gap-1">
-                  <Car className={cn("size-3", theme.icon)} />
-                  {event.vehicle}
-                </span>
-              )}
-              {event.location && !event.vehicle && (
-                <span className="flex min-w-0 items-center gap-1 truncate">
-                  <MapPin className={cn("size-3 shrink-0", theme.icon)} />
-                  <span className="truncate">{event.location}</span>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </button>
-  );
-}
-
 function EventBlock({
   event,
   column,
   columns,
   isDragging,
   onDragStart,
+  onEdit,
+  onDelete,
 }: {
   event: CalEvent;
   column: number;
@@ -499,6 +375,8 @@ function EventBlock({
     event: CalEvent,
     pointerEvent: ReactPointerEvent<HTMLButtonElement>
   ) => void;
+  onEdit: (event: CalEvent) => void;
+  onDelete: (event: CalEvent) => void;
 }) {
   const startMin = toMinutes(event.start);
   const endMin = toMinutes(event.end);
@@ -508,6 +386,8 @@ function EventBlock({
   const widthPct = 100 / columns;
   const theme = calendarEventThemes[event.type];
   const compact = slotHeight < 58;
+  // Compact cards grow on hover/focus to reveal the full title + meta row.
+  const expandedHeight = compact ? Math.max(slotHeight, 112) : slotHeight;
 
   return (
     <CalendarEventCard
@@ -521,12 +401,17 @@ function EventBlock({
         pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
         onDragStart(event, pointerEvent);
       }}
-      style={{
-        top,
-        height: slotHeight,
-        left: `calc(${column * widthPct}% + 2px)`,
-        width: `calc(${widthPct}% - 4px)`,
-      }}
+      onEdit={() => onEdit(event)}
+      onDelete={() => onDelete(event)}
+      style={
+        {
+          top,
+          left: `calc(${column * widthPct}% + 2px)`,
+          width: `calc(${widthPct}% - 4px)`,
+          "--card-h": `${slotHeight}px`,
+          "--card-h-expanded": `${expandedHeight}px`,
+        } as CSSProperties
+      }
     />
   );
 }
@@ -672,6 +557,15 @@ export function Kalendar() {
       duration: toMinutes(event.end) - toMinutes(event.start),
       pointerOffsetY: pointerEvent.clientY - rect.top,
     });
+  };
+
+  const handleEventDelete = (event: CalEvent) => {
+    setCalendarEvents(current => current.filter(item => item.id !== event.id));
+  };
+
+  const handleEventEdit = (event: CalEvent) => {
+    // TODO: open the edit dialog/sheet for this event.
+    console.log("edit event", event.id);
   };
 
   const rangeLabel =
@@ -932,6 +826,8 @@ export function Kalendar() {
                           columns={columns}
                           isDragging={dragging?.id === event.id}
                           onDragStart={handleEventDragStart}
+                          onEdit={handleEventEdit}
+                          onDelete={handleEventDelete}
                         />
                       ))}
 
