@@ -1,5 +1,5 @@
 import "./index.css";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Agentation } from "agentation";
 import {
   ArrowLeft,
@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { Dashboard } from "./Dashboard";
+import { Buchhaltung } from "./Buchhaltung";
 import { Fahrschueler } from "./Fahrschueler";
 import { Profil } from "./Profil";
 import { Theorie } from "./Theorie";
@@ -60,6 +61,7 @@ import {
   SidebarMenuSubItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 type IconCmp = React.ComponentType<{ className?: string }>;
@@ -101,7 +103,7 @@ const navGroups: {
       { label: "Fahrzeuge", Icon: Car },
       { label: "Fahrschüler", Icon: GraduationCap, route: "/fahrschueler" },
       { label: "Theorie Gruppen", Icon: BookOpen },
-      { label: "Buchhaltung", Icon: Receipt },
+      { label: "Buchhaltung", Icon: Receipt, route: "/buchhaltung" },
       { label: "Statistik", Icon: BarChart3 },
       { label: "Plaudern", Icon: MessageCircle },
       { label: "Bewertungen", Icon: Star },
@@ -113,7 +115,7 @@ const navGroups: {
 
 function usePath() {
   const [path, setPath] = useState(
-    typeof window !== "undefined" ? window.location.pathname : "/"
+    typeof window !== "undefined" ? window.location.pathname : "/",
   );
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname);
@@ -186,22 +188,24 @@ function AppSidebar({
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {items.map(({ label: subLabel, Icon: SubIcon, route }) => (
-                        <SidebarMenuSubItem key={subLabel}>
-                          <SidebarMenuSubButton asChild>
-                            <a
-                              href={route ?? "#"}
-                              onClick={event => {
-                                event.preventDefault();
-                                if (route) navigate(route);
-                              }}
-                            >
-                              <SubIcon className={iconColor} />
-                              <span>{subLabel}</span>
-                            </a>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
+                      {items.map(
+                        ({ label: subLabel, Icon: SubIcon, route }) => (
+                          <SidebarMenuSubItem key={subLabel}>
+                            <SidebarMenuSubButton asChild>
+                              <a
+                                href={route ?? "#"}
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  if (route) navigate(route);
+                                }}
+                              >
+                                <SubIcon className={iconColor} />
+                                <span>{subLabel}</span>
+                              </a>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ),
+                      )}
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -253,29 +257,54 @@ function AppSidebar({
 }
 
 function ShellControls() {
+  const { state } = useSidebar();
+  const firstRender = useRef(true);
+  const [showBackdrop, setShowBackdrop] = useState(state === "expanded");
+
+  useEffect(() => {
+    if (state === "collapsed") {
+      firstRender.current = false;
+      setShowBackdrop(false);
+      return;
+    }
+
+    if (firstRender.current) {
+      firstRender.current = false;
+      setShowBackdrop(true);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setShowBackdrop(true), 220);
+    return () => window.clearTimeout(timer);
+  }, [state]);
+
   return (
-    <div className="fixed left-5 top-5 z-[60] flex items-center gap-1">
-      <SidebarTrigger className="size-7" />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="size-7 text-muted-foreground"
-        onClick={() => window.history.back()}
-      >
-        <ArrowLeft />
-        <span className="sr-only">Zurück</span>
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="size-7 text-muted-foreground"
-        onClick={() => window.history.forward()}
-      >
-        <ArrowRight />
-        <span className="sr-only">Vorwärts</span>
-      </Button>
+    <div className="pointer-events-none fixed left-2 top-2 z-[60] w-(--sidebar-width) px-3 pb-2 pt-2.5">
+      {/* Delay the backdrop until the sidebar width transition finishes to avoid a flash over content. */}
+      {showBackdrop && <div className="absolute inset-0 bg-sidebar" />}
+      <div className="pointer-events-auto relative flex items-center gap-1">
+        <SidebarTrigger className="size-7 bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="size-7 bg-transparent text-muted-foreground hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
+          onClick={() => window.history.back()}
+        >
+          <ArrowLeft />
+          <span className="sr-only">Zurück</span>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="size-7 bg-transparent text-muted-foreground hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
+          onClick={() => window.history.forward()}
+        >
+          <ArrowRight />
+          <span className="sr-only">Vorwärts</span>
+        </Button>
+      </div>
     </div>
   );
 }
@@ -289,6 +318,8 @@ export function App() {
       <Theorie />
     ) : path === "/fahrschueler" ? (
       <Fahrschueler />
+    ) : path === "/buchhaltung" ? (
+      <Buchhaltung />
     ) : (
       <Dashboard />
     );
