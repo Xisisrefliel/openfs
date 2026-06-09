@@ -31,6 +31,7 @@ import {
 import { Dashboard } from "./Dashboard";
 import { Buchhaltung } from "./Buchhaltung";
 import { Fahrschueler } from "./Fahrschueler";
+import { Fahrzeuge } from "./Fahrzeuge";
 import { Profil } from "./Profil";
 import { Theorie } from "./Theorie";
 import { Badge } from "@/components/ui/badge";
@@ -100,7 +101,7 @@ const navGroups: {
       { label: "Fahrschule", Icon: Building2 },
       { label: "Kalender", Icon: CalendarDays },
       { label: "Fahrlehrer/in", Icon: Users },
-      { label: "Fahrzeuge", Icon: Car },
+      { label: "Fahrzeuge", Icon: Car, route: "/fahrzeuge" },
       { label: "Fahrschüler", Icon: GraduationCap, route: "/fahrschueler" },
       { label: "Theorie Gruppen", Icon: BookOpen },
       { label: "Buchhaltung", Icon: Receipt, route: "/buchhaltung" },
@@ -279,7 +280,7 @@ function ShellControls() {
   }, [state]);
 
   return (
-    <div className="pointer-events-none fixed left-2 top-2 z-[60] w-(--sidebar-width) px-3 pb-2 pt-2.5">
+    <div className="pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2 pt-2.5">
       {/* Delay the backdrop until the sidebar width transition finishes to avoid a flash over content. */}
       {showBackdrop && <div className="absolute inset-0 bg-sidebar" />}
       <div className="pointer-events-auto relative flex items-center gap-1">
@@ -320,6 +321,8 @@ export function App() {
       <Fahrschueler />
     ) : path === "/buchhaltung" ? (
       <Buchhaltung />
+    ) : path === "/fahrzeuge" ? (
+      <Fahrzeuge />
     ) : (
       <Dashboard />
     );

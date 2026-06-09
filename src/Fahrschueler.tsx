@@ -873,7 +873,7 @@ export function Fahrschueler() {
       <PageHeader />
 
       <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
-        <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 2xl:p-5">
+        <div className="animate-enter flex flex-col gap-4 rounded-xl border bg-card p-4 2xl:p-5">
           <div className="flex flex-wrap items-center gap-2">
             <Input
               value={query}

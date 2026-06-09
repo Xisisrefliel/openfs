@@ -336,7 +336,7 @@ export function Profil() {
           if ((event.target as HTMLElement).closest("button")) markDirty();
         }}
       >
-        <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-4 2xl:gap-5">
+        <div className="stagger-in mx-auto flex w-full max-w-[1080px] flex-col gap-4 2xl:gap-5">
           {/* Schulinformationen */}
           <Section
             title="Schulinformationen"

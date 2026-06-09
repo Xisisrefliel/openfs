@@ -11,7 +11,7 @@ export function PageHeader({ children, center, end, className }: PageHeaderProps
   return (
     <header
       className={cn(
-        "sticky top-0 z-50 flex h-11 w-full shrink-0 items-center gap-3 border-b bg-background/95 px-3 backdrop-blur-md 2xl:h-12 2xl:px-4",
+        "sticky top-0 z-30 flex h-11 w-full shrink-0 items-center gap-3 border-b bg-background/95 px-3 backdrop-blur-md 2xl:h-12 2xl:px-4",
         className
       )}
     >

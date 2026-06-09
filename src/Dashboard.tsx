@@ -91,7 +91,7 @@ const stats: {
 
 function Grid() {
   return (
-    <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="stagger-in grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map(({ label, value, delta, up, Icon, iconClass }) => (
         <Card key={label} size="sm" className={dashboardCardClass}>
           <CardHeader>
@@ -372,7 +372,7 @@ export function Dashboard() {
       <Navigation />
       <div className={cn("flex flex-1 flex-col gap-4 overflow-y-auto p-4 2xl:gap-5 2xl:p-6")}>
         <Grid />
-        <div className="grid grid-cols-1 items-start gap-4 2xl:gap-5 lg:grid-cols-12">
+        <div className="stagger-in grid grid-cols-1 items-start gap-4 2xl:gap-5 lg:grid-cols-12">
           <div className="lg:col-span-5">
             <Chart />
           </div>

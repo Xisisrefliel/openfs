@@ -53,6 +53,12 @@
   /* Shadows */
   --shadow-3: 0 10px 38px -10px rgba(22, 23, 24, 0.18),
     0 6px 12px -6px rgba(22, 23, 24, 0.12);
+  --shadow-lift: 0 1px 2px rgba(22, 23, 24, 0.04),
+    0 12px 32px -16px rgba(22, 23, 24, 0.24);
+
+  /* Easing — stronger than the built-in CSS curves */
+  --ease-snappy: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-fluid: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 html,
@@ -127,16 +133,62 @@ body {
 }
 
 .animate-agenda-row {
-  animation: agenda-row-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: agenda-row-in 0.32s var(--ease-snappy) both;
 }
 
 .animate-agenda-fade {
   animation: agenda-fade-in 0.3s ease both;
 }
 
+/* Generic page/card entrance + staggered children */
+@keyframes enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-enter {
+  animation: enter-up 0.42s var(--ease-snappy) both;
+}
+
+.stagger-in > * {
+  animation: enter-up 0.42s var(--ease-snappy) both;
+}
+.stagger-in > *:nth-child(1) {
+  animation-delay: 40ms;
+}
+.stagger-in > *:nth-child(2) {
+  animation-delay: 90ms;
+}
+.stagger-in > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+.stagger-in > *:nth-child(4) {
+  animation-delay: 190ms;
+}
+.stagger-in > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+.stagger-in > *:nth-child(6) {
+  animation-delay: 290ms;
+}
+.stagger-in > *:nth-child(7) {
+  animation-delay: 340ms;
+}
+.stagger-in > *:nth-child(8) {
+  animation-delay: 390ms;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-agenda-row,
-  .animate-agenda-fade {
+  .animate-agenda-fade,
+  .animate-enter,
+  .stagger-in > * {
     animation: none;
   }
 }

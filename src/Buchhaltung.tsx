@@ -4,7 +4,6 @@ import {
   CalendarDays,
   ChevronDown,
   Download,
-  Filter,
   Pencil,
   Plus,
   Printer,
@@ -584,11 +583,6 @@ function Toolbar({
           {(tab === "ledger" || tab === "journal" || tab === "invoices") && (
             <DateRangeFilter />
           )}
-          <Button type="button" variant="secondary" size="sm">
-            <Filter data-icon="inline-start" />
-            Filter
-            <span className="ml-0.5 size-1.5 rounded-full bg-destructive" />
-          </Button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -758,13 +752,17 @@ export function Buchhaltung() {
         className="min-h-0 flex-1 gap-0"
       >
         <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
-          <Card className="min-h-full">
+          <Card className="animate-enter min-h-full">
             <CardContent className="flex flex-col gap-4">
               <Toolbar tab={tab} />
 
               {tabs.map(item => (
                 <TabsContent key={item.value} value={item.value} className="m-0">
-                  {item.value === tab && table}
+                  {item.value === tab && (
+                    <div key={tab} className="animate-agenda-fade">
+                      {table}
+                    </div>
+                  )}
                 </TabsContent>
               ))}
             </CardContent>
