@@ -1,5 +1,5 @@
 import "./index.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Agentation } from "agentation";
 import {
   ArrowLeft,
@@ -32,6 +32,7 @@ import { Dashboard } from "./Dashboard";
 import { Buchhaltung } from "./Buchhaltung";
 import { Kalendar } from "./Kalendar";
 import { nonFahrstundeTypes } from "@/lib/calendar-data";
+import { cn } from "@/lib/utils";
 import { Fahrschueler } from "./Fahrschueler";
 import { Fahrzeuge } from "./Fahrzeuge";
 import { NeueSchueler } from "./NeueSchueler";
@@ -267,30 +268,19 @@ function AppSidebar({
 
 function ShellControls() {
   const { state } = useSidebar();
-  const firstRender = useRef(true);
-  const [showBackdrop, setShowBackdrop] = useState(state === "expanded");
-
-  useEffect(() => {
-    if (state === "collapsed") {
-      firstRender.current = false;
-      setShowBackdrop(false);
-      return;
-    }
-
-    if (firstRender.current) {
-      firstRender.current = false;
-      setShowBackdrop(true);
-      return;
-    }
-
-    const timer = window.setTimeout(() => setShowBackdrop(true), 320);
-    return () => window.clearTimeout(timer);
-  }, [state]);
 
   return (
     <div className="pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2 pt-2.5">
-      {/* Delay the backdrop until the sidebar width transition finishes to avoid a flash over content. */}
-      {showBackdrop && <div className="absolute inset-0 bg-sidebar" />}
+      {/* The backdrop slides in lockstep with the sidebar — same distance
+          (its own width), duration and easing as sidebar-container — so it
+          covers scrolled sidebar items on every animation frame instead of
+          popping in after a timeout (which let them flash through). */}
+      <div
+        className={cn(
+          "absolute inset-0 bg-sidebar transition-transform duration-300 ease-drawer motion-reduce:transition-none",
+          state === "expanded" ? "translate-x-0" : "-translate-x-full"
+        )}
+      />
       <div className="pointer-events-auto relative flex items-center gap-1">
         <SidebarTrigger className="size-7 bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent" />
         <Button

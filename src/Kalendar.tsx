@@ -3,7 +3,9 @@ import type {
   CSSProperties,
   Dispatch,
   PointerEvent as ReactPointerEvent,
+  RefObject,
   SetStateAction,
+  WheelEvent as ReactWheelEvent,
 } from "react";
 import {
   ChevronDown,
@@ -238,6 +240,11 @@ type DragState = {
 } | {
   id: string;
   mode: "resize-start" | "resize-end";
+  /* Minutes between the pointer and the grabbed edge at drag start. Compact
+     cards expand on hover, so the visible edge can sit well below the true
+     end time — without this anchor, grabbing would jump the time to the
+     cursor's line before the user even moves. */
+  grabOffsetMinutes: number;
 };
 
 function EventBlock({
@@ -274,13 +281,21 @@ function EventBlock({
   const widthPct = 100 / columns;
   const theme = calendarEventThemes[event.type];
   const compact = slotHeight < 58;
-  // Compact cards grow on hover/focus to reveal the full title + meta row.
-  const expandedHeight = compact ? Math.max(slotHeight, 112) : slotHeight;
+  // Cards up to ~1h are too short for a wrapped meta row — it would squeeze
+  // the title. They clamp the meta to one line and reveal the rest on hover.
+  const dense = !compact && slotHeight < 80;
+  // Compact/dense cards grow on hover/focus to reveal the full meta row.
+  // Expand to the size of a 1h15 event — just enough for that extra line.
+  const expandedHeight =
+    compact || dense
+      ? Math.max(slotHeight, (75 / 60) * HOUR_HEIGHT - 1)
+      : slotHeight;
 
   return (
     <CalendarEventCard
       event={event}
       compact={compact}
+      dense={dense}
       isDragging={isDragging}
       theme={theme}
       onPointerDown={pointerEvent => {
@@ -328,6 +343,125 @@ function layoutDay(dayEvents: CalEvent[]) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Custom horizontal week scrollbar                                   */
+/*                                                                    */
+/* Self-contained on purpose: it subscribes to the grid's scroll      */
+/* itself, so scrolling rerenders only this tiny component — not the  */
+/* whole calendar page (sidebar, filters, every event card).          */
+/* ------------------------------------------------------------------ */
+
+function WeekScrollbar({
+  scrollerRef,
+}: {
+  scrollerRef: RefObject<HTMLDivElement | null>;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [scroll, setScroll] = useState({
+    clientWidth: 1,
+    scrollLeft: 0,
+    scrollWidth: 1,
+  });
+
+  useEffect(() => {
+    const grid = scrollerRef.current;
+    if (!grid) return;
+
+    const updateHorizontalScroll = () => {
+      setScroll(previous =>
+        // Bail out when the horizontal metrics are unchanged — vertical
+        // scrolling fires the same event but must not rerender anything.
+        previous.clientWidth === grid.clientWidth &&
+        previous.scrollLeft === grid.scrollLeft &&
+        previous.scrollWidth === grid.scrollWidth
+          ? previous
+          : {
+              clientWidth: grid.clientWidth,
+              scrollLeft: grid.scrollLeft,
+              scrollWidth: grid.scrollWidth,
+            }
+      );
+    };
+
+    updateHorizontalScroll();
+    grid.addEventListener("scroll", updateHorizontalScroll, { passive: true });
+    window.addEventListener("resize", updateHorizontalScroll);
+
+    const resizeObserver = new ResizeObserver(updateHorizontalScroll);
+    resizeObserver.observe(grid);
+
+    return () => {
+      grid.removeEventListener("scroll", updateHorizontalScroll);
+      window.removeEventListener("resize", updateHorizontalScroll);
+      resizeObserver.disconnect();
+    };
+  }, [scrollerRef]);
+
+  const maxScroll = Math.max(scroll.scrollWidth - scroll.clientWidth, 0);
+  const thumbWidth =
+    scroll.scrollWidth > scroll.clientWidth
+      ? Math.max((scroll.clientWidth / scroll.scrollWidth) * 100, 12)
+      : 100;
+  const thumbLeft =
+    maxScroll > 0 ? (scroll.scrollLeft / maxScroll) * (100 - thumbWidth) : 0;
+
+  const scrollToTrackPosition = (clientX: number) => {
+    const grid = scrollerRef.current;
+    const track = trackRef.current;
+    if (!grid || !track || maxScroll <= 0) return;
+
+    const rect = track.getBoundingClientRect();
+    const thumbWidthPx = (thumbWidth / 100) * rect.width;
+    const availableWidth = Math.max(rect.width - thumbWidthPx, 1);
+    grid.scrollLeft =
+      (clamp(clientX - rect.left - thumbWidthPx / 2, 0, availableWidth) /
+        availableWidth) *
+      maxScroll;
+  };
+
+  const handleThumbPointerDown = (
+    event: ReactPointerEvent<HTMLDivElement>
+  ) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    scrollToTrackPosition(event.clientX);
+
+    const handlePointerMove = (pointerEvent: PointerEvent) => {
+      pointerEvent.preventDefault();
+      scrollToTrackPosition(pointerEvent.clientX);
+    };
+    const stopDragging = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopDragging);
+      window.removeEventListener("pointercancel", stopDragging);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, {
+      passive: false,
+    });
+    window.addEventListener("pointerup", stopDragging, { once: true });
+    window.addEventListener("pointercancel", stopDragging, { once: true });
+  };
+
+  return (
+    <div className="border-t border-border/70 bg-background px-3 py-2">
+      <div
+        ref={trackRef}
+        className="h-2 rounded-full bg-muted"
+        onPointerDown={handleThumbPointerDown}
+      >
+        <div
+          className="h-full rounded-full bg-muted-foreground/45 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] transition-colors hover:bg-muted-foreground/60"
+          style={{
+            marginLeft: `${thumbLeft}%`,
+            width: `${thumbWidth}%`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Kalendar page                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -351,10 +485,31 @@ export function Kalendar({
   const gridRef = useRef<HTMLDivElement>(null);
   const dayGridRef = useRef<HTMLDivElement>(null);
 
-  // Open the grid scrolled to the morning, like a real calendar.
+  // Open the grid scrolled to the morning, like a real calendar — and with
+  // today's column in view when the week overflows horizontally.
   useEffect(() => {
-    if (gridRef.current) {
-      gridRef.current.scrollTop = (7 - START_HOUR) * HOUR_HEIGHT;
+    const grid = gridRef.current;
+    const dayGrid = dayGridRef.current;
+    if (!grid) return;
+
+    grid.scrollTop = (7 - START_HOUR) * HOUR_HEIGHT;
+
+    if (!dayGrid) return;
+    // The initial anchor is TODAY, so the mounted week always contains it.
+    const dayIndex = (TODAY.getDay() + 6) % 7; // Monday = 0
+    // scrollLeft is 0 on mount, so rect offsets are content coordinates.
+    const gutterWidth =
+      dayGrid.getBoundingClientRect().left - grid.getBoundingClientRect().left;
+    const dayWidth = dayGrid.getBoundingClientRect().width / DAY_COUNT;
+    const dayRight = gutterWidth + (dayIndex + 1) * dayWidth;
+
+    // Only scroll if today isn't fully visible; align its column right
+    // after the time gutter so the rest of the week stays in view.
+    if (dayRight > grid.clientWidth) {
+      grid.scrollLeft = Math.min(
+        dayIndex * dayWidth,
+        grid.scrollWidth - grid.clientWidth
+      );
     }
   }, []);
 
@@ -368,9 +523,8 @@ export function Kalendar({
       if (!grid) return;
 
       const rect = grid.getBoundingClientRect();
-      const pointerMinutes = snapMinutes(
-        ((clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60
-      );
+      const rawPointerMinutes =
+        ((clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60;
 
       setCalendarEvents(current =>
         current.map(event => {
@@ -403,6 +557,11 @@ export function Kalendar({
 
           const startMinutes = toMinutes(event.start);
           const endMinutes = toMinutes(event.end);
+          // Resize by pointer delta from where the edge was grabbed, not by
+          // absolute pointer position — see DragState.grabOffsetMinutes.
+          const pointerMinutes = snapMinutes(
+            rawPointerMinutes - dragging.grabOffsetMinutes
+          );
 
           if (dragging.mode === "resize-start") {
             const nextStartMinutes = clamp(
@@ -499,9 +658,18 @@ export function Kalendar({
     pointerEvent.preventDefault();
     pointerEvent.stopPropagation();
     pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
+    const edgeMinutes = toMinutes(edge === "start" ? event.start : event.end);
+    const grid = dayGridRef.current;
+    const pointerMinutes = grid
+      ? ((pointerEvent.clientY - grid.getBoundingClientRect().top) /
+          HOUR_HEIGHT) *
+          60 +
+        START_HOUR * 60
+      : edgeMinutes;
     setDragging({
       id: event.id,
       mode: edge === "start" ? "resize-start" : "resize-end",
+      grabOffsetMinutes: pointerMinutes - edgeMinutes,
     });
   };
 
@@ -534,12 +702,35 @@ export function Kalendar({
     setSelected(TODAY);
   };
 
+  const handleCalendarWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    const horizontalDelta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.shiftKey
+          ? event.deltaY
+          : 0;
+
+    if (!horizontalDelta) return;
+
+    const grid = event.currentTarget;
+    const nextScrollLeft = clamp(
+      grid.scrollLeft + horizontalDelta,
+      0,
+      Math.max(grid.scrollWidth - grid.clientWidth, 0)
+    );
+
+    if (nextScrollLeft === grid.scrollLeft) return;
+
+    grid.scrollLeft = nextScrollLeft;
+    event.preventDefault();
+  };
+
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
       <PageHeader>
         <div className="flex items-center gap-2 pl-[124px] lg:pl-72">
           <Select defaultValue="woche">
-            <SelectTrigger size="sm" className="w-36">
+            <SelectTrigger size="sm" className="w-28 md:w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -667,12 +858,17 @@ export function Kalendar({
         <main className="flex min-w-0 flex-1 flex-col bg-background">
           <div
             ref={gridRef}
-            className="subtle-scrollbar min-h-0 flex-1 overflow-auto"
+            className="calendar-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+            onWheel={handleCalendarWheel}
             style={{ scrollbarGutter: "stable" }}
           >
             {/* Sticky day headers — inside the scroller so they share its
                 scrollbar inset and stay aligned with the columns below. */}
-            <div className="sticky top-0 z-30 flex min-w-[980px] border-b border-border/70 bg-background">
+            {/* Day columns keep a consistent comfortable width (~180px each,
+                + 64px time gutter) instead of squishing: the week overflows
+                to the right and the horizontal scrollbar signals more days.
+                min-w must match the time grid below to stay aligned. */}
+            <div className="sticky top-0 z-30 flex min-w-[1324px] border-b border-border/70 bg-background">
               <div className="w-16 shrink-0" />
               <div className="grid flex-1 grid-cols-7">
                 {days.map(day => {
@@ -710,7 +906,7 @@ export function Kalendar({
             </div>
 
             {/* Time grid */}
-            <div className="flex min-w-[980px]">
+            <div className="flex min-w-[1324px]">
               {/* Time gutter */}
               <div
                 className="relative w-16 shrink-0"
@@ -811,6 +1007,7 @@ export function Kalendar({
               </div>
             </div>
           </div>
+          <WeekScrollbar scrollerRef={gridRef} />
         </main>
       </div>
 
