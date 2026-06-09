@@ -1,15 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
   CalendarClock,
+  Check,
+  Edit3,
   FileText,
   GraduationCap,
-  Mail,
-  Phone,
   Printer,
   User,
+  X,
 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
@@ -30,8 +31,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -41,6 +51,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
 
 const students = [
   {
@@ -210,6 +221,28 @@ const sortLabels: Record<SortKey, string> = {
   contractNumber: "Vertragsnummer",
 };
 
+type StudentEdit = Pick<
+  Student,
+  | "firstName"
+  | "lastName"
+  | "classes"
+  | "balance"
+  | "phone"
+  | "email"
+  | "address"
+  | "birthday"
+  | "lastLesson"
+  | "nextLesson"
+  | "drivingSchool"
+  | "registrationDate"
+  | "instructor"
+  | "vehicle"
+  | "status"
+>;
+
+const classOptions = ["A", "B", "B197", "BE"];
+const vehicleOptions = ["Audi A3", "Cupra Born", "VW Golf", "Nicht zugeteilt"];
+
 const parseDate = (value: string) => {
   if (value === "Nicht geplant") return Number.POSITIVE_INFINITY;
 
@@ -293,23 +326,169 @@ function DetailItem({
   );
 }
 
+function EditableField({
+  id,
+  label,
+  value,
+  editing,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  editing: boolean;
+  onChange: (value: string) => void;
+}) {
+  if (!editing) {
+    return <DetailItem label={label} value={value} />;
+  }
+
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Input
+        id={id}
+        value={value}
+        onChange={event => onChange(event.target.value)}
+      />
+    </Field>
+  );
+}
+
+function EditableSelectField({
+  label,
+  value,
+  editing,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  editing: boolean;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  if (!editing) {
+    return <DetailItem label={label} value={value} />;
+  }
+
+  return (
+    <Field>
+      <FieldLabel>{label}</FieldLabel>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {options.map(option => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
+
 function StudentDetailsDialog({
   student,
   open,
   onOpenChange,
+  onSave,
 }: {
   student: Student | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSave: (contractNumber: string, updates: StudentEdit) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<StudentEdit | null>(null);
+  const [showEditActionsHint, setShowEditActionsHint] = useState(false);
+
+  useEffect(() => {
+    if (!editing) return;
+
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "Sie sind im Bearbeitungsmodus. Wirklich verlassen?";
+    };
+
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [editing]);
+
   if (!student) return null;
 
-  const hasDebt = student.balance.startsWith("-");
-  const fullName = `${student.firstName} ${student.lastName}`;
+  const editValue = draft ?? student;
+  const hasDebt = editValue.balance.startsWith("-");
+  const fullName = `${editValue.firstName} ${editValue.lastName}`;
+  const updateDraft = (key: keyof StudentEdit, value: string) => {
+    setDraft(current => ({ ...(current ?? student), [key]: value }));
+  };
+  const startEditing = () => {
+    setDraft({
+      firstName: student.firstName,
+      lastName: student.lastName,
+      classes: student.classes,
+      balance: student.balance,
+      phone: student.phone,
+      email: student.email,
+      address: student.address,
+      birthday: student.birthday,
+      lastLesson: student.lastLesson,
+      nextLesson: student.nextLesson,
+      drivingSchool: student.drivingSchool,
+      registrationDate: student.registrationDate,
+      instructor: student.instructor,
+      vehicle: student.vehicle,
+      status: student.status,
+    });
+    setEditing(true);
+  };
+  const cancelEditing = () => {
+    setDraft(null);
+    setEditing(false);
+  };
+  const saveEditing = () => {
+    if (!draft) return;
+
+    onSave(student.contractNumber, draft);
+    setEditing(false);
+    setDraft(null);
+  };
+  const triggerEditActionsHint = () => {
+    setShowEditActionsHint(true);
+    window.setTimeout(() => setShowEditActionsHint(false), 1100);
+  };
+  const requestClose = (nextOpen: boolean) => {
+    if (!nextOpen && editing) {
+      triggerEditActionsHint();
+      return;
+    }
+
+    onOpenChange(nextOpen);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100svh-2rem)] overflow-auto sm:max-w-5xl">
+    <Dialog open={open} onOpenChange={requestClose}>
+      <DialogContent
+        className="max-h-[calc(100svh-2rem)] overflow-auto sm:max-w-5xl"
+        onEscapeKeyDown={event => {
+          if (editing) {
+            event.preventDefault();
+            triggerEditActionsHint();
+          }
+        }}
+        onPointerDownOutside={event => {
+          if (editing) {
+            event.preventDefault();
+            triggerEditActionsHint();
+          }
+        }}
+      >
         <DialogHeader>
           <div className="flex flex-col gap-3 pr-8 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-3">
@@ -319,14 +498,40 @@ function StudentDetailsDialog({
               <div className="flex flex-col gap-1">
                 <DialogTitle className="text-xl">{fullName}</DialogTitle>
                 <DialogDescription>
-                  {student.contractNumber} · Klasse {student.classes}
+                  {editValue.contractNumber} · Klasse {editValue.classes}
                 </DialogDescription>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">
-                {student.status === "aktiv" ? "Aktiv" : "Inaktiv"}
-              </Badge>
+              {editing ? (
+                <ToggleGroup
+                  type="single"
+                  value={editValue.status}
+                  onValueChange={value => {
+                    if (value === "aktiv" || value === "inaktiv") {
+                      setDraft(current => ({
+                        ...(current ?? student),
+                        status: value,
+                      }));
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  spacing={0}
+                  aria-label="Fahrschueler Status bearbeiten"
+                >
+                  <ToggleGroupItem value="aktiv" aria-label="Als aktiv markieren">
+                    Aktiv
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="inaktiv" aria-label="Als inaktiv markieren">
+                    Inaktiv
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              ) : (
+                <Badge variant="secondary">
+                  {student.status === "aktiv" ? "Aktiv" : "Inaktiv"}
+                </Badge>
+              )}
               <Badge
                 variant="outline"
                 className={
@@ -335,22 +540,66 @@ function StudentDetailsDialog({
                     : "bg-green-50 text-green-700 ring-green-600/20"
                 }
               >
-                Bilanz {student.balance}
+                Bilanz {editValue.balance}
               </Badge>
+              {editing ? (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className={cn(
+                      showEditActionsHint &&
+                        "scale-[1.02] transition-transform"
+                    )}
+                    style={
+                      showEditActionsHint
+                        ? { boxShadow: "0 0 0 3px var(--ring)" }
+                        : undefined
+                    }
+                    onClick={saveEditing}
+                  >
+                    <Check data-icon="inline-start" />
+                    Speichern
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      showEditActionsHint &&
+                        "scale-[1.02] border-primary text-primary transition-transform"
+                    )}
+                    style={
+                      showEditActionsHint
+                        ? { boxShadow: "0 0 0 3px var(--ring)" }
+                        : undefined
+                    }
+                    onClick={cancelEditing}
+                  >
+                    <X data-icon="inline-start" />
+                    Abbrechen
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" variant="outline" size="sm" onClick={startEditing}>
+                  <Edit3 data-icon="inline-start" />
+                  Bearbeiten
+                </Button>
+              )}
             </div>
           </div>
         </DialogHeader>
 
-        <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
-          <div className="flex flex-col gap-4">
-            <Card>
+        <div className="flex flex-col gap-4">
+          <div className="grid items-stretch gap-4 lg:grid-cols-3">
+            <Card className="h-full lg:col-span-2">
               <CardHeader>
                 <CardTitle>Ausbildung</CardTitle>
                 <CardDescription>
                   Fortschritt, Fahrstunden und nächste Planung
                 </CardDescription>
                 <CardAction>
-                  <Badge variant="outline">{student.classes}</Badge>
+                  <Badge variant="outline">{editValue.classes}</Badge>
                 </CardAction>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
@@ -383,46 +632,94 @@ function StudentDetailsDialog({
               </CardContent>
             </Card>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card size="sm">
+            <Card size="sm" className="h-full">
                 <CardHeader>
-                  <CardTitle>Fahrlehrer/in</CardTitle>
-                  <CardDescription>{student.classes}</CardDescription>
+                  <CardTitle>Kontakt</CardTitle>
                 </CardHeader>
-                <CardContent className="flex items-center gap-2">
-                  <GraduationCap />
-                  <span>{student.instructor}</span>
+                <CardContent>
+                  <FieldGroup className="gap-3">
+                    <EditableField
+                      id="student-phone"
+                      label="Telefon"
+                      value={editValue.phone}
+                      editing={editing}
+                      onChange={value => updateDraft("phone", value)}
+                    />
+                    <EditableField
+                      id="student-email"
+                      label="E-Mail"
+                      value={editValue.email}
+                      editing={editing}
+                      onChange={value => updateDraft("email", value)}
+                    />
+                    <EditableField
+                      id="student-address"
+                      label="Adresse"
+                      value={editValue.address}
+                      editing={editing}
+                      onChange={value => updateDraft("address", value)}
+                    />
+                    <EditableField
+                      id="student-birthday"
+                      label="Geburtsdatum"
+                      value={editValue.birthday}
+                      editing={editing}
+                      onChange={value => updateDraft("birthday", value)}
+                    />
+                  </FieldGroup>
                 </CardContent>
               </Card>
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle>Fahrzeug</CardTitle>
-                  <CardDescription>{student.classes}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex items-center gap-2">
-                  <CalendarClock />
-                  <span>{student.vehicle}</span>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
 
-          <div className="flex flex-col gap-4">
-            <Card size="sm">
+            <Card size="sm" className="h-full">
               <CardHeader>
-                <CardTitle>Kontakt</CardTitle>
+                <CardTitle>Fahrlehrer/in</CardTitle>
+                <CardDescription>{editValue.classes}</CardDescription>
               </CardHeader>
-              <CardContent>
-                <dl className="flex flex-col gap-3">
-                  <DetailItem label="Telefon" value={student.phone} />
-                  <DetailItem label="E-Mail" value={student.email} />
-                  <DetailItem label="Adresse" value={student.address} />
-                  <DetailItem label="Geburtsdatum" value={student.birthday} />
-                </dl>
+              <CardContent className="flex items-center gap-2">
+                <GraduationCap />
+                {editing ? (
+                  <Input
+                    value={editValue.instructor}
+                    onChange={event => updateDraft("instructor", event.target.value)}
+                  />
+                ) : (
+                  <span>{editValue.instructor}</span>
+                )}
               </CardContent>
             </Card>
 
-            <Card size="sm">
+            <Card size="sm" className="h-full">
+              <CardHeader>
+                <CardTitle>Fahrzeug</CardTitle>
+                <CardDescription>{editValue.classes}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex items-center gap-2">
+                <CalendarClock />
+                {editing ? (
+                  <Select
+                    value={editValue.vehicle}
+                    onValueChange={value => updateDraft("vehicle", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {vehicleOptions.map(option => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span>{editValue.vehicle}</span>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card size="sm" className="h-full">
               <CardHeader>
                 <CardTitle>Dokumente</CardTitle>
               </CardHeader>
@@ -435,20 +732,65 @@ function StudentDetailsDialog({
                 ))}
               </CardContent>
             </Card>
-
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>Vertrag</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className="flex flex-col gap-3">
-                  <DetailItem label="Kundennummer" value={student.customerNumber} />
-                  <DetailItem label="Anmeldedatum" value={student.registrationDate} />
-                  <DetailItem label="Fahrschule" value={student.drivingSchool} />
-                </dl>
-              </CardContent>
-            </Card>
           </div>
+
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>Vertrag</CardTitle>
+              <CardDescription>
+                Vertragsdaten, Fahrschule und Abrechnungszuordnung
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FieldGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <EditableField
+                    id="student-first-name"
+                    label="Vorname"
+                    value={editValue.firstName}
+                    editing={editing}
+                    onChange={value => updateDraft("firstName", value)}
+                  />
+                  <EditableField
+                    id="student-last-name"
+                    label="Nachname"
+                    value={editValue.lastName}
+                    editing={editing}
+                    onChange={value => updateDraft("lastName", value)}
+                  />
+                  <EditableSelectField
+                    id="student-class"
+                    label="Klasse"
+                    value={editValue.classes}
+                    editing={editing}
+                    options={classOptions}
+                    onChange={value => updateDraft("classes", value)}
+                  />
+                  <EditableField
+                    id="student-balance"
+                    label="Bilanz"
+                    value={editValue.balance}
+                    editing={editing}
+                    onChange={value => updateDraft("balance", value)}
+                  />
+                  <DetailItem label="Kundennummer" value={student.customerNumber} />
+                  <EditableField
+                    id="student-registration-date"
+                    label="Anmeldedatum"
+                    value={editValue.registrationDate}
+                    editing={editing}
+                    onChange={value => updateDraft("registrationDate", value)}
+                  />
+                  <DetailItem label="Vertragsnummer" value={student.contractNumber} />
+                  <EditableField
+                    id="student-driving-school"
+                    label="Fahrschule"
+                    value={editValue.drivingSchool}
+                    editing={editing}
+                    onChange={value => updateDraft("drivingSchool", value)}
+                  />
+              </FieldGroup>
+            </CardContent>
+          </Card>
         </div>
       </DialogContent>
     </Dialog>
@@ -456,6 +798,7 @@ function StudentDetailsDialog({
 }
 
 export function Fahrschueler() {
+  const [studentRows, setStudentRows] = useState<Student[]>(students);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("aktiv");
   const [sortKey, setSortKey] = useState<SortKey>("lastName");
@@ -465,7 +808,7 @@ export function Fahrschueler() {
   const filteredStudents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return students
+    return studentRows
       .filter(student => {
         const matchesQuery =
           normalizedQuery.length === 0 ||
@@ -497,7 +840,7 @@ export function Fahrschueler() {
 
         return left.lastName.localeCompare(right.lastName, "de");
       });
-  }, [query, sortDirection, sortKey, statusFilter]);
+  }, [query, sortDirection, sortKey, statusFilter, studentRows]);
 
   const handleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -512,6 +855,17 @@ export function Fahrschueler() {
   const resetFilters = () => {
     setQuery("");
     setStatusFilter("aktiv");
+  };
+
+  const saveStudent = (contractNumber: string, updates: StudentEdit) => {
+    setStudentRows(current =>
+      current.map(student =>
+        student.contractNumber === contractNumber ? { ...student, ...updates } : student
+      )
+    );
+    setSelectedStudent(current =>
+      current?.contractNumber === contractNumber ? { ...current, ...updates } : current
+    );
   };
 
   return (
@@ -696,6 +1050,7 @@ export function Fahrschueler() {
         onOpenChange={open => {
           if (!open) setSelectedStudent(null);
         }}
+        onSave={saveStudent}
       />
     </div>
   );
