@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Building2,
@@ -11,12 +11,16 @@ import {
   GraduationCap,
   ImagePlus,
   Info,
+  Landmark,
   Mail,
   MapPin,
   Phone,
   Star,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
+
+import type { CompanyProfile } from "@/lib/accounting-types";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -279,11 +283,51 @@ function HoursEditor({ initial }: { initial: Hours[] }) {
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
+const EMPTY_COMPANY: CompanyProfile = {
+  name: "",
+  address: "",
+  email: "",
+  phone: "",
+  website: "",
+  steuernummer: "",
+  ustIdNr: "",
+  beraterNr: "",
+  mandantNr: "",
+};
+
 export function Profil() {
   const [classes, setClasses] = useState<string[]>(["B", "B197", "A1", "AM"]);
   const [bkf, setBkf] = useState<string[]>([]);
   const [dirty, setDirty] = useState(false);
   const [formVersion, setFormVersion] = useState(0);
+  // Company block is persisted server-side — it feeds the Quittungen.
+  const [company, setCompany] = useState<CompanyProfile>(EMPTY_COMPANY);
+
+  useEffect(() => {
+    fetch("/api/profile")
+      .then(res => res.json())
+      .then((profile: CompanyProfile) => setCompany(profile))
+      .catch(() => toast.error("Profil konnte nicht geladen werden."));
+  }, [formVersion]);
+
+  const updateCompany = (patch: Partial<CompanyProfile>) =>
+    setCompany(current => ({ ...current, ...patch }));
+
+  const save = async () => {
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(company),
+      });
+      if (!res.ok) throw new Error();
+      setCompany(await res.json());
+      setDirty(false);
+      toast.success("Profil gespeichert.");
+    } catch {
+      toast.error("Profil konnte nicht gespeichert werden.");
+    }
+  };
   const [merkmale, setMerkmale] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
       merkmaleList.map(m => [
@@ -313,13 +357,7 @@ export function Profil() {
           >
             Verwerfen
           </Button>
-          <Button
-            type="button"
-            disabled={!dirty}
-            onClick={() => {
-              setDirty(false);
-            }}
-          >
+          <Button type="button" disabled={!dirty} onClick={save}>
             <Check />
             Speichern
           </Button>
@@ -346,7 +384,11 @@ export function Profil() {
           >
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Field label="Fahrschulname" htmlFor="name">
-                <Input id="name" defaultValue="Fahrschule Gül" />
+                <Input
+                  id="name"
+                  value={company.name}
+                  onChange={e => updateCompany({ name: e.target.value })}
+                />
               </Field>
               <Field label="Anschrift" htmlFor="address">
                 <div className="relative">
@@ -354,7 +396,8 @@ export function Profil() {
                   <Input
                     id="address"
                     className="pl-9"
-                    defaultValue="Lorscher Straße 6, 60489 Frankfurt am Main"
+                    value={company.address}
+                    onChange={e => updateCompany({ address: e.target.value })}
                   />
                 </div>
               </Field>
@@ -369,14 +412,21 @@ export function Profil() {
                     id="email"
                     type="email"
                     className="pl-9"
-                    defaultValue="info@fahrschule-guel.de"
+                    value={company.email}
+                    onChange={e => updateCompany({ email: e.target.value })}
                   />
                 </div>
               </Field>
               <Field label="Telefon" htmlFor="phone">
                 <div className="relative">
                   <Phone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="phone" type="tel" className="pl-9" defaultValue="017620162780" />
+                  <Input
+                    id="phone"
+                    type="tel"
+                    className="pl-9"
+                    value={company.phone}
+                    onChange={e => updateCompany({ phone: e.target.value })}
+                  />
                 </div>
               </Field>
               <Field label="Webseite" htmlFor="web">
@@ -386,7 +436,8 @@ export function Profil() {
                     id="web"
                     type="url"
                     className="pl-9"
-                    defaultValue="http://www.fahrschule-guel.de"
+                    value={company.website}
+                    onChange={e => updateCompany({ website: e.target.value })}
                   />
                 </div>
               </Field>
@@ -396,6 +447,72 @@ export function Profil() {
                   rows={3}
                   placeholder="Beschreiben Sie Ihre Fahrschule in wenigen Sätzen…"
                 />
+              </Field>
+              <Field
+                label="Steuernummer"
+                htmlFor="steuernummer"
+                hint="Erscheint auf Quittungen (§ 14 UStG)."
+              >
+                <div className="relative">
+                  <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="steuernummer"
+                    className="pl-9"
+                    placeholder="z. B. 045 123 45678"
+                    value={company.steuernummer}
+                    onChange={e => updateCompany({ steuernummer: e.target.value })}
+                  />
+                </div>
+              </Field>
+              <Field
+                label="USt-IdNr"
+                htmlFor="ustidnr"
+                hint="Optional — alternativ zur Steuernummer auf Quittungen."
+              >
+                <div className="relative">
+                  <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="ustidnr"
+                    className="pl-9"
+                    placeholder="z. B. DE123456789"
+                    value={company.ustIdNr}
+                    onChange={e => updateCompany({ ustIdNr: e.target.value })}
+                  />
+                </div>
+              </Field>
+              <Field
+                label="DATEV-Beraternummer"
+                htmlFor="beraternr"
+                hint="Nummer Ihres Steuerberaters (1001–9999999) — für den DATEV-Export."
+              >
+                <div className="relative">
+                  <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="beraternr"
+                    className="pl-9"
+                    inputMode="numeric"
+                    placeholder="z. B. 29098"
+                    value={company.beraterNr}
+                    onChange={e => updateCompany({ beraterNr: e.target.value })}
+                  />
+                </div>
+              </Field>
+              <Field
+                label="DATEV-Mandantennummer"
+                htmlFor="mandantnr"
+                hint="Ihre Mandantennummer beim Steuerberater (1–99999)."
+              >
+                <div className="relative">
+                  <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="mandantnr"
+                    className="pl-9"
+                    inputMode="numeric"
+                    placeholder="z. B. 55003"
+                    value={company.mandantNr}
+                    onChange={e => updateCompany({ mandantNr: e.target.value })}
+                  />
+                </div>
               </Field>
             </div>
 
@@ -549,7 +666,7 @@ export function Profil() {
                   Änderungen werden erst nach dem Speichern öffentlich sichtbar.
                 </span>
               </div>
-              <Button className="shrink-0">
+              <Button className="shrink-0" onClick={save}>
                 Speichern
                 <ArrowRight />
               </Button>

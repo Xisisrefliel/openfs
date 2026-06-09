@@ -358,3 +358,31 @@ body {
     @apply font-sans;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Quittung printing                                                   */
+/* Receipts are portaled into #print-root (next to #root). On screen   */
+/* it stays hidden; when printing, everything EXCEPT it is hidden, so  */
+/* window.print() emits exactly the A4 Quittung.                       */
+/* ------------------------------------------------------------------ */
+
+#print-root {
+  display: none;
+}
+
+@media print {
+  body > *:not(#print-root) {
+    display: none !important;
+  }
+
+  #print-root {
+    display: block;
+    background: white;
+    color: black;
+  }
+
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}

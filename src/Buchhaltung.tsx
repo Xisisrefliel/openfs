@@ -1,14 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import {
   CalendarDays,
   ChevronDown,
   Download,
-  Pencil,
   Plus,
   Printer,
   Search,
+  Undo2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageHeader } from "./components/PageHeader.tsx";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -50,6 +53,27 @@ import {
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
+import type {
+  Account,
+  AccountKind,
+  JournalRow,
+  LedgerRow,
+} from "@/lib/accounting-types";
+import { formatCents, formatEuro } from "@/lib/money";
+import {
+  accountingApi,
+  buildFilterQuery,
+  formatIsoDate,
+  toIsoDate,
+  useApi,
+  type StatusFilter,
+} from "./components/buchhaltung/api";
+import { PaymentDialog } from "./components/buchhaltung/PaymentDialog";
+import { QuittungDialog } from "./components/buchhaltung/QuittungDialog";
+import {
+  StornoDialog,
+  type StornoTarget,
+} from "./components/buchhaltung/StornoDialog";
 
 type TabKey =
   | "ledger"
@@ -59,11 +83,11 @@ type TabKey =
   | "invoices";
 
 type Column<Row> = {
-  key: keyof Row | "actions";
+  key: string;
   label: string;
   className?: string;
   cellClassName?: string;
-  render?: (row: Row) => React.ReactNode;
+  render: (row: Row) => React.ReactNode;
 };
 
 const tabs: { value: TabKey; label: string }[] = [
@@ -74,285 +98,91 @@ const tabs: { value: TabKey; label: string }[] = [
   { value: "invoices", label: "Rechnungen" },
 ];
 
-const ledgerRows = [
-  {
-    date: "08.06.2026",
-    receipt: "T0000129A",
-    type: "Transfer",
-    description: "",
-    vat: "Nicht zutreffend",
-    income: "",
-    expense: "",
-  },
-  {
-    date: "08.06.2026",
-    receipt: "",
-    type: "Guthabenübertragung auf Kosten",
-    description: "FS Merieme Sabtaoui - B197, Fahrübungsstunde (90)",
-    vat: "19%",
-    income: "",
-    expense: "",
-  },
-  {
-    date: "08.06.2026",
-    receipt: "",
-    type: "Guthabenübertragung auf Kosten",
-    description:
-      "FS Merieme Sabtaoui - B197, Durchlaufende Posten Einnahme - TÜV Prüfungsgebühr",
-    vat: "Durchlaufende Posten",
-    income: "",
-    expense: "",
-  },
-  {
-    date: "08.06.2026",
-    receipt: "T0000128A",
-    type: "Zahlung auf Guthaben",
-    description: "FS Merieme Sabtaoui - B197",
-    vat: "19%",
-    income: "409,83",
-    expense: "",
-  },
-  {
-    date: "08.06.2026",
-    receipt: "T0000127A",
-    type: "Zahlung auf Guthaben",
-    description: "FS Mert Bilir - B197",
-    vat: "19%",
-    income: "450,00",
-    expense: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "T0000126A",
-    type: "Transfer",
-    description: "",
-    vat: "Nicht zutreffend",
-    income: "",
-    expense: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "",
-    type: "Guthabenübertragung auf Kosten",
-    description: "FS Aron Zemenfes Zekaras - B Automatik, Fahrübungsstunde (90)",
-    vat: "19%",
-    income: "",
-    expense: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "",
-    type: "Guthabenübertragung auf Kosten",
-    description:
-      "FS Aron Zemenfes Zekaras - B Automatik, Durchlaufende Posten Einnahme - TÜV Prüfungsgebühr",
-    vat: "Durchlaufende Posten",
-    income: "",
-    expense: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "",
-    type: "Guthabenübertragung auf Kosten",
-    description: "FS Aron Zemenfes Zekaras - B Automatik, Praktische Prüfung (55)",
-    vat: "19%",
-    income: "",
-    expense: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "T0000125A",
-    type: "Zahlung auf Guthaben",
-    description: "FS Jaskarandeep Sing - B197",
-    vat: "19%",
-    income: "409,83",
-    expense: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "T0000124A",
-    type: "Zahlung auf Guthaben",
-    description: "FS Aron Zemenfes Zekaras - B Automatik",
-    vat: "19%",
-    income: "409,83",
-    expense: "",
-  },
-];
+const KIND_LABELS: Record<AccountKind, string> = {
+  geldkonto: "Geldkonto",
+  transit: "Neutrale Anwendung",
+  durchlaufend: "Durchlaufende Posten",
+  anzahlung: "Fahrschüler-Guthaben",
+  steuer: "Steuerkonto",
+  erloes: "Einnahmen",
+  privat: "Privat",
+  aufwand: "Ausgabe",
+};
 
-const journalRows = [
-  {
-    date: "08.06.2026",
-    receipt: "T0000129A",
-    booking: "00000228A",
-    type: "Transfer",
-    description: "",
-    accountA: "Kassenbuch",
-    amountA: "-800,00",
-    accountB: "Bank",
-    amountB: "800,00",
-    reason: "",
-  },
-  {
-    date: "08.06.2026",
-    receipt: "",
-    booking: "00000227A",
-    type: "Guthabenübertragung auf Kosten",
-    description: "FS Merieme Sabtaoui - B197, Fahrübungsstunde (90)",
-    accountA: "Steuerfreie Umsätze",
-    amountA: "-130,00",
-    accountB: "Umsatz 19%",
-    amountB: "130,00",
-    reason: "",
-  },
-  {
-    date: "08.06.2026",
-    receipt: "",
-    booking: "00000226A",
-    type: "Guthabenübertragung auf Kosten",
-    description:
-      "FS Merieme Sabtaoui - B197, Durchlaufende Posten Einnahme - TÜV Prüfungsgebühr",
-    accountA: "Steuerfreie Umsätze",
-    amountA: "-129,83",
-    accountB: "Durchlaufende Posten Einnahme",
-    amountB: "129,83",
-    reason: "",
-  },
-  {
-    date: "08.06.2026",
-    receipt: "T0000128A",
-    booking: "00000224A",
-    type: "Zahlung auf Guthaben",
-    description: "FS Merieme Sabtaoui - B197",
-    accountA: "Kassenbuch",
-    amountA: "409,83",
-    accountB: "Geleistete Anzahlungen 19% Vorsteuer",
-    amountB: "409,83",
-    reason: "",
-  },
-  {
-    date: "08.06.2026",
-    receipt: "T0000127A",
-    booking: "00000223A",
-    type: "Zahlung auf Guthaben",
-    description: "FS Mert Bilir - B197",
-    accountA: "Kassenbuch",
-    amountA: "450,00",
-    accountB: "Geleistete Anzahlungen 19% Vorsteuer",
-    amountB: "450,00",
-    reason: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "T0000126A",
-    booking: "00000222A",
-    type: "Transfer",
-    description: "",
-    accountA: "Kassenbuch",
-    amountA: "-1.250,00",
-    accountB: "Bank",
-    amountB: "1.250,00",
-    reason: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "",
-    booking: "00000221A",
-    type: "Guthabenübertragung auf Kosten",
-    description: "FS Aron Zemenfes Zekaras - B Automatik, Fahrübungsstunde (90)",
-    accountA: "Steuerfreie Umsätze",
-    amountA: "-130,00",
-    accountB: "Umsatz 19%",
-    amountB: "130,00",
-    reason: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "",
-    booking: "00000220A",
-    type: "Guthabenübertragung auf Kosten",
-    description:
-      "FS Aron Zemenfes Zekaras - B Automatik, Durchlaufende Posten Einnahme - TÜV Prüfungsgebühr",
-    accountA: "Steuerfreie Umsätze",
-    amountA: "-129,83",
-    accountB: "Durchlaufende Posten Einnahme",
-    amountB: "129,83",
-    reason: "",
-  },
-  {
-    date: "06.06.2026",
-    receipt: "",
-    booking: "00000219A",
-    type: "Guthabenübertragung auf Kosten",
-    description: "FS Aron Zemenfes Zekaras - B Automatik, Praktische Prüfung (55)",
-    accountA: "Steuerfreie Umsätze",
-    amountA: "-150,00",
-    accountB: "Umsatz 19%",
-    amountB: "150,00",
-    reason: "",
-  },
-];
-
-const accountRows = [
-  { number: "1186", name: "Geleistete Anzahlungen 19% Vorsteuer", type: "Fahrschüler", vat: "19%", taxKey: "", status: "Aktiv" },
-  { number: "1220", name: "Kontokorrentzinsen", type: "Ausgabe", vat: "19%", taxKey: "", status: "Aktiv" },
-  { number: "1370", name: "Durchlaufende Posten Ausgabe", type: "Ausgabe", vat: "Durchlaufende Posten", taxKey: "", status: "Aktiv" },
-  { number: "1370", name: "Durchlaufende Posten Einnahme", type: "Einnahmen", vat: "Durchlaufende Posten", taxKey: "", status: "Aktiv" },
-  { number: "1460", name: "Geldtransfer", type: "Neutrale Anwendung", vat: "Nicht zutreffend", taxKey: "", status: "Aktiv" },
-  { number: "2100", name: "Privateinnahmen", type: "Einnahmen", vat: "19%", taxKey: "", status: "Aktiv" },
-  { number: "2151", name: "Privatsteuern", type: "Ausgabe", vat: "19%", taxKey: "", status: "Aktiv" },
-  { number: "2181", name: "Privateinlagen", type: "Einnahmen", vat: "19%", taxKey: "", status: "Aktiv" },
-  { number: "2201", name: "Sonderausgaben beschr. abzugsfähig", type: "Ausgabe", vat: "19%", taxKey: "", status: "Aktiv" },
-  { number: "2281", name: "Aussergewöhnliche Belastungen", type: "Ausgabe", vat: "19%", taxKey: "", status: "Aktiv" },
-  { number: "3305", name: "Umsatz 19%", type: "Einnahmen", vat: "19%", taxKey: "", status: "Aktiv" },
-  { number: "3306", name: "Umsatz 7%", type: "Einnahmen", vat: "7%", taxKey: "", status: "Aktiv" },
-  { number: "3307", name: "Umsatz 0%", type: "Einnahmen", vat: "0%", taxKey: "", status: "Aktiv" },
-  { number: "4100", name: "Steuerfreie Umsätze", type: "Einnahmen", vat: "0%", taxKey: "", status: "Aktiv" },
-];
-
-const cashBankRows = [
-  { name: "Kassenbuch", number: "1000", type: "Kassenbuch", date: "10.02.2026", status: "Aktiv", opening: "0,00" },
-  { name: "Bank", number: "1001", type: "Bankenbuch", date: "10.02.2026", status: "Aktiv", opening: "0,00" },
-  { name: "Kassenbuch Schulung", number: "9000", type: "Kassenbuch", date: "20.02.2026", status: "Inaktiv", opening: "0,00" },
-];
-
-function Money({ value }: { value: string }) {
-  if (!value) return <span className="text-muted-foreground">-</span>;
-
-  const isNegative = value.trim().startsWith("-");
-
+function Money({
+  cents,
+  tone = "positive",
+}: {
+  cents: number | null;
+  tone?: "positive" | "negative" | "neutral";
+}) {
+  if (cents == null) return <span className="text-muted-foreground">-</span>;
   return (
     <span
       className={cn(
         "font-medium tabular-nums",
-        isNegative ? "text-destructive" : "text-primary"
+        tone === "negative"
+          ? "text-destructive"
+          : tone === "positive"
+            ? "text-emerald-600 dark:text-emerald-400"
+            : "text-foreground"
       )}
     >
-      {value}
+      {formatCents(cents)}
     </span>
   );
 }
 
-function Actions({ extraPrint = false }: { extraPrint?: boolean }) {
+function RowActions({
+  printable,
+  stornoEligible,
+  onPrint,
+  onStorno,
+}: {
+  printable: boolean;
+  stornoEligible: boolean;
+  onPrint: () => void;
+  onStorno: () => void;
+}) {
   return (
     <div className="flex items-center gap-1">
-      <Button type="button" variant="ghost" size="icon-xs" aria-label="Bearbeiten">
-        <Pencil data-icon="inline-start" />
-      </Button>
-      {extraPrint && (
-        <Button type="button" variant="ghost" size="icon-xs" aria-label="Drucken">
+      {printable && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Quittung drucken"
+          onClick={onPrint}
+        >
           <Printer data-icon="inline-start" />
+        </Button>
+      )}
+      {stornoEligible && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label="Stornieren"
+          onClick={onStorno}
+        >
+          <Undo2 data-icon="inline-start" />
         </Button>
       )}
     </div>
   );
 }
 
-function AccountingTable<Row extends Record<string, React.ReactNode>>({
+function AccountingTable<Row>({
   columns,
   rows,
+  rowKey,
+  rowClassName,
   minWidth = "min-w-[72rem]",
 }: {
   columns: Column<Row>[];
   rows: Row[];
+  rowKey: (row: Row) => string;
+  rowClassName?: (row: Row) => string;
   minWidth?: string;
 }) {
   return (
@@ -361,26 +191,27 @@ function AccountingTable<Row extends Record<string, React.ReactNode>>({
         <TableHeader>
           <TableRow className="bg-background hover:bg-background">
             {columns.map(column => (
-              <TableHead key={String(column.key)} className={column.className}>
+              <TableHead key={column.key} className={column.className}>
                 {column.label}
               </TableHead>
             ))}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row, index) => (
+          {rows.map(row => (
             <TableRow
-              key={index}
-              className="border-0 even:bg-muted/30 hover:bg-muted/50"
+              key={rowKey(row)}
+              className={cn(
+                "border-0 even:bg-muted/30 hover:bg-muted/50",
+                rowClassName?.(row)
+              )}
             >
               {columns.map(column => (
                 <TableCell
-                  key={String(column.key)}
+                  key={column.key}
                   className={cn("h-12 whitespace-normal", column.cellClassName)}
                 >
-                  {column.render
-                    ? column.render(row)
-                    : (row[column.key as keyof Row] ?? "-")}
+                  {column.render(row)}
                 </TableCell>
               ))}
             </TableRow>
@@ -390,6 +221,36 @@ function AccountingTable<Row extends Record<string, React.ReactNode>>({
     </div>
   );
 }
+
+function TableState({
+  loading,
+  error,
+  empty,
+  emptyText,
+}: {
+  loading: boolean;
+  error: string | null;
+  empty: boolean;
+  emptyText: string;
+}) {
+  if (loading) {
+    return (
+      <div className="flex min-h-64 items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+  return (
+    <Empty className="min-h-64 border-0">
+      <EmptyHeader>
+        <EmptyTitle>{error ? "Fehler beim Laden" : "Keine Ergebnisse"}</EmptyTitle>
+        <EmptyDescription>{error ?? emptyText}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
+/* ------------------------------ filters ---------------------------- */
 
 const FILTER_YEAR = 2026;
 const monthLabels = [
@@ -422,11 +283,14 @@ function sameDay(a?: Date, b?: Date) {
   );
 }
 
-function DateRangeFilter() {
+function DateRangeFilter({
+  range,
+  onChange,
+}: {
+  range: DateRange | undefined;
+  onChange: (range: DateRange | undefined) => void;
+}) {
   const [open, setOpen] = useState(false);
-  const [range, setRange] = useState<DateRange | undefined>(() =>
-    monthRange(FILTER_YEAR, 4)
-  );
 
   const label = range?.from
     ? range.to && !sameDay(range.from, range.to)
@@ -461,7 +325,7 @@ function DateRangeFilter() {
   ];
 
   const apply = (next: DateRange) => {
-    setRange(next);
+    onChange(next);
     setOpen(false);
   };
 
@@ -520,7 +384,7 @@ function DateRangeFilter() {
               numberOfMonths={1}
               defaultMonth={range?.from ?? new Date(FILTER_YEAR, 4, 1)}
               selected={range}
-              onSelect={setRange}
+              onSelect={onChange}
               weekStartsOn={1}
               className="p-0 [--cell-size:--spacing(8)]"
               formatters={{
@@ -535,7 +399,7 @@ function DateRangeFilter() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setRange(undefined)}
+                onClick={() => onChange(undefined)}
               >
                 Zurücksetzen
               </Button>
@@ -550,10 +414,30 @@ function DateRangeFilter() {
   );
 }
 
+/* ------------------------------ toolbar ---------------------------- */
+
 function Toolbar({
   tab,
+  range,
+  onRangeChange,
+  search,
+  onSearchChange,
+  status,
+  onStatusChange,
+  onNew,
+  onDatev,
+  balances,
 }: {
   tab: TabKey;
+  range: DateRange | undefined;
+  onRangeChange: (range: DateRange | undefined) => void;
+  search: string;
+  onSearchChange: (value: string) => void;
+  status: StatusFilter;
+  onStatusChange: (value: StatusFilter) => void;
+  onNew: () => void;
+  onDatev: () => void;
+  balances: { openingCents: number; closingCents: number } | null;
 }) {
   const action =
     tab === "accounts"
@@ -563,12 +447,16 @@ function Toolbar({
         : tab === "invoices"
           ? "Rechnung Erstellen"
           : "Zahlung";
+  const isBookkeeping = tab === "ledger" || tab === "journal";
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Select defaultValue="all">
+          <Select
+            value={status}
+            onValueChange={value => onStatusChange(value as StatusFilter)}
+          >
             <SelectTrigger className="w-44" size="sm">
               <SelectValue />
             </SelectTrigger>
@@ -576,44 +464,69 @@ function Toolbar({
               <SelectGroup>
                 <SelectItem value="all">Alle</SelectItem>
                 <SelectItem value="active">Aktiv</SelectItem>
-                <SelectItem value="inactive">Inaktiv</SelectItem>
+                <SelectItem value="storniert">
+                  {isBookkeeping ? "Storniert" : "Inaktiv"}
+                </SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
-          {(tab === "ledger" || tab === "journal" || tab === "invoices") && (
-            <DateRangeFilter />
+          {(isBookkeeping || tab === "invoices") && (
+            <DateRangeFilter range={range} onChange={onRangeChange} />
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {(tab === "ledger" || tab === "journal") && (
-            <Button type="button" variant="outline" size="sm">
+          {isBookkeeping && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onDatev}
+            >
               <Download data-icon="inline-start" />
               DATEV
             </Button>
           )}
           <InputGroup className="w-48">
-            <InputGroupInput placeholder="Suche" />
+            <InputGroupInput
+              placeholder="Suche"
+              value={search}
+              onChange={e => onSearchChange(e.target.value)}
+            />
             <InputGroupAddon align="inline-end">
               <Search />
             </InputGroupAddon>
           </InputGroup>
-          <Button type="button" variant="secondary" size="icon-sm" aria-label="Drucken">
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            aria-label="Drucken"
+            onClick={() =>
+              toast(
+                "Quittungen drucken Sie über das Drucker-Symbol an der jeweiligen Buchung."
+              )
+            }
+          >
             <Printer data-icon="inline-start" />
           </Button>
-          <Button type="button" size="sm">
+          <Button type="button" size="sm" onClick={onNew}>
             <Plus data-icon="inline-start" />
             {action}
           </Button>
         </div>
       </div>
-      {tab === "ledger" && (
+      {tab === "ledger" && balances && (
         <p className="text-xs text-muted-foreground">
           Anfangsbestand:{" "}
-          <span className="font-medium text-foreground">19.484,57 EUR</span>
+          <span className="font-medium text-foreground">
+            {formatEuro(balances.openingCents)}
+          </span>
           {" · "}
           Endbestand:{" "}
-          <span className="font-medium text-foreground">27.078,86 EUR</span>
+          <span className="font-medium text-foreground">
+            {formatEuro(balances.closingCents)}
+          </span>
         </p>
       )}
       {tab === "invoices" && (
@@ -627,81 +540,314 @@ function Toolbar({
   );
 }
 
-const ledgerColumns: Column<(typeof ledgerRows)[number]>[] = [
-  { key: "date", label: "Datum", className: "pl-4", cellClassName: "pl-4 text-muted-foreground" },
-  { key: "receipt", label: "Belegnummer", cellClassName: "text-muted-foreground" },
-  { key: "type", label: "Typ", cellClassName: "text-muted-foreground" },
-  { key: "description", label: "Beschreibung", className: "min-w-64", cellClassName: "max-w-80" },
-  { key: "vat", label: "Inkl. MwSt", cellClassName: "text-muted-foreground" },
-  { key: "income", label: "Einnahmen, EUR", render: row => <Money value={row.income} /> },
-  { key: "expense", label: "Ausgabe, EUR", render: row => <Money value={row.expense} /> },
-  { key: "actions", label: "Aktionen", className: "pr-4", cellClassName: "pr-4", render: () => <Actions /> },
-];
-
-const journalColumns: Column<(typeof journalRows)[number]>[] = [
-  { key: "date", label: "Datum", className: "pl-4", cellClassName: "pl-4 text-muted-foreground" },
-  { key: "receipt", label: "Belegnummer", cellClassName: "text-muted-foreground" },
-  { key: "booking", label: "Buchungsnummer", cellClassName: "text-muted-foreground" },
-  { key: "type", label: "Typ", cellClassName: "text-muted-foreground" },
-  { key: "description", label: "Beschreibung", className: "min-w-64", cellClassName: "max-w-80" },
-  { key: "accountA", label: "Konto A", cellClassName: "text-muted-foreground" },
-  { key: "amountA", label: "Betrag A, EUR", render: row => <Money value={row.amountA} /> },
-  { key: "accountB", label: "Konto B", cellClassName: "text-muted-foreground" },
-  { key: "amountB", label: "Betrag B, EUR", render: row => <Money value={row.amountB} /> },
-  { key: "reason", label: "Stornogrund", cellClassName: "text-muted-foreground" },
-  { key: "actions", label: "Aktionen", className: "pr-4", cellClassName: "pr-4", render: row => <Actions extraPrint={row.type === "Zahlung auf Guthaben"} /> },
-];
-
-const accountColumns: Column<(typeof accountRows)[number]>[] = [
-  { key: "number", label: "Nummer", className: "pl-4", cellClassName: "pl-4 text-muted-foreground" },
-  { key: "name", label: "Name", className: "min-w-64" },
-  { key: "type", label: "Typ", cellClassName: "text-muted-foreground" },
-  { key: "vat", label: "MwSt", cellClassName: "text-muted-foreground" },
-  { key: "taxKey", label: "Steuerschlüssel", cellClassName: "text-muted-foreground" },
-  { key: "status", label: "Status", cellClassName: "text-muted-foreground" },
-  { key: "actions", label: "Aktionen", className: "pr-4", cellClassName: "pr-4", render: () => <Actions /> },
-];
-
-const cashBankColumns: Column<(typeof cashBankRows)[number]>[] = [
-  { key: "name", label: "Name", className: "pl-4", cellClassName: "pl-4" },
-  { key: "number", label: "Nummer", cellClassName: "text-muted-foreground" },
-  { key: "type", label: "Typ", cellClassName: "text-muted-foreground" },
-  { key: "date", label: "Datum", cellClassName: "text-muted-foreground" },
-  { key: "status", label: "Status", cellClassName: "text-muted-foreground" },
-  { key: "opening", label: "Anfangssaldo, EUR", cellClassName: "text-right tabular-nums text-muted-foreground" },
-  { key: "actions", label: "Aktionen", className: "pr-4", cellClassName: "pr-4", render: () => <Actions /> },
-];
+/* ------------------------------- page ------------------------------ */
 
 export function Buchhaltung() {
   const [tab, setTab] = useState<TabKey>("ledger");
+  const [range, setRange] = useState<DateRange | undefined>(() =>
+    monthRange(FILTER_YEAR, new Date().getMonth())
+  );
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [refresh, setRefresh] = useState(0);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [stornoTarget, setStornoTarget] = useState<StornoTarget | null>(null);
+  const [quittungId, setQuittungId] = useState<number | null>(null);
 
-  const table = useMemo(() => {
+  // Debounce the search box so we don't hit the API per keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 250);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  const query = buildFilterQuery(range, search, status);
+  const ledger = useApi(() => accountingApi.ledger(query), [query, refresh]);
+  const journal = useApi(() => accountingApi.journal(query), [query, refresh]);
+  const accounts = useApi(() => accountingApi.accounts(), [refresh]);
+
+  const refetch = () => setRefresh(value => value + 1);
+
+  const toggleAccount = async (account: Account) => {
+    try {
+      await accountingApi.setAccountActive(account.number, !account.active);
+      toast.success(
+        `Konto ${account.number} ${account.active ? "deaktiviert" : "aktiviert"}.`
+      );
+      refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Fehler.");
+    }
+  };
+
+  const exportDatev = async () => {
+    const params = new URLSearchParams();
+    if (range?.from) {
+      params.set("from", toIsoDate(range.from));
+      params.set("to", toIsoDate(range.to ?? range.from));
+    }
+    try {
+      const res = await fetch(`/api/accounting/datev?${params}`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(body?.error ?? "DATEV-Export fehlgeschlagen.");
+      }
+      const filename =
+        res.headers
+          .get("Content-Disposition")
+          ?.match(/filename="([^"]+)"/)?.[1] ?? "EXTF_Buchungsstapel.csv";
+      const url = URL.createObjectURL(await res.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success(`DATEV-Buchungsstapel ${filename} exportiert.`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "DATEV-Export fehlgeschlagen."
+      );
+    }
+  };
+
+  const stornoLabel = (belegNr: string | null, description: string) =>
+    belegNr ? `Beleg ${belegNr}` : description || "Buchung";
+
+  const ledgerColumns: Column<LedgerRow>[] = [
+    { key: "date", label: "Datum", className: "pl-4", cellClassName: "pl-4 text-muted-foreground", render: row => formatIsoDate(row.date) },
+    { key: "receipt", label: "Belegnummer", cellClassName: "text-muted-foreground", render: row => row.belegNr ?? "-" },
+    { key: "type", label: "Typ", cellClassName: "text-muted-foreground", render: row => row.typeLabel },
+    { key: "student", label: "Schüler", cellClassName: "font-medium", render: row => row.studentName ?? "-" },
+    {
+      key: "description",
+      label: "Beschreibung",
+      className: "min-w-64",
+      cellClassName: "max-w-80",
+      render: row => (
+        <span className={cn(row.storniert && "line-through")}>{row.description || "-"}</span>
+      ),
+    },
+    { key: "vat", label: "Inkl. MwSt", cellClassName: "text-muted-foreground", render: row => row.vatLabel },
+    { key: "income", label: "Einnahmen, EUR", render: row => <Money cents={row.incomeCents} /> },
+    { key: "expense", label: "Ausgabe, EUR", render: row => <Money cents={row.expenseCents} tone="negative" /> },
+    {
+      key: "actions",
+      label: "Aktionen",
+      className: "pr-4",
+      cellClassName: "pr-4",
+      render: row => (
+        <RowActions
+          printable={row.printable}
+          stornoEligible={!row.storniert && !row.isStorno}
+          onPrint={() => setQuittungId(row.id)}
+          onStorno={() =>
+            setStornoTarget({ id: row.id, label: stornoLabel(row.belegNr, row.description) })
+          }
+        />
+      ),
+    },
+  ];
+
+  const journalColumns: Column<JournalRow>[] = [
+    { key: "date", label: "Datum", className: "pl-4", cellClassName: "pl-4 text-muted-foreground", render: row => formatIsoDate(row.date) },
+    { key: "receipt", label: "Belegnummer", cellClassName: "text-muted-foreground", render: row => row.belegNr ?? "-" },
+    { key: "booking", label: "Buchungsnummer", cellClassName: "text-muted-foreground", render: row => row.buchungNr },
+    { key: "type", label: "Typ", cellClassName: "text-muted-foreground", render: row => row.typeLabel },
+    {
+      key: "description",
+      label: "Beschreibung",
+      className: "min-w-64",
+      cellClassName: "max-w-80",
+      render: row => (
+        <span className={cn(row.storniert && "line-through")}>{row.description || "-"}</span>
+      ),
+    },
+    {
+      key: "soll",
+      label: "Sollkonto",
+      cellClassName: "text-muted-foreground",
+      render: row => `${row.sollKonto} · ${row.sollName}`,
+    },
+    {
+      key: "haben",
+      label: "Habenkonto",
+      cellClassName: "text-muted-foreground",
+      render: row => `${row.habenKonto} · ${row.habenName}`,
+    },
+    { key: "amount", label: "Betrag, EUR", render: row => <Money cents={row.amountCents} tone="neutral" /> },
+    {
+      key: "vat",
+      label: "USt",
+      cellClassName: "text-muted-foreground",
+      render: row => (row.vatRate == null ? "-" : `${row.vatRate} %`),
+    },
+    { key: "reason", label: "Stornogrund", cellClassName: "text-muted-foreground", render: row => row.stornoReason ?? "-" },
+    {
+      key: "actions",
+      label: "Aktionen",
+      className: "pr-4",
+      cellClassName: "pr-4",
+      render: row => (
+        <RowActions
+          printable={row.printable}
+          stornoEligible={!row.storniert && !row.isStorno}
+          onPrint={() => setQuittungId(row.transactionId)}
+          onStorno={() =>
+            setStornoTarget({
+              id: row.transactionId,
+              label: stornoLabel(row.belegNr, row.description),
+            })
+          }
+        />
+      ),
+    },
+  ];
+
+  const accountColumns: Column<Account>[] = [
+    { key: "number", label: "Nummer", className: "pl-4", cellClassName: "pl-4 text-muted-foreground", render: row => row.number },
+    { key: "name", label: "Name", className: "min-w-64", render: row => row.name },
+    { key: "type", label: "Typ", cellClassName: "text-muted-foreground", render: row => KIND_LABELS[row.kind] },
+    { key: "vat", label: "MwSt", cellClassName: "text-muted-foreground", render: row => row.vatLabel },
+    { key: "taxKey", label: "Steuerschlüssel", cellClassName: "text-muted-foreground", render: () => "-" },
+    { key: "status", label: "Status", cellClassName: "text-muted-foreground", render: row => (row.active ? "Aktiv" : "Inaktiv") },
+    {
+      key: "actions",
+      label: "Aktionen",
+      className: "pr-4",
+      cellClassName: "pr-4",
+      render: row => (
+        <Switch
+          checked={row.active}
+          aria-label={`Konto ${row.number} aktivieren/deaktivieren`}
+          onCheckedChange={() => toggleAccount(row)}
+        />
+      ),
+    },
+  ];
+
+  const cashBankColumns: Column<Account>[] = [
+    { key: "name", label: "Name", className: "pl-4", cellClassName: "pl-4", render: row => row.name },
+    { key: "number", label: "Nummer", cellClassName: "text-muted-foreground", render: row => row.number },
+    {
+      key: "type",
+      label: "Typ",
+      cellClassName: "text-muted-foreground",
+      render: row => (row.name.includes("Kasse") ? "Kassenbuch" : "Bankenbuch"),
+    },
+    {
+      key: "date",
+      label: "Datum",
+      cellClassName: "text-muted-foreground",
+      render: row => (row.openingDate ? formatIsoDate(row.openingDate) : "-"),
+    },
+    { key: "status", label: "Status", cellClassName: "text-muted-foreground", render: row => (row.active ? "Aktiv" : "Inaktiv") },
+    {
+      key: "opening",
+      label: "Anfangssaldo, EUR",
+      cellClassName: "text-right tabular-nums text-muted-foreground",
+      render: row => formatCents(row.openingCents ?? 0),
+    },
+    {
+      key: "actions",
+      label: "Aktionen",
+      className: "pr-4",
+      cellClassName: "pr-4",
+      render: row => (
+        <Switch
+          checked={row.active}
+          aria-label={`Konto ${row.number} aktivieren/deaktivieren`}
+          onCheckedChange={() => toggleAccount(row)}
+        />
+      ),
+    },
+  ];
+
+  const filterAccounts = (rows: Account[]) =>
+    rows.filter(account => {
+      if (status === "active" && !account.active) return false;
+      if (status === "storniert" && account.active) return false;
+      if (search.trim()) {
+        const haystack = `${account.number} ${account.name}`.toLowerCase();
+        if (!haystack.includes(search.trim().toLowerCase())) return false;
+      }
+      return true;
+    });
+
+  const renderTab = () => {
     if (tab === "ledger") {
-      return <AccountingTable columns={ledgerColumns} rows={ledgerRows} />;
+      if (ledger.loading || ledger.error || !ledger.data?.rows.length) {
+        return (
+          <TableState
+            loading={ledger.loading}
+            error={ledger.error}
+            empty
+            emptyText="Für den gewählten Zeitraum liegen keine Buchungen vor."
+          />
+        );
+      }
+      return (
+        <AccountingTable
+          columns={ledgerColumns}
+          rows={ledger.data.rows}
+          rowKey={row => String(row.id)}
+          rowClassName={row => (row.storniert || row.isStorno ? "opacity-60" : "")}
+        />
+      );
     }
 
     if (tab === "journal") {
+      if (journal.loading || journal.error || !journal.data?.rows.length) {
+        return (
+          <TableState
+            loading={journal.loading}
+            error={journal.error}
+            empty
+            emptyText="Für den gewählten Zeitraum liegen keine Buchungen vor."
+          />
+        );
+      }
       return (
         <AccountingTable
           columns={journalColumns}
-          rows={journalRows}
+          rows={journal.data.rows}
+          rowKey={row => row.buchungNr}
+          rowClassName={row => (row.storniert || row.isStorno ? "opacity-60" : "")}
           minWidth="min-w-[92rem]"
         />
       );
     }
 
-    if (tab === "accounts") {
-      return (
+    if (tab === "accounts" || tab === "cash-bank") {
+      const all = accounts.data?.accounts ?? [];
+      const rows = filterAccounts(
+        tab === "cash-bank" ? all.filter(a => a.kind === "geldkonto") : all
+      );
+      if (accounts.loading || accounts.error || !rows.length) {
+        return (
+          <TableState
+            loading={accounts.loading}
+            error={accounts.error}
+            empty
+            emptyText="Keine Konten gefunden."
+          />
+        );
+      }
+      return tab === "accounts" ? (
         <AccountingTable
           columns={accountColumns}
-          rows={accountRows}
+          rows={rows}
+          rowKey={row => `${row.number}-${row.name}`}
           minWidth="min-w-[88rem]"
         />
+      ) : (
+        <AccountingTable
+          columns={cashBankColumns}
+          rows={rows}
+          rowKey={row => row.number}
+        />
       );
-    }
-
-    if (tab === "cash-bank") {
-      return <AccountingTable columns={cashBankColumns} rows={cashBankRows} />;
     }
 
     return (
@@ -714,7 +860,7 @@ export function Buchhaltung() {
         </EmptyHeader>
       </Empty>
     );
-  }, [tab]);
+  };
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-background">
@@ -754,13 +900,32 @@ export function Buchhaltung() {
         <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
           <Card className="animate-enter min-h-full">
             <CardContent className="flex flex-col gap-4">
-              <Toolbar tab={tab} />
+              <Toolbar
+                tab={tab}
+                range={range}
+                onRangeChange={setRange}
+                search={searchInput}
+                onSearchChange={setSearchInput}
+                status={status}
+                onStatusChange={setStatus}
+                balances={ledger.data}
+                onDatev={exportDatev}
+                onNew={() => {
+                  if (tab === "accounts") {
+                    toast("Der Kontenrahmen SKR 03 ist fest hinterlegt.");
+                  } else if (tab === "cash-bank" || tab === "invoices") {
+                    toast("Folgt demnächst.");
+                  } else {
+                    setPaymentOpen(true);
+                  }
+                }}
+              />
 
               {tabs.map(item => (
                 <TabsContent key={item.value} value={item.value} className="m-0">
                   {item.value === tab && (
                     <div key={tab} className="animate-agenda-fade">
-                      {table}
+                      {renderTab()}
                     </div>
                   )}
                 </TabsContent>
@@ -769,6 +934,25 @@ export function Buchhaltung() {
           </Card>
         </div>
       </Tabs>
+
+      <PaymentDialog
+        open={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        accounts={accounts.data?.accounts ?? []}
+        onCreated={printableId => {
+          refetch();
+          if (printableId != null) setQuittungId(printableId);
+        }}
+      />
+      <StornoDialog
+        target={stornoTarget}
+        onClose={() => setStornoTarget(null)}
+        onDone={refetch}
+      />
+      <QuittungDialog
+        transactionId={quittungId}
+        onClose={() => setQuittungId(null)}
+      />
     </div>
   );
 }

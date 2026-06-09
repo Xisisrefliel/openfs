@@ -1,0 +1,758 @@
+/* ------------------------------------------------------------------ */
+/* Booking engine — the only code path that writes Buchungen.          */
+/*                                                                     */
+/* Clients send intent (type + params); the engine derives the         */
+/* Soll/Haben accounts, VAT split and document numbers server-side.    */
+/* Bookings are immutable; corrections happen via Storno reversals.    */
+/* ------------------------------------------------------------------ */
+
+import type { Database } from "bun:sqlite";
+
+import type {
+  Account,
+  CreateTransactionInput,
+  JournalRow,
+  LedgerResponse,
+  LedgerRow,
+  PaymentMethod,
+  QuittungData,
+  QuittungLine,
+  TransactionType,
+} from "../lib/accounting-types";
+import { TRANSACTION_TYPE_LABELS } from "../lib/accounting-types";
+import { splitVat } from "../lib/money";
+import { getCompany, nextBelegNr, nextBuchungNr, nextQuittungNr } from "./db";
+
+export class ValidationError extends Error {}
+
+/* ---------------------------- accounts ---------------------------- */
+
+type AccountRow = {
+  number: string;
+  name: string;
+  kind: string;
+  vat_rate: number | null;
+  vat_label: string;
+  active: number;
+  opening_cents: number | null;
+  opening_date: string | null;
+};
+
+function toAccount(row: AccountRow): Account {
+  return {
+    number: row.number,
+    name: row.name,
+    kind: row.kind as Account["kind"],
+    vatRate: row.vat_rate,
+    vatLabel: row.vat_label,
+    active: row.active === 1,
+    openingCents: row.opening_cents,
+    openingDate: row.opening_date,
+  };
+}
+
+export function listAccounts(db: Database): Account[] {
+  return db
+    .query<AccountRow, []>("SELECT * FROM accounts ORDER BY number")
+    .all()
+    .map(toAccount);
+}
+
+export function setAccountActive(
+  db: Database,
+  number: string,
+  active: boolean
+) {
+  const result = db
+    .prepare("UPDATE accounts SET active = ? WHERE number = ?")
+    .run(active ? 1 : 0, number);
+  if (result.changes === 0) {
+    throw new ValidationError(`Konto ${number} existiert nicht.`);
+  }
+}
+
+function requireAccount(
+  db: Database,
+  number: unknown,
+  kinds: Account["kind"][],
+  role: string
+): Account {
+  if (typeof number !== "string" || !number) {
+    throw new ValidationError(`${role}: Konto fehlt.`);
+  }
+  const row = db
+    .query<AccountRow, [string]>("SELECT * FROM accounts WHERE number = ?")
+    .get(number);
+  if (!row) throw new ValidationError(`${role}: Konto ${number} existiert nicht.`);
+  const account = toAccount(row);
+  if (!account.active) {
+    throw new ValidationError(`${role}: Konto ${number} ${account.name} ist inaktiv.`);
+  }
+  if (!kinds.includes(account.kind)) {
+    throw new ValidationError(
+      `${role}: Konto ${number} ${account.name} ist hier nicht zulässig.`
+    );
+  }
+  return account;
+}
+
+/* --------------------------- validation --------------------------- */
+
+const PAYMENT_METHODS: PaymentMethod[] = ["bar", "ueberweisung", "ec"];
+
+function requireAmount(amountCents: unknown): number {
+  if (
+    typeof amountCents !== "number" ||
+    !Number.isInteger(amountCents) ||
+    amountCents <= 0
+  ) {
+    throw new ValidationError("Der Betrag muss ein positiver Betrag in Cent sein.");
+  }
+  return amountCents;
+}
+
+function requireDate(date: unknown): string {
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new ValidationError("Ungültiges Datum (erwartet JJJJ-MM-TT).");
+  }
+  // Parse as UTC — local-time parsing would shift the date across the
+  // timezone offset and reject valid dates west of UTC midnight.
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    throw new ValidationError(`Ungültiges Datum: ${date}.`);
+  }
+  return date;
+}
+
+function requirePaymentMethod(method: unknown): PaymentMethod {
+  if (!PAYMENT_METHODS.includes(method as PaymentMethod)) {
+    throw new ValidationError("Ungültige Zahlungsart.");
+  }
+  return method as PaymentMethod;
+}
+
+function requireStudent(student: unknown) {
+  const s = student as CreateTransactionInput extends { student: infer S }
+    ? S
+    : never;
+  if (
+    !s ||
+    typeof s !== "object" ||
+    typeof (s as { name?: unknown }).name !== "string" ||
+    !(s as { name: string }).name.trim()
+  ) {
+    throw new ValidationError("Fahrschüler ist erforderlich.");
+  }
+  const ref = s as {
+    customerNo?: string;
+    name: string;
+    address?: string;
+    contractNo?: string;
+    classes?: string;
+  };
+  return {
+    customerNo: ref.customerNo ?? "",
+    name: ref.name.trim(),
+    address: ref.address ?? "",
+    contractNo: ref.contractNo ?? "",
+    classes: ref.classes ?? "",
+  };
+}
+
+/* ----------------------- transaction creation ---------------------- */
+
+type BookingSpec = {
+  soll: Account;
+  haben: Account;
+  amountCents: number;
+  /** account whose VAT setting governs this line; null → no VAT line */
+  vatAccount: Account | null;
+  lineDescription: string;
+};
+
+export type CreatedTransaction = {
+  id: number;
+  belegNr: string | null;
+  bookings: { buchungNr: string; soll: string; haben: string; amountCents: number }[];
+};
+
+export function createTransaction(
+  db: Database,
+  input: CreateTransactionInput
+): CreatedTransaction {
+  if (!input || typeof input !== "object") {
+    throw new ValidationError("Ungültige Anfrage.");
+  }
+  const date = requireDate(input.date);
+  const amountCents = requireAmount(input.amountCents);
+
+  let bookings: BookingSpec[];
+  let paymentMethod: PaymentMethod | null = null;
+  let student: ReturnType<typeof requireStudent> | null = null;
+  let description = "description" in input ? (input.description ?? "") : "";
+  let hasBeleg = true;
+
+  switch (input.type) {
+    case "zahlung_guthaben": {
+      const geldkonto = requireAccount(db, input.geldkonto, ["geldkonto"], "Geldkonto");
+      const anzahlung = requireAccount(db, "1718", ["anzahlung"], "Guthabenkonto");
+      paymentMethod = requirePaymentMethod(input.paymentMethod);
+      student = requireStudent(input.student);
+      if (!description) {
+        description = `FS ${student.name}${student.classes ? ` - ${student.classes}` : ""}`;
+      }
+      bookings = [
+        {
+          soll: geldkonto,
+          haben: anzahlung,
+          amountCents,
+          vatAccount: anzahlung,
+          lineDescription: "Zahlung auf Ausbildungskonto",
+        },
+      ];
+      break;
+    }
+    case "direktzahlung": {
+      const geldkonto = requireAccount(db, input.geldkonto, ["geldkonto"], "Geldkonto");
+      const haben = requireAccount(
+        db,
+        input.habenKonto,
+        ["erloes", "durchlaufend"],
+        "Erlöskonto"
+      );
+      paymentMethod = requirePaymentMethod(input.paymentMethod);
+      student = requireStudent(input.student);
+      if (!description.trim()) {
+        throw new ValidationError("Beschreibung der Leistung ist erforderlich.");
+      }
+      bookings = [
+        {
+          soll: geldkonto,
+          haben,
+          amountCents,
+          vatAccount: haben,
+          lineDescription: description,
+        },
+      ];
+      break;
+    }
+    case "guthaben_uebertragung": {
+      const anzahlung = requireAccount(db, "1718", ["anzahlung"], "Guthabenkonto");
+      const haben = requireAccount(
+        db,
+        input.habenKonto,
+        ["erloes", "durchlaufend"],
+        "Erlöskonto"
+      );
+      student = requireStudent(input.student);
+      if (!description.trim()) {
+        throw new ValidationError("Beschreibung der Leistung ist erforderlich.");
+      }
+      hasBeleg = false;
+      bookings = [
+        {
+          soll: anzahlung,
+          haben,
+          amountCents,
+          vatAccount: haben,
+          lineDescription: description,
+        },
+      ];
+      break;
+    }
+    case "transfer": {
+      const from = requireAccount(db, input.fromKonto, ["geldkonto"], "Von-Konto");
+      const to = requireAccount(db, input.toKonto, ["geldkonto"], "Nach-Konto");
+      if (from.number === to.number) {
+        throw new ValidationError("Transfer benötigt zwei verschiedene Geldkonten.");
+      }
+      const transit = requireAccount(db, "1360", ["transit"], "Geldtransit");
+      bookings = [
+        { soll: transit, haben: from, amountCents, vatAccount: null, lineDescription: "" },
+        { soll: to, haben: transit, amountCents, vatAccount: null, lineDescription: "" },
+      ];
+      break;
+    }
+    case "ausgabe": {
+      const geldkonto = requireAccount(db, input.geldkonto, ["geldkonto"], "Geldkonto");
+      const aufwand = requireAccount(
+        db,
+        input.aufwandKonto,
+        ["aufwand", "privat"],
+        "Aufwandskonto"
+      );
+      if (input.paymentMethod != null) {
+        paymentMethod = requirePaymentMethod(input.paymentMethod);
+      }
+      if (!description.trim()) {
+        throw new ValidationError("Beschreibung der Ausgabe ist erforderlich.");
+      }
+      bookings = [
+        {
+          soll: aufwand,
+          haben: geldkonto,
+          amountCents,
+          vatAccount: aufwand,
+          lineDescription: description,
+        },
+      ];
+      break;
+    }
+    default:
+      throw new ValidationError("Unbekannter Buchungstyp.");
+  }
+
+  const write = db.transaction(() => {
+    const belegNr = hasBeleg ? nextBelegNr(db) : null;
+    const txResult = db
+      .prepare(
+        `INSERT INTO transactions
+           (beleg_nr, date, type, payment_method, description,
+            student_customer_no, student_name, student_address,
+            student_contract_no, student_classes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        belegNr,
+        date,
+        input.type,
+        paymentMethod,
+        description,
+        student?.customerNo ?? null,
+        student?.name ?? null,
+        student?.address ?? null,
+        student?.contractNo ?? null,
+        student?.classes ?? null
+      );
+    const transactionId = Number(txResult.lastInsertRowid);
+
+    const created: CreatedTransaction["bookings"] = [];
+    const insertBooking = db.prepare(
+      `INSERT INTO bookings
+         (transaction_id, buchung_nr, soll_account, haben_account,
+          amount_cents, vat_rate, net_cents, vat_cents, line_description)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const spec of bookings) {
+      const buchungNr = nextBuchungNr(db);
+      const rate = spec.vatAccount?.vatRate ?? null;
+      const split = rate == null ? null : splitVat(spec.amountCents, rate);
+      insertBooking.run(
+        transactionId,
+        buchungNr,
+        spec.soll.number,
+        spec.haben.number,
+        spec.amountCents,
+        rate,
+        split?.netCents ?? null,
+        split?.vatCents ?? null,
+        spec.lineDescription
+      );
+      created.push({
+        buchungNr,
+        soll: spec.soll.number,
+        haben: spec.haben.number,
+        amountCents: spec.amountCents,
+      });
+    }
+    return { id: transactionId, belegNr, bookings: created };
+  });
+  return write();
+}
+
+/* ------------------------------ storno ----------------------------- */
+
+type TransactionRow = {
+  id: number;
+  beleg_nr: string | null;
+  date: string;
+  type: string;
+  payment_method: string | null;
+  description: string;
+  student_customer_no: string | null;
+  student_name: string | null;
+  student_address: string | null;
+  student_contract_no: string | null;
+  student_classes: string | null;
+  storno_of: number | null;
+  storno_reason: string | null;
+  storniert_by: number | null;
+};
+
+type BookingRow = {
+  id: number;
+  transaction_id: number;
+  buchung_nr: string;
+  soll_account: string;
+  haben_account: string;
+  amount_cents: number;
+  vat_rate: number | null;
+  net_cents: number | null;
+  vat_cents: number | null;
+  line_description: string;
+};
+
+function getTransactionRow(db: Database, id: number): TransactionRow {
+  const row = db
+    .query<TransactionRow, [number]>("SELECT * FROM transactions WHERE id = ?")
+    .get(id);
+  if (!row) throw new ValidationError(`Buchung ${id} existiert nicht.`);
+  return row;
+}
+
+export function stornoTransaction(
+  db: Database,
+  id: number,
+  reason: string,
+  date: string
+): CreatedTransaction {
+  if (!reason?.trim()) {
+    throw new ValidationError("Stornogrund ist erforderlich.");
+  }
+  requireDate(date);
+  const original = getTransactionRow(db, id);
+  if (original.storno_of != null) {
+    throw new ValidationError("Eine Stornobuchung kann nicht storniert werden.");
+  }
+  if (original.storniert_by != null) {
+    throw new ValidationError("Diese Buchung wurde bereits storniert.");
+  }
+  const originalBookings = db
+    .query<BookingRow, [number]>(
+      "SELECT * FROM bookings WHERE transaction_id = ? ORDER BY id"
+    )
+    .all(id);
+
+  const write = db.transaction(() => {
+    const belegNr = original.beleg_nr ? nextBelegNr(db) : null;
+    const txResult = db
+      .prepare(
+        `INSERT INTO transactions
+           (beleg_nr, date, type, payment_method, description,
+            student_customer_no, student_name, student_address,
+            student_contract_no, student_classes, storno_of, storno_reason)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        belegNr,
+        date,
+        original.type,
+        original.payment_method,
+        `Storno: ${original.description}`.trim(),
+        original.student_customer_no,
+        original.student_name,
+        original.student_address,
+        original.student_contract_no,
+        original.student_classes,
+        id,
+        reason.trim()
+      );
+    const stornoId = Number(txResult.lastInsertRowid);
+
+    const insertBooking = db.prepare(
+      `INSERT INTO bookings
+         (transaction_id, buchung_nr, soll_account, haben_account,
+          amount_cents, vat_rate, net_cents, vat_cents, line_description)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const created: CreatedTransaction["bookings"] = [];
+    for (const booking of originalBookings) {
+      const buchungNr = nextBuchungNr(db);
+      // Reversal: Soll and Haben swapped, amounts and VAT data copied.
+      insertBooking.run(
+        stornoId,
+        buchungNr,
+        booking.haben_account,
+        booking.soll_account,
+        booking.amount_cents,
+        booking.vat_rate,
+        booking.net_cents,
+        booking.vat_cents,
+        `Storno ${booking.buchung_nr}${booking.line_description ? `: ${booking.line_description}` : ""}`
+      );
+      created.push({
+        buchungNr,
+        soll: booking.haben_account,
+        haben: booking.soll_account,
+        amountCents: booking.amount_cents,
+      });
+    }
+    db.prepare("UPDATE transactions SET storniert_by = ? WHERE id = ?").run(
+      stornoId,
+      id
+    );
+    return { id: stornoId, belegNr, bookings: created };
+  });
+  return write();
+}
+
+/* ------------------------------ queries ---------------------------- */
+
+function isPrintableType(type: string): boolean {
+  return type === "zahlung_guthaben" || type === "direktzahlung";
+}
+
+function isPrintable(tx: TransactionRow): boolean {
+  return (
+    isPrintableType(tx.type) && tx.storniert_by == null && tx.storno_of == null
+  );
+}
+
+export type ListFilter = {
+  from?: string;
+  to?: string;
+  q?: string;
+  status?: "all" | "active" | "storniert";
+};
+
+function matchesFilter(tx: TransactionRow, filter: ListFilter): boolean {
+  if (filter.from && tx.date < filter.from) return false;
+  if (filter.to && tx.date > filter.to) return false;
+  if (filter.status === "active" && (tx.storniert_by != null || tx.storno_of != null)) {
+    return false;
+  }
+  if (filter.status === "storniert" && tx.storniert_by == null && tx.storno_of == null) {
+    return false;
+  }
+  if (filter.q) {
+    const haystack =
+      `${tx.beleg_nr ?? ""} ${tx.description} ${tx.student_name ?? ""} ${TRANSACTION_TYPE_LABELS[tx.type as TransactionType] ?? ""}`.toLowerCase();
+    if (!haystack.includes(filter.q.toLowerCase())) return false;
+  }
+  return true;
+}
+
+function accountMap(db: Database): Map<string, Account> {
+  return new Map(listAccounts(db).map(a => [a.number, a]));
+}
+
+function allTransactions(db: Database): TransactionRow[] {
+  return db
+    .query<TransactionRow, []>(
+      "SELECT * FROM transactions ORDER BY date DESC, id DESC"
+    )
+    .all();
+}
+
+function bookingsByTransaction(db: Database): Map<number, BookingRow[]> {
+  const map = new Map<number, BookingRow[]>();
+  for (const booking of db
+    .query<BookingRow, []>("SELECT * FROM bookings ORDER BY id")
+    .all()) {
+    const list = map.get(booking.transaction_id) ?? [];
+    list.push(booking);
+    map.set(booking.transaction_id, list);
+  }
+  return map;
+}
+
+/** VAT label of the account that governs a transaction's tax treatment. */
+function transactionVatLabel(
+  tx: TransactionRow,
+  bookings: BookingRow[],
+  accounts: Map<string, Account>
+): string {
+  const withVat = bookings.find(b => b.vat_rate != null);
+  if (tx.type === "transfer") return "Nicht zutreffend";
+  if (!withVat) {
+    const haben = accounts.get(bookings[0]?.haben_account ?? "");
+    return haben?.vatLabel ?? "Nicht zutreffend";
+  }
+  if (tx.type === "ausgabe") {
+    return accounts.get(withVat.soll_account)?.vatLabel ?? "Nicht zutreffend";
+  }
+  return accounts.get(withVat.haben_account)?.vatLabel ?? "Nicht zutreffend";
+}
+
+export function listLedger(db: Database, filter: ListFilter): LedgerResponse {
+  const accounts = accountMap(db);
+  const geldkonten = new Set(
+    [...accounts.values()].filter(a => a.kind === "geldkonto").map(a => a.number)
+  );
+  const bookingMap = bookingsByTransaction(db);
+  const transactions = allTransactions(db);
+
+  const openingBase = [...accounts.values()]
+    .filter(a => a.kind === "geldkonto")
+    .reduce((sum, a) => sum + (a.openingCents ?? 0), 0);
+
+  let beforeRange = 0;
+  let inRange = 0;
+  const rows: LedgerRow[] = [];
+
+  for (const tx of transactions) {
+    const bookings = bookingMap.get(tx.id) ?? [];
+    let inflow = 0;
+    let outflow = 0;
+    for (const booking of bookings) {
+      if (geldkonten.has(booking.soll_account)) inflow += booking.amount_cents;
+      if (geldkonten.has(booking.haben_account)) outflow += booking.amount_cents;
+    }
+    const net = inflow - outflow;
+    if (filter.from && tx.date < filter.from) beforeRange += net;
+    if (!matchesFilter(tx, { from: filter.from, to: filter.to })) continue;
+    inRange += net;
+    if (!matchesFilter(tx, filter)) continue;
+
+    const isTransfer = tx.type === "transfer";
+    rows.push({
+      id: tx.id,
+      date: tx.date,
+      belegNr: tx.beleg_nr,
+      type: tx.type as TransactionType,
+      typeLabel: TRANSACTION_TYPE_LABELS[tx.type as TransactionType] ?? tx.type,
+      studentName: tx.student_name,
+      description: tx.description,
+      vatLabel: transactionVatLabel(tx, bookings, accounts),
+      incomeCents: !isTransfer && inflow > 0 ? inflow : null,
+      expenseCents: !isTransfer && outflow > 0 ? outflow : null,
+      storniert: tx.storniert_by != null,
+      isStorno: tx.storno_of != null,
+      stornoReason:
+        tx.storno_of != null
+          ? tx.storno_reason
+          : stornoReasonOfReversal(transactions, tx),
+      printable: isPrintable(tx),
+    });
+  }
+
+  return {
+    rows,
+    openingCents: openingBase + beforeRange,
+    closingCents: openingBase + beforeRange + inRange,
+  };
+}
+
+function stornoReasonOfReversal(
+  transactions: TransactionRow[],
+  tx: TransactionRow
+): string | null {
+  if (tx.storniert_by == null) return null;
+  return (
+    transactions.find(candidate => candidate.id === tx.storniert_by)
+      ?.storno_reason ?? null
+  );
+}
+
+export function listJournal(db: Database, filter: ListFilter): JournalRow[] {
+  const accounts = accountMap(db);
+  const bookingMap = bookingsByTransaction(db);
+  const transactions = allTransactions(db);
+  const rows: JournalRow[] = [];
+
+  for (const tx of transactions) {
+    if (!matchesFilter(tx, filter)) continue;
+    for (const booking of bookingMap.get(tx.id) ?? []) {
+      rows.push({
+        transactionId: tx.id,
+        date: tx.date,
+        belegNr: tx.beleg_nr,
+        buchungNr: booking.buchung_nr,
+        type: tx.type as TransactionType,
+        typeLabel: TRANSACTION_TYPE_LABELS[tx.type as TransactionType] ?? tx.type,
+        description: booking.line_description || tx.description,
+        sollKonto: booking.soll_account,
+        sollName: accounts.get(booking.soll_account)?.name ?? booking.soll_account,
+        habenKonto: booking.haben_account,
+        habenName: accounts.get(booking.haben_account)?.name ?? booking.haben_account,
+        amountCents: booking.amount_cents,
+        vatRate: booking.vat_rate,
+        storniert: tx.storniert_by != null,
+        isStorno: tx.storno_of != null,
+        stornoReason:
+          tx.storno_of != null
+            ? tx.storno_reason
+            : stornoReasonOfReversal(transactions, tx),
+        printable: isPrintable(tx),
+      });
+    }
+  }
+  // Journal is sorted by Buchungsnummer, newest first.
+  return rows.sort((a, b) => b.buchungNr.localeCompare(a.buchungNr));
+}
+
+/* ----------------------------- Quittung ---------------------------- */
+
+export function getQuittung(db: Database, transactionId: number): QuittungData {
+  const tx = getTransactionRow(db, transactionId);
+  if (!isPrintable(tx)) {
+    throw new ValidationError(
+      "Für diese Buchung kann keine Quittung ausgestellt werden."
+    );
+  }
+  const bookings = db
+    .query<BookingRow, [number]>(
+      "SELECT * FROM bookings WHERE transaction_id = ? ORDER BY id"
+    )
+    .all(transactionId);
+  const accounts = accountMap(db);
+
+  // Lazily assign the Quittungsnummer on first print: only issued
+  // Quittungen consume numbers, so the sequence stays gapless.
+  const issue = db.transaction(() => {
+    const existing = db
+      .query<{ quittung_nr: string; issued_at: string }, [number]>(
+        "SELECT quittung_nr, issued_at FROM quittungen WHERE transaction_id = ?"
+      )
+      .get(transactionId);
+    if (existing) {
+      return { quittungNr: existing.quittung_nr, issuedAt: existing.issued_at };
+    }
+    const year = Number(tx.date.slice(0, 4));
+    const quittungNr = nextQuittungNr(db, year);
+    db.prepare(
+      "INSERT INTO quittungen (quittung_nr, transaction_id) VALUES (?, ?)"
+    ).run(quittungNr, transactionId);
+    const issuedAt = db
+      .query<{ issued_at: string }, [number]>(
+        "SELECT issued_at FROM quittungen WHERE transaction_id = ?"
+      )
+      .get(transactionId)!.issued_at;
+    return { quittungNr, issuedAt };
+  });
+  const { quittungNr, issuedAt } = issue();
+
+  const lines: QuittungLine[] = bookings.map(booking => {
+    const haben = accounts.get(booking.haben_account);
+    const durchlaufend = haben?.kind === "durchlaufend";
+    return {
+      description: booking.line_description || tx.description,
+      netCents: booking.net_cents ?? booking.amount_cents,
+      vatRate: booking.vat_rate,
+      vatCents: booking.vat_cents ?? 0,
+      grossCents: booking.amount_cents,
+      durchlaufenderPosten: durchlaufend,
+    };
+  });
+
+  const company = getCompany(db);
+  const verwendungszweckParts = [
+    tx.type === "zahlung_guthaben"
+      ? "Zahlung auf Ausbildungskonto"
+      : tx.description,
+    tx.student_contract_no ? `Vertrag ${tx.student_contract_no}` : "",
+    tx.student_classes ? `Klasse ${tx.student_classes}` : "",
+  ].filter(Boolean);
+
+  return {
+    quittungNr,
+    issuedAt,
+    date: tx.date,
+    belegNr: tx.beleg_nr,
+    paymentMethod: (tx.payment_method as PaymentMethod | null) ?? null,
+    issuer: {
+      name: company.name,
+      address: company.address,
+      phone: company.phone,
+      email: company.email,
+      steuernummer: company.steuernummer,
+      ustIdNr: company.ustIdNr,
+    },
+    recipient: tx.student_name
+      ? { name: tx.student_name, address: tx.student_address ?? "" }
+      : null,
+    verwendungszweck: verwendungszweckParts.join(", "),
+    lines,
+    totalCents: lines.reduce((sum, line) => sum + line.grossCents, 0),
+  };
+}
