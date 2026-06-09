@@ -1,67 +1,131 @@
 import "./index.css";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Agentation } from "agentation";
 import {
-  Caret,
-  ChartBar,
-  CompanyGrid,
-  Expenses,
+  ArrowLeft,
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  Building2,
+  CalendarCheck,
+  CalendarClock,
+  CalendarDays,
+  Car,
+  ChevronRight,
+  ChevronsUpDown,
+  FileText,
+  GraduationCap,
   Heart,
-  Home,
-  People,
-  Pen,
-  Send,
-  Transfer,
-} from "./icons";
+  LayoutGrid,
+  LogOut,
+  Megaphone,
+  MessageCircle,
+  Receipt,
+  Star,
+  Tag,
+  User,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
-type IconCmp = (p: { className?: string }) => React.ReactNode;
+import { Dashboard } from "./Dashboard";
+import { Profil } from "./Profil";
+import { Theorie } from "./Theorie";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 
-const navItems: { label: string; Icon: IconCmp; active?: boolean; iconClassName: string }[] = [
-  { label: "Home", Icon: Home, active: true, iconClassName: "text-gray-12" },
-  { label: "Profil", Icon: Pen, iconClassName: "text-gray-12" },
-  { label: "Theorie", Icon: ChartBar, iconClassName: "text-gray-12" },
-  { label: "Unterricht", Icon: People, iconClassName: "text-gray-12" },
-  { label: "Schüler Anmeldung", Icon: People, iconClassName: "text-gray-12" },
+type IconCmp = React.ComponentType<{ className?: string }>;
+
+const navItems: { label: string; Icon: IconCmp; route?: string }[] = [
+  { label: "Home", Icon: LayoutGrid, route: "/" },
+  { label: "Profil", Icon: User, route: "/profil" },
+  { label: "Theorie", Icon: BookOpen, route: "/theorie" },
+  { label: "Unterricht", Icon: Users },
+  { label: "Schüler Anmeldung", Icon: UserPlus },
 ];
 
 const navGroups: {
   label: string;
   Icon: IconCmp;
-  iconClassName: string;
-  items: { label: string; Icon: IconCmp; iconClassName: string }[];
+  iconColor: string;
+  items: { label: string; Icon: IconCmp }[];
 }[] = [
   {
     label: "Marketing",
-    Icon: Send,
-    iconClassName: "text-rose-500",
+    Icon: Megaphone,
+    iconColor: "text-rose-500!",
     items: [
-      { label: "Marketing", Icon: Send, iconClassName: "text-rose-500" },
-      { label: "Schulprofil", Icon: Home, iconClassName: "text-rose-500" },
-      { label: "Preisangebot", Icon: Expenses, iconClassName: "text-rose-500" },
-      { label: "Bewertungen", Icon: Heart, iconClassName: "text-rose-500" },
+      { label: "Marketing", Icon: Megaphone },
+      { label: "Schulprofil", Icon: Building2 },
+      { label: "Preisangebot", Icon: Tag },
+      { label: "Bewertungen", Icon: Heart },
     ],
   },
   {
     label: "Verwaltung",
-    Icon: Transfer,
-    iconClassName: "text-orange-500",
+    Icon: CalendarClock,
+    iconColor: "text-green-700!",
     items: [
-      { label: "Terminanfragen", Icon: Send, iconClassName: "text-orange-500" },
-      { label: "Fahrschule", Icon: Home, iconClassName: "text-orange-500" },
-      { label: "Kalender", Icon: ChartBar, iconClassName: "text-orange-500" },
-      { label: "Fahrlehrer/in", Icon: People, iconClassName: "text-orange-500" },
-      { label: "Fahrzeuge", Icon: Transfer, iconClassName: "text-orange-500" },
-      { label: "Fahrschüler", Icon: People, iconClassName: "text-orange-500" },
-      { label: "Theorie Gruppen", Icon: ChartBar, iconClassName: "text-orange-500" },
-      { label: "Buchhaltung", Icon: Expenses, iconClassName: "text-orange-500" },
-      { label: "Statistik", Icon: ChartBar, iconClassName: "text-orange-500" },
-      { label: "Plaudern", Icon: Send, iconClassName: "text-orange-500" },
-      { label: "aus", Icon: Transfer, iconClassName: "text-orange-500" },
-      { label: "Verträge", Icon: Expenses, iconClassName: "text-orange-500" },
-      { label: "Prüfungsplaner", Icon: ChartBar, iconClassName: "text-orange-500" },
+      { label: "Terminanfragen", Icon: CalendarClock },
+      { label: "Fahrschule", Icon: Building2 },
+      { label: "Kalender", Icon: CalendarDays },
+      { label: "Fahrlehrer/in", Icon: Users },
+      { label: "Fahrzeuge", Icon: Car },
+      { label: "Fahrschüler", Icon: GraduationCap },
+      { label: "Theorie Gruppen", Icon: BookOpen },
+      { label: "Buchhaltung", Icon: Receipt },
+      { label: "Statistik", Icon: BarChart3 },
+      { label: "Plaudern", Icon: MessageCircle },
+      { label: "Bewertungen", Icon: Star },
+      { label: "Verträge", Icon: FileText },
+      { label: "Prüfungsplaner", Icon: CalendarCheck },
     ],
   },
 ];
+
+function usePath() {
+  const [path, setPath] = useState(
+    typeof window !== "undefined" ? window.location.pathname : "/"
+  );
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const navigate = (to: string) => {
+    if (to === window.location.pathname) return;
+    window.history.pushState({}, "", to);
+    setPath(to);
+  };
+  return { path, navigate };
+}
 
 function DevAgentation() {
   useEffect(() => {
@@ -71,9 +135,7 @@ function DevAgentation() {
         event.stopImmediatePropagation();
       }
     };
-
     window.addEventListener("error", ignoreCrossOriginScriptError, true);
-
     return () => {
       window.removeEventListener("error", ignoreCrossOriginScriptError, true);
     };
@@ -82,91 +144,157 @@ function DevAgentation() {
   return <Agentation />;
 }
 
-export function App() {
+function AppSidebar({
+  path,
+  navigate,
+}: {
+  path: string;
+  navigate: (to: string) => void;
+}) {
   return (
-    <>
-      <div className="flex min-h-screen">
-        <aside className="flex h-screen w-[240px] 2xl:w-[300px] shrink-0 flex-col bg-gray-2 overflow-hidden pt-1 2xl:pt-2">
-        <div className="relative flex w-full shrink-0 items-center px-2 py-2 2xl:px-3 2xl:py-3 rounded-md cursor-default before:absolute before:inset-1 before:rounded-lg before:bg-transparent before:transition-colors hover:before:bg-gray-a3">
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center">
-              <div
-                className="size-6 2xl:size-8 rounded-full object-cover shrink-0 bg-gradient-to-br from-indigo-400 to-purple-600"
-                style={{
-                  WebkitMaskImage:
-                    "radial-gradient(13px at 26px 50%, transparent 99%, black 100%)",
-                  maskImage:
-                    "radial-gradient(13px at 26px 50%, transparent 99%, black 100%)",
-                  background: "linear-gradient(135deg, #6366f1, #9333ea)",
-                }}
-              />
-              <div className="size-6 2xl:size-8 -ml-2 2xl:-ml-3 rounded-full border border-border bg-gray-1 flex items-center justify-center shrink-0">
-                <CompanyGrid className="" />
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[14px] 2xl:text-[17px] font-medium tracking-tight text-gray-12">
-                Fahrschule
-              </span>
-              <span className="rounded-[4px] bg-blue-3 px-1 py-0.5 2xl:px-1.5 text-[9px] 2xl:text-[11px] font-medium text-blue-11">
-                ADMIN
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-1 2xl:px-2 pb-3 subtle-scrollbar">
-          <div className="flex flex-col pt-3 pb-1.5 px-0.5">
-            {navItems.map(({ label, Icon, active, iconClassName }) => (
-              <div
-                key={label}
-                className={
-                  "flex w-full items-center gap-1.5 2xl:gap-2 h-[28px] 2xl:h-[36px] my-px pl-1.5 2xl:pl-2.5 pr-3 text-[14px] 2xl:text-[17px] font-[450] tracking-tight rounded-sm 2xl:rounded-md transition-colors duration-100 cursor-default " +
-                  (active
-                    ? "text-gray-12 bg-black/5"
-                    : "text-gray-10 hover:bg-black/5 hover:text-gray-12")
-                }
-              >
-                <div className="size-4 2xl:size-5 flex items-center justify-center shrink-0">
-                  <Icon className={`size-4 2xl:size-5 ${iconClassName}`} />
-                </div>
-                <span className="truncate">{label}</span>
-              </div>
+    <Sidebar variant="inset">
+      <SidebarContent className="pt-[52px]">
+        <SidebarGroup>
+          <SidebarMenu>
+            {navItems.map(({ label, Icon, route }) => (
+              <SidebarMenuItem key={label}>
+                <SidebarMenuButton
+                  tooltip={label}
+                  isActive={route ? path === route : false}
+                  onClick={() => route && navigate(route)}
+                >
+                  <Icon />
+                  <span>{label}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             ))}
-          </div>
+          </SidebarMenu>
+        </SidebarGroup>
 
-          <div className="flex flex-col pt-1 pb-1.5 px-0.5">
-            {navGroups.map(({ label, Icon, iconClassName, items }) => (
-              <details key={label} className="group">
-                <summary className="flex w-full list-none items-center gap-1.5 2xl:gap-2 h-[28px] 2xl:h-[36px] my-px pl-1.5 2xl:pl-2.5 pr-3 text-[14px] 2xl:text-[17px] font-[450] tracking-tight rounded-sm 2xl:rounded-md text-gray-10 hover:bg-black/5 hover:text-gray-12 transition-colors duration-100 cursor-default [&::-webkit-details-marker]:hidden">
-                  <div className="size-4 2xl:size-5 flex items-center justify-center shrink-0">
-                    <Icon className={`size-4 2xl:size-5 ${iconClassName}`} />
+        {navGroups.map(({ label, Icon, iconColor, items }) => (
+          <SidebarGroup key={label}>
+            <SidebarMenu>
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip={label}>
+                      <Icon className={iconColor} />
+                      <span>{label}</span>
+                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {items.map(({ label: subLabel, Icon: SubIcon }) => (
+                        <SidebarMenuSubItem key={subLabel}>
+                          <SidebarMenuSubButton asChild>
+                            <a href="#" onClick={e => e.preventDefault()}>
+                              <SubIcon className={iconColor} />
+                              <span>{subLabel}</span>
+                            </a>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                >
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                    <LayoutGrid className="size-4" />
                   </div>
-                  <span className="truncate flex-1">{label}</span>
-                  <Caret className="shrink-0 transition-transform duration-150 group-open:rotate-90" />
-                </summary>
+                  <div className="flex flex-1 items-center gap-1.5">
+                    <span className="font-heading text-base font-medium tracking-tight">
+                      Fahrschule
+                    </span>
+                    <Badge variant="secondary" className="px-1.5 text-[10px]">
+                      ADMIN
+                    </Badge>
+                  </div>
+                  <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="top"
+                align="start"
+                className="w-(--radix-popper-anchor-width) min-w-56"
+              >
+                <DropdownMenuItem variant="destructive">
+                  <LogOut />
+                  Abmelden
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
 
-                <div className="ml-4 2xl:ml-6 flex flex-col border-l border-border pl-1.5 2xl:pl-2">
-                  {items.map(({ label, Icon, iconClassName }) => (
-                    <div
-                      key={label}
-                      className="flex w-full items-center gap-1.5 2xl:gap-2 h-[26px] 2xl:h-[34px] my-px pl-1.5 2xl:pl-2 pr-3 text-[13px] 2xl:text-[17px] font-[450] tracking-tight rounded-sm 2xl:rounded-md text-gray-10 hover:bg-black/5 hover:text-gray-12 transition-colors duration-100 cursor-default"
-                    >
-                      <div className="size-3.5 2xl:size-4 flex items-center justify-center shrink-0">
-                        <Icon className={`size-3.5 2xl:size-4 ${iconClassName}`} />
-                      </div>
-                      <span className="truncate">{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            ))}
-          </div>
-        </div>
-        </aside>
-      </div>
+function ShellControls() {
+  return (
+    <div className="fixed left-5 top-5 z-[60] flex items-center gap-1">
+      <SidebarTrigger className="size-7" />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="size-7 text-muted-foreground"
+        onClick={() => window.history.back()}
+      >
+        <ArrowLeft />
+        <span className="sr-only">Zurück</span>
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="size-7 text-muted-foreground"
+        onClick={() => window.history.forward()}
+      >
+        <ArrowRight />
+        <span className="sr-only">Vorwärts</span>
+      </Button>
+    </div>
+  );
+}
+
+export function App() {
+  const { path, navigate } = usePath();
+  const page =
+    path === "/profil" ? (
+      <Profil />
+    ) : path === "/theorie" ? (
+      <Theorie />
+    ) : (
+      <Dashboard />
+    );
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <SidebarProvider className="bg-sidebar">
+        <ShellControls />
+        <AppSidebar path={path} navigate={navigate} />
+        <SidebarInset className="h-[calc(100svh-1rem)] min-h-0 overflow-hidden border-l border-border/70 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_16px_48px_-28px_rgba(0,0,0,0.35)] md:!m-2 md:!rounded-2xl">
+          {page}
+        </SidebarInset>
+      </SidebarProvider>
       {process.env.NODE_ENV === "development" && <DevAgentation />}
-    </>
+    </TooltipProvider>
   );
 }
 

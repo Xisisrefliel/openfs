@@ -1,0 +1,564 @@
+import { useState } from "react";
+import {
+  ArrowRight,
+  Building2,
+  Car,
+  Check,
+  Clock,
+  CreditCard,
+  FileText,
+  Globe,
+  GraduationCap,
+  ImagePlus,
+  Info,
+  Mail,
+  MapPin,
+  Phone,
+  Star,
+  X,
+} from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "./components/PageHeader.tsx";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
+
+type IconCmp = React.ComponentType<{ className?: string }>;
+
+/* ------------------------------------------------------------------ */
+/* Primitives composed from shadcn                                     */
+/* ------------------------------------------------------------------ */
+
+function Section({
+  title,
+  description,
+  Icon,
+  accent,
+  children,
+}: {
+  title: string;
+  description?: string;
+  Icon: IconCmp;
+  accent: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader className="border-b">
+        <div className="flex items-start gap-2.5">
+          <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", accent)}>
+            <Icon className="size-[18px]" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <CardTitle>{title}</CardTitle>
+            {description && <CardDescription>{description}</CardDescription>}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </div>
+  );
+}
+
+function YesNo({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      value={value ? "ja" : "nein"}
+      onValueChange={v => v && onChange(v === "ja")}
+      className="shrink-0"
+    >
+      <ToggleGroupItem value="ja" className="px-3">
+        Ja
+      </ToggleGroupItem>
+      <ToggleGroupItem value="nein" className="px-3">
+        Nein
+      </ToggleGroupItem>
+    </ToggleGroup>
+  );
+}
+
+function ChipGroup({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  return (
+    <ToggleGroup
+      type="multiple"
+      variant="outline"
+      value={value}
+      onValueChange={onChange}
+      className="w-full flex-wrap justify-start gap-2"
+    >
+      {options.map(o => (
+        <ToggleGroupItem
+          key={o}
+          value={o}
+          className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+        >
+          {o}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
+function TagInput({ placeholder, initial = [] }: { placeholder: string; initial?: string[] }) {
+  const [tags, setTags] = useState<string[]>(initial);
+  const [val, setVal] = useState("");
+  const add = () => {
+    const t = val.trim();
+    if (t && !tags.includes(t)) setTags([...tags, t]);
+    setVal("");
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border bg-background p-1.5 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+      {tags.map(t => (
+        <Badge key={t} variant="secondary" className="gap-1 pr-1">
+          {t}
+          <button
+            type="button"
+            onClick={() => setTags(tags.filter(x => x !== t))}
+            className="rounded-full p-0.5 transition-colors hover:bg-foreground/10"
+          >
+            <X className="size-3" />
+          </button>
+        </Badge>
+      ))}
+      <input
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            add();
+          }
+          if (e.key === "Backspace" && !val && tags.length) setTags(tags.slice(0, -1));
+        }}
+        placeholder={tags.length ? "" : placeholder}
+        className="min-w-[140px] flex-1 bg-transparent px-1.5 py-0.5 text-sm outline-none placeholder:text-muted-foreground"
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Data                                                                */
+/* ------------------------------------------------------------------ */
+
+type Hours = { day: string; open: string; close: string; note: string; closed: boolean };
+
+const days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+
+const officeDefaults: Hours[] = days.map(day => ({
+  day,
+  open: day === "Sonntag" ? "" : "10:00",
+  close: day === "Sonntag" ? "" : "17:00",
+  note: day === "Sonntag" ? "" : "Büro - Anmeldung",
+  closed: day === "Sonntag",
+}));
+
+const theoryDefaults: Hours[] = days.map(day => ({
+  day,
+  open: "",
+  close: "",
+  note: "",
+  closed: true,
+}));
+
+const licenseClasses = [
+  "A", "A1", "A2", "A80", "AM", "ASF", "Andere", "Auff-BA", "Auff-BS", "B",
+  "B Auto + B197", "B Automatik", "B17", "B196", "B197", "B96", "BE", "C",
+  "C+CE", "C1", "C1+C1E", "C1E", "CE", "D", "D1", "D1E", "DE", "FES", "IAS-A",
+  "IAS-S", "L", "MPU", "Mofa", "T",
+];
+
+const bkfClasses = ["C (BKF)", "C+CE (BKF)", "D (BKF)", "GC", "GD", "WC", "WD"];
+
+const merkmaleList = [
+  "Eignungstest", "ASF", "Sehtest", "Weibliche Fahrlehrer", "FES", "Finanzierung",
+  "Erste Hilfe", "Amtliche Anmeldung", "Intensivkurs", "Online lernen", "Fahrsimulator",
+];
+
+const paymentMethods = ["Banküberweisung", "Kredit- / Debitkarte", "Bar", "Giro / EC-Karten"];
+
+/* ------------------------------------------------------------------ */
+/* Hours editor                                                        */
+/* ------------------------------------------------------------------ */
+
+function HoursEditor({ initial }: { initial: Hours[] }) {
+  const [rows, setRows] = useState(initial);
+  const update = (i: number, patch: Partial<Hours>) =>
+    setRows(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  return (
+    <div className="flex flex-col divide-y">
+      {rows.map((r, i) => (
+        <div
+          key={r.day}
+          className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-3"
+        >
+          <div className="flex w-32 shrink-0 items-center gap-2">
+            <Switch checked={!r.closed} onCheckedChange={v => update(i, { closed: !v })} />
+            <span className="text-sm font-medium">{r.day}</span>
+          </div>
+
+          {r.closed ? (
+            <span className="text-sm text-muted-foreground sm:flex-1">Geschlossen</span>
+          ) : (
+            <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="time"
+                  value={r.open}
+                  onChange={e => update(i, { open: e.target.value })}
+                  className="w-[120px] tabular-nums"
+                />
+                <span className="text-sm text-muted-foreground">bis</span>
+                <Input
+                  type="time"
+                  value={r.close}
+                  onChange={e => update(i, { close: e.target.value })}
+                  className="w-[120px] tabular-nums"
+                />
+              </div>
+              <Input
+                value={r.note}
+                onChange={e => update(i, { note: e.target.value })}
+                placeholder="Weitere Anmerkungen"
+                className="flex-1"
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
+
+export function Profil() {
+  const [classes, setClasses] = useState<string[]>(["B", "B197", "A1", "AM"]);
+  const [bkf, setBkf] = useState<string[]>([]);
+  const [dirty, setDirty] = useState(false);
+  const [formVersion, setFormVersion] = useState(0);
+  const [merkmale, setMerkmale] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      merkmaleList.map(m => [
+        m,
+        ["Sehtest", "Erste Hilfe", "Finanzierung", "Online lernen"].includes(m),
+      ])
+    )
+  );
+  const [payments, setPayments] = useState<string[]>(["Banküberweisung", "Bar"]);
+  const markDirty = () => setDirty(true);
+
+  return (
+    <div className="flex h-full min-w-0 flex-1 flex-col overflow-y-auto rounded-xl">
+      {/* Header */}
+      <PageHeader
+        end={
+          <>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!dirty}
+            className="hidden sm:inline-flex"
+            onClick={() => {
+              setDirty(false);
+              setFormVersion(v => v + 1);
+            }}
+          >
+            Verwerfen
+          </Button>
+          <Button
+            type="button"
+            disabled={!dirty}
+            onClick={() => {
+              setDirty(false);
+            }}
+          >
+            <Check />
+            Speichern
+          </Button>
+          </>
+        }
+      />
+
+      {/* Body */}
+      <div
+        key={formVersion}
+        className="flex flex-1 flex-col p-4 2xl:p-6"
+        onInputCapture={markDirty}
+        onClickCapture={event => {
+          if ((event.target as HTMLElement).closest("button")) markDirty();
+        }}
+      >
+        <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-4 2xl:gap-5">
+          {/* Schulinformationen */}
+          <Section
+            title="Schulinformationen"
+            description="Stammdaten Ihrer Fahrschule"
+            Icon={Building2}
+            accent="bg-indigo-500/10 text-indigo-600"
+          >
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Fahrschulname" htmlFor="name">
+                <Input id="name" defaultValue="Fahrschule Gül" />
+              </Field>
+              <Field label="Anschrift" htmlFor="address">
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="address"
+                    className="pl-9"
+                    defaultValue="Lorscher Straße 6, 60489 Frankfurt am Main"
+                  />
+                </div>
+              </Field>
+              <Field
+                label="E-Mail"
+                htmlFor="email"
+                hint="Über diese E-Mail erhalten Sie alle Buchungen."
+              >
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    className="pl-9"
+                    defaultValue="info@fahrschule-guel.de"
+                  />
+                </div>
+              </Field>
+              <Field label="Telefon" htmlFor="phone">
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="phone" type="tel" className="pl-9" defaultValue="017620162780" />
+                </div>
+              </Field>
+              <Field label="Webseite" htmlFor="web">
+                <div className="relative">
+                  <Globe className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="web"
+                    type="url"
+                    className="pl-9"
+                    defaultValue="http://www.fahrschule-guel.de"
+                  />
+                </div>
+              </Field>
+              <Field label="Beschreibung" htmlFor="desc">
+                <Textarea
+                  id="desc"
+                  rows={3}
+                  placeholder="Beschreiben Sie Ihre Fahrschule in wenigen Sätzen…"
+                />
+              </Field>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-1.5">
+              <Label>Die Fahrschule in Bildern</Label>
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/40 px-4 py-8 text-center transition-colors hover:border-ring hover:bg-muted">
+                <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <ImagePlus className="size-5" />
+                </div>
+                <p className="text-sm text-foreground">
+                  Lassen Sie Ihre Bilder hier oder{" "}
+                  <span className="font-medium underline underline-offset-2">
+                    wählen Sie die Datei
+                  </span>
+                </p>
+                <span className="text-xs text-muted-foreground">PNG, JPG bis 10 MB</span>
+                <input type="file" accept="image/*" multiple className="hidden" />
+              </label>
+            </div>
+          </Section>
+
+          {/* Öffnungszeiten */}
+          <Section
+            title="Öffnungszeiten"
+            description="Teilen Sie Ihre Öffnungszeiten mit und erleichtern Sie Ihren Kunden die Terminvereinbarung."
+            Icon={Clock}
+            accent="bg-sky-500/10 text-sky-600"
+          >
+            <HoursEditor initial={officeDefaults} />
+          </Section>
+
+          {/* Theorieunterricht */}
+          <Section
+            title="Theorieunterricht"
+            description="Veröffentlichen Sie Ihre Theorie-Stunden und machen Sie es den Schülern leichter."
+            Icon={FileText}
+            accent="bg-violet-500/10 text-violet-600"
+          >
+            <HoursEditor initial={theoryDefaults} />
+          </Section>
+
+          {/* Klassen */}
+          <Section title="Klassen" description="Welche Führerscheinklassen bieten Sie an?" Icon={Star} accent="bg-amber-500/10 text-amber-600">
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <Label>Führerscheinklassen</Label>
+                  <span className="text-xs text-muted-foreground">{classes.length} ausgewählt</span>
+                </div>
+                <ChipGroup options={licenseClasses} value={classes} onChange={setClasses} />
+              </div>
+
+              <Separator />
+
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between">
+                  <Label>Führerscheinklassen Berufskraftfahrer</Label>
+                  <span className="text-xs text-muted-foreground">{bkf.length} ausgewählt</span>
+                </div>
+                <ChipGroup options={bkfClasses} value={bkf} onChange={setBkf} />
+              </div>
+            </div>
+          </Section>
+
+          {/* Merkmale */}
+          <Section title="Merkmale" description="Welche Leistungen bietet Ihre Fahrschule?" Icon={Check} accent="bg-emerald-500/10 text-emerald-600">
+            <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
+              {merkmaleList.map(m => (
+                <div key={m} className="flex items-center justify-between border-b py-3 last:border-0">
+                  <span className="text-sm">{m}</span>
+                  <YesNo value={merkmale[m] ?? false} onChange={v => setMerkmale({ ...merkmale, [m]: v })} />
+                </div>
+              ))}
+            </div>
+
+            <Separator className="my-5" />
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Sprachen" hint="Enter drücken zum Hinzufügen">
+                <TagInput placeholder="Sprache hinzufügen…" initial={["Deutsch", "Türkisch"]} />
+              </Field>
+              <Field label="Zertifikate" hint="Enter drücken zum Hinzufügen">
+                <TagInput placeholder="Zertifikat hinzufügen…" />
+              </Field>
+            </div>
+          </Section>
+
+          {/* Fahrzeuge */}
+          <Section title="Fahrzeuge" description="Marken Ihrer Schulungsfahrzeuge je Klasse" Icon={Car} accent="bg-rose-500/10 text-rose-600">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Klasse A (Motorrad) — Marken">
+                <TagInput placeholder="Marke hinzufügen…" initial={["Honda"]} />
+              </Field>
+              <Field label="Klasse B (PKW) — Marken">
+                <TagInput placeholder="Marke hinzufügen…" initial={["VW", "Audi"]} />
+              </Field>
+              <Field label="Klasse C — Marken">
+                <TagInput placeholder="Marke hinzufügen…" />
+              </Field>
+              <Field label="Klasse D — Marken">
+                <TagInput placeholder="Marke hinzufügen…" />
+              </Field>
+            </div>
+          </Section>
+
+          {/* Zahlungsmethode */}
+          <Section
+            title="Zahlungsmethode"
+            description="Welche Zahlungsarten akzeptieren Sie?"
+            Icon={CreditCard}
+            accent="bg-teal-500/10 text-teal-600"
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {paymentMethods.map(p => {
+                const active = payments.includes(p);
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() =>
+                      setPayments(active ? payments.filter(x => x !== p) : [...payments, p])
+                    }
+                    className={cn(
+                      "flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-all active:scale-[0.99]",
+                      active ? "border-primary bg-muted/50" : "hover:border-ring"
+                    )}
+                  >
+                    <span className="text-sm font-medium">{p}</span>
+                    <span
+                      className={cn(
+                        "flex size-5 items-center justify-center rounded-full border transition-colors",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "text-transparent"
+                      )}
+                    >
+                      <Check className="size-3" />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+
+          {/* Footer */}
+          <Card>
+            <CardContent className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Info className="size-4 shrink-0" />
+                <span className="text-sm">
+                  Änderungen werden erst nach dem Speichern öffentlich sichtbar.
+                </span>
+              </div>
+              <Button className="shrink-0">
+                Speichern
+                <ArrowRight />
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Profil;
