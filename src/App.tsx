@@ -32,9 +32,10 @@ import { Dashboard } from "./Dashboard";
 import { Buchhaltung } from "./Buchhaltung";
 import { Fahrschueler } from "./Fahrschueler";
 import { Fahrzeuge } from "./Fahrzeuge";
+import { NeueSchueler } from "./NeueSchueler";
 import { Profil } from "./Profil";
 import { Theorie } from "./Theorie";
-import { Badge } from "@/components/ui/badge";
+import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -72,7 +73,7 @@ const navItems: { label: string; Icon: IconCmp; route?: string }[] = [
   { label: "Profil", Icon: User, route: "/profil" },
   { label: "Theorie", Icon: BookOpen, route: "/theorie" },
   { label: "Unterricht", Icon: Users },
-  { label: "Schüler Anmeldung", Icon: UserPlus },
+  { label: "Schüler Anmeldung", Icon: UserPlus, route: "/neue-schueler" },
 ];
 
 const navGroups: {
@@ -225,17 +226,9 @@ function AppSidebar({
                   size="lg"
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <LayoutGrid className="size-4" />
-                  </div>
-                  <div className="flex flex-1 items-center gap-1.5">
-                    <span className="font-heading text-base font-medium tracking-tight">
-                      Fahrschule
-                    </span>
-                    <Badge variant="secondary" className="px-1.5 text-[10px]">
-                      ADMIN
-                    </Badge>
-                  </div>
+                  <span className="flex-1 font-heading text-base font-medium tracking-tight">
+                    Fahrschule
+                  </span>
                   <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
@@ -323,6 +316,8 @@ export function App() {
       <Buchhaltung />
     ) : path === "/fahrzeuge" ? (
       <Fahrzeuge />
+    ) : path === "/neue-schueler" ? (
+      <NeueSchueler />
     ) : (
       <Dashboard />
     );
@@ -336,6 +331,7 @@ export function App() {
           {page}
         </SidebarInset>
       </SidebarProvider>
+      <Toaster />
       {process.env.NODE_ENV === "development" && <DevAgentation />}
     </TooltipProvider>
   );

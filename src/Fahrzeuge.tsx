@@ -62,7 +62,7 @@ const vehicles: Vehicle[] = [
 
 function VehicleCard({ vehicle }: { vehicle: Vehicle }) {
   return (
-    <Card className="transition-shadow duration-200 ease-snappy hover:shadow-lift">
+    <Card>
       <CardHeader>
         <div className="flex items-start gap-3">
           <div

@@ -63,8 +63,14 @@ function Navigation() {
         </div>
       }
       end={
-        <Button aria-label="Schüler erstellen" size="icon">
-          <Plus />
+        <Button
+          onClick={() => {
+            window.history.pushState({}, "", "/neue-schueler");
+            window.dispatchEvent(new PopStateEvent("popstate"));
+          }}
+        >
+          <Plus data-icon="inline-start" />
+          Schüler anmelden
         </Button>
       }
     />
@@ -286,7 +292,7 @@ function MonthCalendar() {
         </CardTitle>
         <CardDescription>Monatsübersicht</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-3">
         <Calendar
           mode="single"
           required
@@ -295,20 +301,11 @@ function MonthCalendar() {
           defaultMonth={new Date(YEAR, MONTH, 1)}
           weekStartsOn={1}
           showOutsideDays={false}
-          className="w-full [--cell-size:--spacing(9)]"
+          className="mx-auto p-0 [--cell-size:--spacing(8)]"
           modifiers={{ event: eventDates }}
           modifiersClassNames={{
             event:
               "relative after:absolute after:bottom-1 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-amber-500 data-[selected-single=true]:after:bg-primary-foreground",
-          }}
-          classNames={{
-            root: "w-full",
-            months: "flex w-full flex-col",
-            month: "flex w-full flex-col gap-4",
-            month_grid: "grid w-full grid-cols-1 gap-2",
-            weekdays: "grid grid-cols-7",
-            week: "grid grid-cols-7",
-            day: "relative aspect-square h-auto w-full rounded-md p-0 text-center select-none",
           }}
           formatters={{
             formatCaption: d =>
