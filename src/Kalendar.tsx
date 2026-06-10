@@ -29,7 +29,6 @@ import {
   type CalEvent,
   type EventType,
   eventTypeOptions,
-  getCalendarEvents,
   isSameDay,
   parseISODate,
   startOfWeek,
@@ -37,6 +36,12 @@ import {
   toMinutes,
   TODAY,
 } from "@/lib/calendar-data";
+import {
+  deleteCalendarEvent,
+  updateCalendarEvent,
+  useCalendarEvents,
+} from "@/hooks/use-calendar-events";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -471,8 +476,19 @@ export function Kalendar({
 } = {}) {
   const [anchor, setAnchor] = useState<Date>(TODAY);
   const [selected, setSelected] = useState<Date | undefined>(TODAY);
-  const [calendarEvents, setCalendarEvents] =
-    useState<CalEvent[]>(getCalendarEvents);
+  // The DB is the system of record; local state mirrors it for the
+  // synchronous drag/resize updates and is reconciled on failure.
+  const { events: storedEvents, refresh: refreshEvents } = useCalendarEvents();
+  const [calendarEvents, setCalendarEvents] = useState<CalEvent[]>([]);
+  useEffect(() => {
+    setCalendarEvents(storedEvents);
+  }, [storedEvents]);
+  // Lets the drag-end listener read the latest events without re-running
+  // the drag effect on every continuous move.
+  const calendarEventsRef = useRef<CalEvent[]>([]);
+  useEffect(() => {
+    calendarEventsRef.current = calendarEvents;
+  }, [calendarEvents]);
   // Instructor names come from the DB (/api/instructors) so the filter and
   // the edit dialog always match the roster managed on /fahrlehrer.
   const { names: instructorOptions } = useInstructors();
@@ -597,7 +613,25 @@ export function Kalendar({
       event.preventDefault();
       updateEventFromPointer(event.clientX, event.clientY);
     };
-    const stopDragging = () => setDragging(null);
+    const stopDragging = () => {
+      // Persist the dragged event's final position. Read from the ref so
+      // this listener sees the latest local state without re-subscribing
+      // on every move.
+      const moved = calendarEventsRef.current.find(
+        event => event.id === dragging.id
+      );
+      if (moved) {
+        void updateCalendarEvent(Number(moved.id), {
+          date: moved.date,
+          start: moved.start,
+          end: moved.end,
+        }).catch(() => {
+          toast.error("Termin konnte nicht gespeichert werden.");
+          void refreshEvents();
+        });
+      }
+      setDragging(null);
+    };
 
     window.addEventListener("pointermove", handlePointerMove, {
       passive: false,
@@ -610,7 +644,7 @@ export function Kalendar({
       window.removeEventListener("pointerup", stopDragging);
       window.removeEventListener("pointercancel", stopDragging);
     };
-  }, [dragging, weekStart]);
+  }, [dragging, weekStart, refreshEvents]);
 
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
   const days = useMemo(
@@ -678,6 +712,10 @@ export function Kalendar({
 
   const handleEventDelete = (event: CalEvent) => {
     setCalendarEvents(current => current.filter(item => item.id !== event.id));
+    void deleteCalendarEvent(Number(event.id)).catch(() => {
+      toast.error("Termin konnte nicht gelöscht werden.");
+      void refreshEvents();
+    });
   };
 
   const handleEventEdit = (event: CalEvent) => {
@@ -691,6 +729,11 @@ export function Kalendar({
     setCalendarEvents(current =>
       current.map(event => (event.id === id ? updates : event))
     );
+    const { id: _id, ...payload } = updates;
+    void updateCalendarEvent(Number(id), payload).catch(() => {
+      toast.error("Termin konnte nicht gespeichert werden.");
+      void refreshEvents();
+    });
   };
 
   const isCurrentWeek = isSameDay(weekStart, startOfWeek(TODAY));
