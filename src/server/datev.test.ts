@@ -264,6 +264,73 @@ describe("datevAmount", () => {
   });
 });
 
+describe("formula injection", () => {
+  test("= prefix is neutralized with apostrophe", () => {
+    createTransaction(db, {
+      type: "ausgabe",
+      date: "2026-06-08",
+      amountCents: 10000,
+      geldkonto: "1800",
+      aufwandKonto: "6530",
+      description: "=cmd|' /c calc'!A1",
+    });
+    const field = exportLines()[2]!.split(";")[13]!;
+    expect(field).toBe(`"'=cmd|' /c calc'!A1"`);
+  });
+
+  test("+ prefix is neutralized with apostrophe", () => {
+    createTransaction(db, {
+      type: "ausgabe",
+      date: "2026-06-08",
+      amountCents: 10000,
+      geldkonto: "1800",
+      aufwandKonto: "6530",
+      description: "+49 Telefonpauschale",
+    });
+    const field = exportLines()[2]!.split(";")[13]!;
+    expect(field).toBe(`"'+49 Telefonpauschale"`);
+  });
+
+  test("@ prefix is neutralized with apostrophe", () => {
+    createTransaction(db, {
+      type: "ausgabe",
+      date: "2026-06-08",
+      amountCents: 10000,
+      geldkonto: "1800",
+      aufwandKonto: "6530",
+      description: "@sum important",
+    });
+    const field = exportLines()[2]!.split(";")[13]!;
+    expect(field).toBe(`"'@sum important"`);
+  });
+
+  test("trigger char NOT in first position: no apostrophe added", () => {
+    createTransaction(db, {
+      type: "ausgabe",
+      date: "2026-06-08",
+      amountCents: 10000,
+      geldkonto: "1800",
+      aufwandKonto: "6530",
+      description: "Rabatt -10% Aktion",
+    });
+    const field = exportLines()[2]!.split(";")[13]!;
+    expect(field).toBe(`"Rabatt -10% Aktion"`);
+  });
+
+  test("- prefix is neutralized with apostrophe", () => {
+    createTransaction(db, {
+      type: "ausgabe",
+      date: "2026-06-08",
+      amountCents: 10000,
+      geldkonto: "1800",
+      aufwandKonto: "6530",
+      description: "-Anzahlung Storno",
+    });
+    const field = exportLines()[2]!.split(";")[13]!;
+    expect(field).toBe(`"'-Anzahlung Storno"`);
+  });
+});
+
 describe("encodeCp1252", () => {
   test("maps Latin-1 1:1 and CP1252 extras", () => {
     const bytes = encodeCp1252("Gül – 10€ ßä");
