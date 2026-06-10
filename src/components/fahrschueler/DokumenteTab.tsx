@@ -4,7 +4,7 @@
 /* the students API like every other student edit.                     */
 /* ------------------------------------------------------------------ */
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Download, FileText, Plus, Printer, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,7 +19,10 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import type { StudentDocument } from "@/lib/student-data";
+import type {
+  StudentDocument,
+  UploadedStudentDocument,
+} from "@/lib/student-data";
 import {
   fileToStudentDocument,
   getStudentDocumentKey,
@@ -30,6 +33,105 @@ import {
   MAX_STUDENT_DOCUMENT_BYTES,
 } from "@/lib/student-documents";
 import type { StudentEdit } from "./fields";
+
+/* Uniform thumbnail tile; falls back to an icon or extension badge. */
+function DocumentTile({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/40">
+      {children}
+    </div>
+  );
+}
+
+/* Scaled-down first page of a PDF. Chrome's viewer needs a blob URL for
+   the #toolbar fragment params, so the data URL is converted once. */
+function PdfThumbnail({ dataUrl }: { dataUrl: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let url: string | null = null;
+    let cancelled = false;
+    void fetch(dataUrl)
+      .then(response => response.blob())
+      .then(blob => {
+        if (cancelled) return;
+        url = URL.createObjectURL(
+          blob.slice(0, blob.size, "application/pdf")
+        );
+        setBlobUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [dataUrl]);
+
+  if (!blobUrl) {
+    return (
+      <DocumentTile>
+        <FileText className="size-5 text-muted-foreground" />
+      </DocumentTile>
+    );
+  }
+  return (
+    <DocumentTile>
+      <iframe
+        src={`${blobUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+        title="PDF-Vorschau"
+        tabIndex={-1}
+        aria-hidden="true"
+        className="pointer-events-none origin-top-left border-0 bg-white"
+        style={{ width: 192, height: 192, transform: "scale(0.25)" }}
+      />
+    </DocumentTile>
+  );
+}
+
+function UploadedDocumentPreview({
+  document,
+}: {
+  document: UploadedStudentDocument;
+}) {
+  if (document.mimeType.startsWith("image/")) {
+    return (
+      <img
+        src={document.dataUrl}
+        alt=""
+        className="size-12 shrink-0 rounded-md border object-cover"
+      />
+    );
+  }
+  if (document.mimeType === "application/pdf") {
+    return <PdfThumbnail dataUrl={document.dataUrl} />;
+  }
+  const extension = document.name.includes(".")
+    ? document.name.split(".").pop()!.slice(0, 4)
+    : null;
+  return (
+    <DocumentTile>
+      {extension ? (
+        <span className="text-[10px] font-semibold uppercase text-muted-foreground">
+          {extension}
+        </span>
+      ) : (
+        <FileText className="size-5 text-muted-foreground" />
+      )}
+    </DocumentTile>
+  );
+}
+
+function DocumentPreview({ document }: { document: StudentDocument }) {
+  if (isUploadedStudentDocument(document)) {
+    return <UploadedDocumentPreview document={document} />;
+  }
+  // Checklist entry — no file data to preview.
+  return (
+    <DocumentTile>
+      <FileText className="size-5 text-muted-foreground" />
+    </DocumentTile>
+  );
+}
 
 export function DokumenteTab({
   student,
@@ -155,7 +257,9 @@ export function DokumenteTab({
           Vertragsdokumente
         </h3>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
-          <FileText className="text-muted-foreground" />
+          <DocumentTile>
+            <FileText className="size-5 text-muted-foreground" />
+          </DocumentTile>
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-sm font-medium">
               Ausbildungsvertrag · {student.contractNumber}
@@ -232,7 +336,7 @@ export function DokumenteTab({
               className="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:items-center"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <FileText className="text-muted-foreground" />
+                <DocumentPreview document={document} />
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate text-sm font-medium">
                     {getStudentDocumentName(document)}
