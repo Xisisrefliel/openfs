@@ -2,6 +2,7 @@ import "./index.css";
 import { useEffect, useState } from "react";
 import { Agentation } from "agentation";
 import {
+  Archive,
   ArrowLeft,
   ArrowRight,
   BarChart3,
@@ -28,6 +29,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { Archiv } from "./Archiv";
 import { Dashboard } from "./Dashboard";
 import { Buchhaltung } from "./Buchhaltung";
 import { Kalendar } from "./Kalendar";
@@ -234,6 +236,22 @@ function AppSidebar({
             </SidebarMenu>
           </SidebarGroup>
         ))}
+
+        {/* Archiv — Papierkorb für versehentlich gelöschte Einträge */}
+        <SidebarGroup>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Archiv"
+                isActive={path === "/archiv"}
+                onClick={() => navigate("/archiv")}
+              >
+                <Archive className="text-amber-600!" />
+                <span>Archiv</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
@@ -346,6 +364,8 @@ export function App() {
       <NeueSchueler />
     ) : path === "/preisangebot" ? (
       <Preisangebot />
+    ) : path === "/archiv" ? (
+      <Archiv />
     ) : (
       <Dashboard />
     );

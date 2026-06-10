@@ -150,6 +150,16 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 );
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(date);
 
+-- Papierkorb: deleted records land here as raw row snapshots so they can
+-- be restored from the Archiv page (src/server/archive.ts).
+CREATE TABLE IF NOT EXISTS archive (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  entity TEXT NOT NULL CHECK (entity IN ('student','calendar_event','instructor','vehicle','price_plan')),
+  label TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  deleted_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_bookings_transaction ON bookings(transaction_id);
 `;

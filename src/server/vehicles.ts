@@ -5,6 +5,7 @@
 
 import type { Database } from "bun:sqlite";
 
+import { archiveRow } from "./archive";
 import { ValidationError } from "./engine";
 
 export type VehicleStatus = "aktiv" | "wartung";
@@ -278,6 +279,18 @@ export function updateVehicle(
 export function deleteVehicle(db: Database, id: number): void {
   const vehicle = getVehicle(db, id);
   const remove = db.transaction(() => {
+    // Remember who was assigned so a restore can re-link them.
+    const byModel = (table: string) =>
+      db
+        .query<{ id: number }, [string]>(
+          `SELECT id FROM ${table} WHERE vehicle = ?`
+        )
+        .all(vehicle.model)
+        .map(row => row.id);
+    archiveRow(db, "vehicle", id, `${vehicle.model} · ${vehicle.plate}`, {
+      students: byModel("students"),
+      instructors: byModel("instructors"),
+    });
     db.prepare("UPDATE students SET vehicle = ? WHERE vehicle = ?").run(
       UNASSIGNED_VEHICLE,
       vehicle.model

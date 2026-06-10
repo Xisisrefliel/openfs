@@ -7,6 +7,7 @@ import type { Database } from "bun:sqlite";
 import type { BunRequest } from "bun";
 
 import type { CompanyProfile } from "../lib/accounting-types";
+import { listArchive, purgeArchived, restoreArchived } from "./archive";
 import { getCompany, setCompany } from "./db";
 import { generateDatevExport } from "./datev";
 import {
@@ -258,6 +259,36 @@ export function calendarEventRoutes(db: Database) {
             throw new ValidationError("Ungültige Termin-ID.");
           }
           deleteCalendarEvent(db, id);
+          return json({ ok: true });
+        })(),
+    },
+  };
+}
+
+export function archiveRoutes(db: Database) {
+  const parseId = (raw: string): number => {
+    const id = Number(raw);
+    if (!Number.isInteger(id)) {
+      throw new ValidationError("Ungültige Archiv-ID.");
+    }
+    return id;
+  };
+
+  return {
+    "/api/archive": {
+      GET: (req: BunRequest) =>
+        handle(() => json({ items: listArchive(db) }))(),
+    },
+
+    "/api/archive/:id/restore": {
+      POST: (req: BunRequest<"/api/archive/:id/restore">) =>
+        handle(() => json(restoreArchived(db, parseId(req.params.id))))(),
+    },
+
+    "/api/archive/:id": {
+      DELETE: (req: BunRequest<"/api/archive/:id">) =>
+        handle(() => {
+          purgeArchived(db, parseId(req.params.id));
           return json({ ok: true });
         })(),
     },

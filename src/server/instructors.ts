@@ -5,6 +5,7 @@
 
 import type { Database } from "bun:sqlite";
 
+import { archiveRow } from "./archive";
 import { ValidationError } from "./engine";
 
 const UNASSIGNED_INSTRUCTOR = "Nicht zugeteilt";
@@ -171,6 +172,14 @@ export function deleteInstructor(db: Database, id: number): void {
   const name = `${instructor.firstName} ${instructor.lastName}`.trim();
 
   const remove = db.transaction(() => {
+    // Remember who was assigned so a restore can re-link them.
+    const students = db
+      .query<{ id: number }, [string]>(
+        "SELECT id FROM students WHERE instructor = ?"
+      )
+      .all(name)
+      .map(row => row.id);
+    archiveRow(db, "instructor", id, name || "Fahrlehrer/in", { students });
     db.prepare("UPDATE students SET instructor = ? WHERE instructor = ?").run(
       UNASSIGNED_INSTRUCTOR,
       name

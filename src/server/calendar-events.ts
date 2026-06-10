@@ -5,6 +5,7 @@
 
 import type { Database } from "bun:sqlite";
 
+import { archiveRow } from "./archive";
 import { ValidationError } from "./engine";
 
 export type CalendarEventType =
@@ -241,6 +242,15 @@ export function updateCalendarEvent(
 }
 
 export function deleteCalendarEvent(db: Database, id: number): void {
-  getCalendarEvent(db, id);
-  db.prepare("DELETE FROM calendar_events WHERE id = ?").run(id);
+  const event = getCalendarEvent(db, id);
+  const remove = db.transaction(() => {
+    archiveRow(
+      db,
+      "calendar_event",
+      id,
+      `${event.title} · ${event.date} ${event.start}`
+    );
+    db.prepare("DELETE FROM calendar_events WHERE id = ?").run(id);
+  });
+  remove();
 }

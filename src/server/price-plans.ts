@@ -10,6 +10,7 @@ import type {
   PricePlanInput,
   PricePlanRecord,
 } from "../lib/price-plan";
+import { archiveRow } from "./archive";
 import { ValidationError } from "./engine";
 
 type PricePlanRow = {
@@ -151,8 +152,16 @@ export function updatePricePlan(
 }
 
 export function deletePricePlan(db: Database, id: number) {
-  getPricePlan(db, id); // 404 → ValidationError
+  const plan = getPricePlan(db, id); // 404 → ValidationError
   const remove = db.transaction(() => {
+    // Remember who was on the plan so a restore can re-link them.
+    const students = db
+      .query<{ id: number }, [number]>(
+        "SELECT id FROM students WHERE price_plan_id = ?"
+      )
+      .all(id)
+      .map(row => row.id);
+    archiveRow(db, "price_plan", id, plan.name, { students });
     // Students fall back to the default plan instead of dangling.
     db.prepare(
       "UPDATE students SET price_plan_id = NULL WHERE price_plan_id = ?"

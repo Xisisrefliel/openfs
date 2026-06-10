@@ -6,6 +6,7 @@
 import type { Database, SQLQueryBindings } from "bun:sqlite";
 
 import type { Student } from "../lib/student-data";
+import { archiveRow } from "./archive";
 import { ValidationError } from "./engine";
 
 export type StudentRecord = Student & { id: number };
@@ -291,6 +292,16 @@ export function updateStudent(
 }
 
 export function deleteStudent(db: Database, id: number): void {
-  getStudent(db, id); // throws ValidationError if unknown
-  db.prepare("DELETE FROM students WHERE id = ?").run(id);
+  const student = getStudent(db, id); // throws ValidationError if unknown
+  const remove = db.transaction(() => {
+    archiveRow(
+      db,
+      "student",
+      id,
+      `${student.firstName} ${student.lastName}`.trim() ||
+        `Vertrag ${student.contractNumber}`
+    );
+    db.prepare("DELETE FROM students WHERE id = ?").run(id);
+  });
+  remove();
 }

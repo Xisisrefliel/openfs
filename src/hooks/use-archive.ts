@@ -1,0 +1,47 @@
+/* ------------------------------------------------------------------ */
+/* Archiv — deleted records (Papierkorb) from /api/archive.            */
+/* Restore re-creates the original record; purge removes it forever.   */
+/* ------------------------------------------------------------------ */
+
+import { parseOrThrow, useFetchList } from "@/lib/api";
+
+export type ArchiveEntity =
+  | "student"
+  | "calendar_event"
+  | "instructor"
+  | "vehicle"
+  | "price_plan";
+
+export type ArchiveItem = {
+  id: number;
+  entity: ArchiveEntity;
+  label: string;
+  deletedAt: string;
+};
+
+export async function fetchArchive(): Promise<ArchiveItem[]> {
+  const data = await parseOrThrow<{ items: ArchiveItem[] }>(
+    await fetch("/api/archive")
+  );
+  return data.items;
+}
+
+export async function restoreArchived(id: number): Promise<ArchiveItem> {
+  return parseOrThrow<ArchiveItem>(
+    await fetch(`/api/archive/${id}/restore`, { method: "POST" })
+  );
+}
+
+export async function purgeArchived(id: number): Promise<void> {
+  await parseOrThrow<{ ok: true }>(
+    await fetch(`/api/archive/${id}`, { method: "DELETE" })
+  );
+}
+
+export function useArchive() {
+  const { items, loading, refresh } = useFetchList(
+    fetchArchive,
+    "Archiv konnte nicht geladen werden"
+  );
+  return { items, loading, refresh };
+}

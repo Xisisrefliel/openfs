@@ -6,6 +6,7 @@ import { openDb } from "./server/db";
 import { seedTransactions } from "./server/seed";
 import {
   accountingRoutes,
+  archiveRoutes,
   calendarEventRoutes,
   instructorRoutes,
   pricePlanRoutes,
@@ -24,6 +25,7 @@ const server = serve({
     "/*": index,
 
     ...accountingRoutes(db),
+    ...archiveRoutes(db),
     ...calendarEventRoutes(db),
     ...instructorRoutes(db),
     ...pricePlanRoutes(db),
