@@ -22,6 +22,13 @@ import {
   updatePricePlan,
 } from "./price-plans";
 import { createStudent, deleteStudent, listStudents, updateStudent } from "./students";
+import {
+  createCalendarEvent,
+  type CalendarEventInput,
+  deleteCalendarEvent,
+  listCalendarEvents,
+  updateCalendarEvent,
+} from "./calendar-events";
 import { getVehicleOptions } from "../lib/vehicle-options";
 import {
   createVehicle,
@@ -206,6 +213,51 @@ export function vehicleRoutes(db: Database) {
             throw new ValidationError("Ungültige Fahrzeug-ID.");
           }
           deleteVehicle(db, id);
+          return json({ ok: true });
+        })(),
+    },
+  };
+}
+
+export function calendarEventRoutes(db: Database) {
+  return {
+    "/api/calendar-events": {
+      GET: (req: BunRequest) =>
+        handle(() => {
+          const params = new URL(req.url).searchParams;
+          const events = listCalendarEvents(db, {
+            from: params.get("from") ?? undefined,
+            to: params.get("to") ?? undefined,
+          });
+          return json({ events });
+        })(),
+      POST: (req: BunRequest) =>
+        handle(async () =>
+          json(
+            createCalendarEvent(db, (await req.json()) as Partial<CalendarEventInput>),
+            201
+          )
+        )(),
+    },
+
+    "/api/calendar-events/:id": {
+      PATCH: (req: BunRequest<"/api/calendar-events/:id">) =>
+        handle(async () => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Termin-ID.");
+          }
+          return json(
+            updateCalendarEvent(db, id, (await req.json()) as Partial<CalendarEventInput>)
+          );
+        })(),
+      DELETE: (req: BunRequest<"/api/calendar-events/:id">) =>
+        handle(() => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Termin-ID.");
+          }
+          deleteCalendarEvent(db, id);
           return json({ ok: true });
         })(),
     },

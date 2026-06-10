@@ -10,6 +10,7 @@ import { serve } from "bun";
 import { openDb } from "./db";
 import {
   accountingRoutes,
+  calendarEventRoutes,
   instructorRoutes,
   pricePlanRoutes,
   studentRoutes,
@@ -29,6 +30,7 @@ beforeAll(() => {
     port: 0,
     routes: {
       ...accountingRoutes(db),
+      ...calendarEventRoutes(db),
       ...instructorRoutes(db),
       ...pricePlanRoutes(db),
       ...studentRoutes(db),
@@ -238,6 +240,80 @@ describe("GET /api/vehicle-options", () => {
     expect(Array.isArray(body.vehicleOptions)).toBe(true);
     const options = body.vehicleOptions;
     expect(options[options.length - 1]).toBe("Nicht zugeteilt");
+  });
+});
+
+/* ================================================================== */
+/* Calendar events                                                      */
+/* ================================================================== */
+
+const validEvent = {
+  date: "2026-06-10",
+  start: "09:00",
+  end: "10:00",
+  title: "Route-Test Termin",
+  instructor: "Köksal Gül",
+  type: "Praktisch",
+};
+
+describe("GET /api/calendar-events", () => {
+  test("returns 200 with events array (9 seeded)", async () => {
+    const res = await fetch(url("/api/calendar-events"));
+    expect(res.status).toBe(200);
+    const body = await res.json() as { events: unknown[] };
+    expect(Array.isArray(body.events)).toBe(true);
+    expect(body.events.length).toBeGreaterThanOrEqual(9);
+  });
+});
+
+describe("POST /api/calendar-events", () => {
+  test("valid body → 201 with string id", async () => {
+    const res = await fetch(url("/api/calendar-events"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validEvent),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json() as { id: string };
+    expect(typeof body.id).toBe("string");
+    expect(body.id.length).toBeGreaterThan(0);
+  });
+
+  test("end before start → 400", async () => {
+    const res = await fetch(url("/api/calendar-events"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...validEvent, start: "12:00", end: "11:00" }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Ende");
+  });
+});
+
+describe("DELETE /api/calendar-events/:id", () => {
+  test("valid id → 200 { ok: true }", async () => {
+    const postRes = await fetch(url("/api/calendar-events"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(validEvent),
+    });
+    const created = await postRes.json() as { id: string };
+    const delRes = await fetch(url(`/api/calendar-events/${created.id}`), {
+      method: "DELETE",
+    });
+    expect(delRes.status).toBe(200);
+    const delBody = await delRes.json() as { ok: boolean };
+    expect(delBody.ok).toBe(true);
+  });
+
+  test("non-numeric id 'abc' → 400 with Ungültige message", async () => {
+    const res = await fetch(url("/api/calendar-events/abc"), {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Ungültige");
   });
 });
 
