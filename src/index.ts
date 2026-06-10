@@ -4,7 +4,13 @@ import index from "./index.html";
 
 import { openDb } from "./server/db";
 import { seedTransactions } from "./server/seed";
-import { accountingRoutes } from "./server/routes";
+import {
+  accountingRoutes,
+  instructorRoutes,
+  pricePlanRoutes,
+  studentRoutes,
+  vehicleRoutes,
+} from "./server/routes";
 
 // SQLite needs the directory to exist before it can create the file.
 mkdirSync("data", { recursive: true });
@@ -17,6 +23,10 @@ const server = serve({
     "/*": index,
 
     ...accountingRoutes(db),
+    ...instructorRoutes(db),
+    ...pricePlanRoutes(db),
+    ...studentRoutes(db),
+    ...vehicleRoutes(db),
   },
 
   development: process.env.NODE_ENV !== "production" && {

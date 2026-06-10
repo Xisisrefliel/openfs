@@ -1,12 +1,11 @@
 /* ------------------------------------------------------------------ */
-/* Student data — single source of truth                               */
+/* Student data — types + one-time DB seed                             */
 /*                                                                     */
-/* Both the student roster (/fahrschueler) and the theory overview     */
-/* (/theorie) read the same students from here, so the two pages       */
-/* always show the same people. Each page derives its own view:        */
-/* /fahrschueler uses the contract/training fields, /theorie uses the  */
-/* `theory` sub-record. When real data is wired up later, only this    */
-/* file needs to change.                                               */
+/* At runtime the students live in SQLite (students table, served via  */
+/* /api/students) — pages read them through the useStudents() hook so  */
+/* edits persist. The array below is only imported by the server to    */
+/* seed an empty database (src/server/db.ts) and to map the demo       */
+/* accounting transactions (src/server/seed.ts).                       */
 /* ------------------------------------------------------------------ */
 
 export type StudentStatus = "aktiv" | "inaktiv";
@@ -43,6 +42,8 @@ export type Student = {
   vehicle: string;
   // Billing
   balance: string;
+  /** Assigned Preisplan (price_plans.id) — null/undefined = default plan. */
+  pricePlanId?: number | null;
   // Practical training
   lastLesson: string;
   nextLesson: string;
@@ -101,7 +102,7 @@ export const students: Student[] = [
     contractNumber: "V-2026-1018",
     customerNumber: "10058",
     status: "aktiv",
-    instructor: "Emre Guel",
+    instructor: "Emre Gül",
     vehicle: "Audi A3",
     balance: "-85,00 EUR",
     lastLesson: "07.06.2026, 11:00",

@@ -96,6 +96,25 @@ function requireAccount(
   return account;
 }
 
+/* The Anzahlungs- and Geldtransit-Konten are unique per chart — look   */
+/* them up by role so the engine stays independent of the Kontenrahmen  */
+/* (SKR 04: 3272 / 1460).                                               */
+function requireAccountOfKind(
+  db: Database,
+  kind: Account["kind"],
+  role: string
+): Account {
+  const row = db
+    .query<AccountRow, [string]>(
+      "SELECT * FROM accounts WHERE kind = ? AND active = 1 ORDER BY number LIMIT 1"
+    )
+    .get(kind);
+  if (!row) {
+    throw new ValidationError(`${role}: Es ist kein aktives Konto hinterlegt.`);
+  }
+  return toAccount(row);
+}
+
 /* --------------------------- validation --------------------------- */
 
 const PAYMENT_METHODS: PaymentMethod[] = ["bar", "ueberweisung", "ec"];
@@ -195,7 +214,7 @@ export function createTransaction(
   switch (input.type) {
     case "zahlung_guthaben": {
       const geldkonto = requireAccount(db, input.geldkonto, ["geldkonto"], "Geldkonto");
-      const anzahlung = requireAccount(db, "1718", ["anzahlung"], "Guthabenkonto");
+      const anzahlung = requireAccountOfKind(db, "anzahlung", "Guthabenkonto");
       paymentMethod = requirePaymentMethod(input.paymentMethod);
       student = requireStudent(input.student);
       if (!description) {
@@ -237,7 +256,7 @@ export function createTransaction(
       break;
     }
     case "guthaben_uebertragung": {
-      const anzahlung = requireAccount(db, "1718", ["anzahlung"], "Guthabenkonto");
+      const anzahlung = requireAccountOfKind(db, "anzahlung", "Guthabenkonto");
       const haben = requireAccount(
         db,
         input.habenKonto,
@@ -266,7 +285,7 @@ export function createTransaction(
       if (from.number === to.number) {
         throw new ValidationError("Transfer benötigt zwei verschiedene Geldkonten.");
       }
-      const transit = requireAccount(db, "1360", ["transit"], "Geldtransit");
+      const transit = requireAccountOfKind(db, "transit", "Geldtransit");
       bookings = [
         { soll: transit, haben: from, amountCents, vatAccount: null, lineDescription: "" },
         { soll: to, haben: transit, amountCents, vatAccount: null, lineDescription: "" },

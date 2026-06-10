@@ -10,6 +10,27 @@ import type { CompanyProfile } from "../lib/accounting-types";
 import { getCompany, setCompany } from "./db";
 import { generateDatevExport } from "./datev";
 import {
+  createInstructor,
+  deleteInstructor,
+  listInstructors,
+  updateInstructor,
+} from "./instructors";
+import {
+  createPricePlan,
+  deletePricePlan,
+  listPricePlans,
+  updatePricePlan,
+} from "./price-plans";
+import { createStudent, listStudents, updateStudent } from "./students";
+import { getVehicleOptions } from "../lib/vehicle-options";
+import {
+  createVehicle,
+  type VehicleInput,
+  listVehicleModels,
+  listVehicles,
+  updateVehicle,
+} from "./vehicles";
+import {
   createTransaction,
   getQuittung,
   listAccounts,
@@ -48,6 +69,126 @@ function filterFromUrl(url: string): ListFilter {
     q: params.get("q")?.trim() || undefined,
     status:
       status === "active" || status === "storniert" ? status : "all",
+  };
+}
+
+export function instructorRoutes(db: Database) {
+  return {
+    "/api/instructors": {
+      GET: (req: BunRequest) =>
+        handle(() => json({ instructors: listInstructors(db) }))(),
+      POST: (req: BunRequest) =>
+        handle(async () => json(createInstructor(db, await req.json()), 201))(),
+    },
+
+    "/api/instructors/:id": {
+      PATCH: (req: BunRequest<"/api/instructors/:id">) =>
+        handle(async () => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Fahrlehrer-ID.");
+          }
+          return json(updateInstructor(db, id, await req.json()));
+        })(),
+      DELETE: (req: BunRequest<"/api/instructors/:id">) =>
+        handle(() => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Fahrlehrer-ID.");
+          }
+          deleteInstructor(db, id);
+          return json({ ok: true });
+        })(),
+    },
+  };
+}
+
+export function studentRoutes(db: Database) {
+  return {
+    "/api/students": {
+      GET: (req: BunRequest) =>
+        handle(() => json({ students: listStudents(db) }))(),
+      POST: (req: BunRequest) =>
+        handle(async () => json(createStudent(db, await req.json()), 201))(),
+    },
+
+    "/api/students/:id": {
+      PATCH: (req: BunRequest<"/api/students/:id">) =>
+        handle(async () => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Fahrschüler-ID.");
+          }
+          return json(updateStudent(db, id, await req.json()));
+        })(),
+    },
+  };
+}
+
+export function pricePlanRoutes(db: Database) {
+  return {
+    "/api/price-plans": {
+      GET: (req: BunRequest) =>
+        handle(() => json({ plans: listPricePlans(db) }))(),
+      POST: (req: BunRequest) =>
+        handle(async () => json(createPricePlan(db, await req.json()), 201))(),
+    },
+
+    "/api/price-plans/:id": {
+      PATCH: (req: BunRequest<"/api/price-plans/:id">) =>
+        handle(async () => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Preisplan-ID.");
+          }
+          return json(updatePricePlan(db, id, await req.json()));
+        })(),
+      DELETE: (req: BunRequest<"/api/price-plans/:id">) =>
+        handle(() => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Preisplan-ID.");
+          }
+          deletePricePlan(db, id);
+          return json({ ok: true });
+        })(),
+    },
+  };
+}
+
+export function vehicleRoutes(db: Database) {
+  return {
+    "/api/vehicle-options": {
+      GET: () => {
+        const models = listVehicleModels(db);
+        const defaults = getVehicleOptions();
+        const unassigned = "Nicht zugeteilt";
+        const options = new Set<string>(defaults.filter(value => value !== unassigned));
+        for (const model of models) {
+          options.add(model);
+        }
+        return json({ vehicleOptions: [...options, unassigned] });
+      },
+    },
+
+    "/api/vehicles": {
+      GET: () => json({ vehicles: listVehicles(db) }),
+      POST: (req: BunRequest) =>
+        handle(async () => 
+          json(createVehicle(db, (await req.json()) as Partial<VehicleInput>), 201)
+        )(),
+    },
+
+    "/api/vehicles/:id": {
+      PATCH: (req: BunRequest<"/api/vehicles/:id">) =>
+        handle(async () => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Fahrzeug-ID.");
+          }
+          return json(updateVehicle(db, id, await req.json()));
+        })(),
+    },
   };
 }
 

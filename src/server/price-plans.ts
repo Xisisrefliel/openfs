@@ -1,0 +1,163 @@
+/* ------------------------------------------------------------------ */
+/* Preispläne — DB access + validation.                                */
+/* The HTTP wrappers live in routes.ts (pricePlanRoutes).              */
+/* ------------------------------------------------------------------ */
+
+import type { Database } from "bun:sqlite";
+
+import type {
+  PriceComponent,
+  PricePlanInput,
+  PricePlanRecord,
+} from "../lib/price-plan";
+import { ValidationError } from "./engine";
+
+type PricePlanRow = {
+  id: number;
+  name: string;
+  guaranteed_months: number;
+  components: string;
+};
+
+const toPlan = (row: PricePlanRow): PricePlanRecord => ({
+  id: row.id,
+  name: row.name,
+  guaranteedMonths: row.guaranteed_months,
+  components: JSON.parse(row.components),
+});
+
+const SELECT = `SELECT id, name, guaranteed_months, components FROM price_plans`;
+
+export function listPricePlans(db: Database): PricePlanRecord[] {
+  return db
+    .query<PricePlanRow, []>(`${SELECT} ORDER BY id`)
+    .all()
+    .map(toPlan);
+}
+
+export function getPricePlan(db: Database, id: number): PricePlanRecord {
+  const row = db.query<PricePlanRow, [number]>(`${SELECT} WHERE id = ?`).get(id);
+  if (!row) throw new ValidationError("Preisplan nicht gefunden.");
+  return toPlan(row);
+}
+
+function normalizeComponents(input: unknown): PriceComponent[] {
+  if (!Array.isArray(input)) {
+    throw new ValidationError("Feld 'components' muss eine Liste sein.");
+  }
+  return input.map(entry => {
+    if (typeof entry !== "object" || entry === null) {
+      throw new ValidationError("Jede Preiskomponente muss ein Objekt sein.");
+    }
+    const { label, durationMin, priceCents } = entry as PriceComponent;
+    if (typeof label !== "string" || !label.trim()) {
+      throw new ValidationError("Jede Preiskomponente braucht eine Bezeichnung.");
+    }
+    if (
+      durationMin != null &&
+      (!Number.isInteger(durationMin) || durationMin <= 0)
+    ) {
+      throw new ValidationError(
+        `Dauer von '${label.trim()}' muss eine positive Minutenzahl sein.`
+      );
+    }
+    if (
+      priceCents !== null &&
+      (!Number.isInteger(priceCents) || priceCents < 0)
+    ) {
+      throw new ValidationError(
+        `Preis von '${label.trim()}' muss ein Betrag in Cent (>= 0) sein.`
+      );
+    }
+    return {
+      label: label.trim(),
+      durationMin: durationMin ?? null,
+      priceCents,
+    };
+  });
+}
+
+function normalize(
+  input: Partial<PricePlanInput>,
+  current: PricePlanInput
+): PricePlanInput {
+  const next: PricePlanInput = { ...current };
+
+  if (input.name !== undefined) {
+    if (typeof input.name !== "string" || !input.name.trim()) {
+      throw new ValidationError("Der Name des Preisplans ist ein Pflichtfeld.");
+    }
+    next.name = input.name.trim();
+  }
+
+  if (input.guaranteedMonths !== undefined) {
+    const months = Number(input.guaranteedMonths);
+    if (!Number.isInteger(months) || months < 0) {
+      throw new ValidationError(
+        "Garantierter Zeitraum muss eine Monatszahl (>= 0) sein."
+      );
+    }
+    next.guaranteedMonths = months;
+  }
+
+  if (input.components !== undefined) {
+    next.components = normalizeComponents(input.components);
+  }
+
+  if (!next.name) {
+    throw new ValidationError("Der Name des Preisplans ist ein Pflichtfeld.");
+  }
+  if (next.components.length === 0) {
+    throw new ValidationError(
+      "Ein Preisplan braucht mindestens eine Preiskomponente."
+    );
+  }
+
+  return next;
+}
+
+const EMPTY: PricePlanInput = {
+  name: "",
+  guaranteedMonths: 0,
+  components: [],
+};
+
+export function createPricePlan(
+  db: Database,
+  input: Partial<PricePlanInput>
+): PricePlanRecord {
+  const data = normalize(input, EMPTY);
+  const row = db
+    .query<{ id: number }, [string, number, string]>(
+      `INSERT INTO price_plans (name, guaranteed_months, components)
+       VALUES (?, ?, ?) RETURNING id`
+    )
+    .get(data.name, data.guaranteedMonths, JSON.stringify(data.components))!;
+  return getPricePlan(db, row.id);
+}
+
+export function updatePricePlan(
+  db: Database,
+  id: number,
+  input: Partial<PricePlanInput>
+): PricePlanRecord {
+  const current = getPricePlan(db, id);
+  const data = normalize(input, current);
+  db.prepare(
+    `UPDATE price_plans SET name = ?, guaranteed_months = ?, components = ?
+     WHERE id = ?`
+  ).run(data.name, data.guaranteedMonths, JSON.stringify(data.components), id);
+  return getPricePlan(db, id);
+}
+
+export function deletePricePlan(db: Database, id: number) {
+  getPricePlan(db, id); // 404 → ValidationError
+  const remove = db.transaction(() => {
+    // Students fall back to the default plan instead of dangling.
+    db.prepare(
+      "UPDATE students SET price_plan_id = NULL WHERE price_plan_id = ?"
+    ).run(id);
+    db.prepare("DELETE FROM price_plans WHERE id = ?").run(id);
+  });
+  remove();
+}

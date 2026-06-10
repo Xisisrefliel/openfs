@@ -11,6 +11,8 @@
 import { Database } from "bun:sqlite";
 
 import type { AccountKind, CompanyProfile } from "../lib/accounting-types";
+import { PRICE_PLAN_SEED } from "../lib/price-plan";
+import { students as STUDENT_SEED } from "../lib/student-data";
 
 export const DDL = `
 CREATE TABLE IF NOT EXISTS accounts (
@@ -67,6 +69,66 @@ CREATE TABLE IF NOT EXISTS sequences (
   value INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS price_plans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  guaranteed_months INTEGER NOT NULL DEFAULT 0,
+  components TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS students (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  birthday TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT '',
+  classes TEXT NOT NULL DEFAULT '',
+  driving_school TEXT NOT NULL DEFAULT '',
+  registration_date TEXT NOT NULL DEFAULT '',
+  contract_number TEXT NOT NULL UNIQUE,
+  customer_number TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'aktiv' CHECK (status IN ('aktiv', 'inaktiv')),
+  instructor TEXT NOT NULL DEFAULT 'Nicht zugeteilt',
+  vehicle TEXT NOT NULL DEFAULT 'Nicht zugeteilt',
+  balance TEXT NOT NULL DEFAULT '0,00 EUR',
+  last_lesson TEXT NOT NULL DEFAULT 'Nicht geplant',
+  next_lesson TEXT NOT NULL DEFAULT 'Nicht geplant',
+  progress INTEGER NOT NULL DEFAULT 0,
+  lessons TEXT NOT NULL DEFAULT '[]',
+  documents TEXT NOT NULL DEFAULT '[]',
+  theory TEXT NOT NULL DEFAULT '{}',
+  price_plan_id INTEGER REFERENCES price_plans(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS instructors (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  first_name TEXT NOT NULL,
+  last_name TEXT NOT NULL,
+  phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  classes TEXT NOT NULL DEFAULT '',
+  vehicle TEXT NOT NULL DEFAULT '',
+  since TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'aktiv' CHECK (status IN ('aktiv', 'inaktiv')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS vehicles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  model TEXT NOT NULL,
+  plate TEXT NOT NULL UNIQUE,
+  klass TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'aktiv' CHECK (status IN ('aktiv', 'wartung')),
+  accent TEXT NOT NULL DEFAULT 'bg-slate-500/10 text-slate-600',
+  details TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -76,7 +138,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_bookings_transaction ON bookings(transaction_id);
 `;
 
-/* SKR 03 — verified against the published DATEV chart (Ecovis listing). */
+/* SKR 04 — verified against the published DATEV chart (Ecovis listing). */
 type AccountSeed = {
   number: string;
   name: string;
@@ -87,27 +149,97 @@ type AccountSeed = {
   openingDate?: string;
 };
 
-export const SKR03_ACCOUNTS: AccountSeed[] = [
-  { number: "1000", name: "Kasse", kind: "geldkonto", vatRate: null, vatLabel: "Nicht zutreffend", openingCents: 348457, openingDate: "2026-01-01" },
-  { number: "1200", name: "Bank", kind: "geldkonto", vatRate: null, vatLabel: "Nicht zutreffend", openingCents: 1600000, openingDate: "2026-01-01" },
-  { number: "1360", name: "Geldtransit", kind: "transit", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "1576", name: "Abziehbare Vorsteuer 19 %", kind: "steuer", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "1590", name: "Durchlaufende Posten", kind: "durchlaufend", vatRate: null, vatLabel: "Durchlaufende Posten" },
-  { number: "1718", name: "Erhaltene Anzahlungen 19 % USt", kind: "anzahlung", vatRate: 19, vatLabel: "19%" },
-  { number: "1776", name: "Umsatzsteuer 19 %", kind: "steuer", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "1800", name: "Privatentnahmen allgemein", kind: "privat", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "1890", name: "Privateinlagen", kind: "privat", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "2110", name: "Zinsaufwendungen für kurzfristige Verbindlichkeiten", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
-  { number: "4210", name: "Miete (unbewegliche Wirtschaftsgüter)", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
-  { number: "4510", name: "Kfz-Steuern", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
-  { number: "4520", name: "Kfz-Versicherungen", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
-  { number: "4530", name: "Laufende Kfz-Betriebskosten", kind: "aufwand", vatRate: 19, vatLabel: "19%" },
-  { number: "4540", name: "Kfz-Reparaturen", kind: "aufwand", vatRate: 19, vatLabel: "19%" },
-  { number: "4930", name: "Bürobedarf", kind: "aufwand", vatRate: 19, vatLabel: "19%" },
-  { number: "8100", name: "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG (Ausbildung § 4 Nr. 21)", kind: "erloes", vatRate: 0, vatLabel: "steuerfrei § 4 UStG" },
-  { number: "8300", name: "Erlöse 7 % USt", kind: "erloes", vatRate: 7, vatLabel: "7%" },
-  { number: "8400", name: "Erlöse 19 % USt", kind: "erloes", vatRate: 19, vatLabel: "19%" },
+export const SKR04_ACCOUNTS: AccountSeed[] = [
+  { number: "1370", name: "Durchlaufende Posten", kind: "durchlaufend", vatRate: null, vatLabel: "Durchlaufende Posten" },
+  { number: "1406", name: "Abziehbare Vorsteuer 19 %", kind: "steuer", vatRate: null, vatLabel: "Nicht zutreffend" },
+  { number: "1460", name: "Geldtransit", kind: "transit", vatRate: null, vatLabel: "Nicht zutreffend" },
+  { number: "1600", name: "Kasse", kind: "geldkonto", vatRate: null, vatLabel: "Nicht zutreffend", openingCents: 348457, openingDate: "2026-01-01" },
+  { number: "1800", name: "Bank", kind: "geldkonto", vatRate: null, vatLabel: "Nicht zutreffend", openingCents: 1600000, openingDate: "2026-01-01" },
+  { number: "2100", name: "Privatentnahmen allgemein", kind: "privat", vatRate: null, vatLabel: "Nicht zutreffend" },
+  { number: "2180", name: "Privateinlagen", kind: "privat", vatRate: null, vatLabel: "Nicht zutreffend" },
+  { number: "3272", name: "Erhaltene Anzahlungen 19 % USt", kind: "anzahlung", vatRate: 19, vatLabel: "19%" },
+  { number: "3806", name: "Umsatzsteuer 19 %", kind: "steuer", vatRate: null, vatLabel: "Nicht zutreffend" },
+  { number: "4100", name: "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG (Ausbildung § 4 Nr. 21)", kind: "erloes", vatRate: 0, vatLabel: "steuerfrei § 4 UStG" },
+  { number: "4300", name: "Erlöse 7 % USt", kind: "erloes", vatRate: 7, vatLabel: "7%" },
+  { number: "4400", name: "Erlöse 19 % USt", kind: "erloes", vatRate: 19, vatLabel: "19%" },
+  { number: "6310", name: "Miete (unbewegliche Wirtschaftsgüter)", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
+  { number: "6520", name: "Kfz-Versicherungen", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
+  { number: "6530", name: "Laufende Kfz-Betriebskosten", kind: "aufwand", vatRate: 19, vatLabel: "19%" },
+  { number: "6540", name: "Kfz-Reparaturen", kind: "aufwand", vatRate: 19, vatLabel: "19%" },
+  { number: "6815", name: "Bürobedarf", kind: "aufwand", vatRate: 19, vatLabel: "19%" },
+  { number: "7310", name: "Zinsaufwendungen für kurzfristige Verbindlichkeiten", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
+  { number: "7685", name: "Kfz-Steuern", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
 ];
+
+/* Databases created before the SKR-04 switch hold SKR-03 numbers.       */
+/* Same accounts, different numbering scheme — remap in place so         */
+/* existing Buchungen stay intact (GoBD: no data is lost or altered      */
+/* beyond the account numbering).                                        */
+const SKR03_TO_SKR04: [string, string][] = [
+  ["1000", "1600"], // Kasse
+  ["1200", "1800"], // Bank
+  ["1360", "1460"], // Geldtransit
+  ["1576", "1406"], // Abziehbare Vorsteuer 19 %
+  ["1590", "1370"], // Durchlaufende Posten
+  ["1718", "3272"], // Erhaltene Anzahlungen 19 % USt
+  ["1776", "3806"], // Umsatzsteuer 19 %
+  ["1800", "2100"], // Privatentnahmen allgemein
+  ["1890", "2180"], // Privateinlagen
+  ["2110", "7310"], // Zinsaufwendungen kurzfristige Verbindlichkeiten
+  ["4210", "6310"], // Miete
+  ["4510", "7685"], // Kfz-Steuern
+  ["4520", "6520"], // Kfz-Versicherungen
+  ["4530", "6530"], // Laufende Kfz-Betriebskosten
+  ["4540", "6540"], // Kfz-Reparaturen
+  ["4930", "6815"], // Bürobedarf
+  ["8100", "4100"], // Steuerfreie Umsätze § 4 Nr. 8 ff. UStG
+  ["8300", "4300"], // Erlöse 7 % USt
+  ["8400", "4400"], // Erlöse 19 % USt
+];
+
+export function migrateSkr03ToSkr04(db: Database) {
+  // Detect an SKR-03 database: the old Erlöskonto exists, the new not.
+  const has = (number: string) =>
+    db
+      .query<{ n: number }, [string]>(
+        "SELECT count(*) AS n FROM accounts WHERE number = ?"
+      )
+      .get(number)!.n > 0;
+  if (!has("8400") || has("4400")) return;
+
+  // Old "1800 Privatentnahmen" collides with new "1800 Bank", so the
+  // rename runs two-phased over temporary numbers. FK checks are off
+  // while parent keys move.
+  db.exec("PRAGMA foreign_keys = OFF;");
+  const migrate = db.transaction(() => {
+    // Phase 1: park every old number on a temp name. This must happen
+    // for accounts AND bookings before any new number is assigned —
+    // otherwise a freshly assigned number (e.g. 1800 Bank) would be
+    // re-matched by a later rule (alt 1800 Privatentnahmen → 2100).
+    const accountTemp = db.prepare(
+      "UPDATE accounts SET number = ? WHERE number = ?"
+    );
+    const sollTemp = db.prepare(
+      "UPDATE bookings SET soll_account = ? WHERE soll_account = ?"
+    );
+    const habenTemp = db.prepare(
+      "UPDATE bookings SET haben_account = ? WHERE haben_account = ?"
+    );
+    for (const [oldNr] of SKR03_TO_SKR04) {
+      accountTemp.run(`alt:${oldNr}`, oldNr);
+      sollTemp.run(`alt:${oldNr}`, oldNr);
+      habenTemp.run(`alt:${oldNr}`, oldNr);
+    }
+    // Phase 2: temp → final SKR-04 numbers.
+    for (const [oldNr, newNr] of SKR03_TO_SKR04) {
+      accountTemp.run(newNr, `alt:${oldNr}`);
+      sollTemp.run(newNr, `alt:${oldNr}`);
+      habenTemp.run(newNr, `alt:${oldNr}`);
+    }
+  });
+  migrate();
+  db.exec("PRAGMA foreign_keys = ON;");
+}
 
 export const DEFAULT_COMPANY: CompanyProfile = {
   name: "Fahrschule Gül",
@@ -126,10 +258,182 @@ export function openDb(path = "data/fahrschule.db"): Database {
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(DDL);
+  migrateSkr03ToSkr04(db);
+  migrateStudentPricePlan(db);
   initAccounts(db);
   initSequences(db);
   initSettings(db);
+  initVehicles(db);
+  initInstructors(db);
+  initStudents(db);
+  initPricePlans(db);
   return db;
+}
+
+/* Databases created before price plans existed lack the column on
+   students — CREATE TABLE IF NOT EXISTS won't add it, so ALTER does. */
+export function migrateStudentPricePlan(db: Database) {
+  const columns = db
+    .query<{ name: string }, []>("PRAGMA table_info(students)")
+    .all();
+  if (columns.some(column => column.name === "price_plan_id")) return;
+  db.exec(
+    "ALTER TABLE students ADD COLUMN price_plan_id INTEGER REFERENCES price_plans(id)"
+  );
+}
+
+/* Seed price plans — the demo tariffs from src/lib/price-plan.ts. After
+   this one-time import the DB is the source of truth (/api/price-plans). */
+function initPricePlans(db: Database) {
+  const count = db
+    .query<{ n: number }, []>("SELECT count(*) AS n FROM price_plans")
+    .get()!.n;
+  if (count > 0) return;
+  const insert = db.prepare(
+    `INSERT INTO price_plans (name, guaranteed_months, components)
+     VALUES (?, ?, ?)`
+  );
+  for (const plan of PRICE_PLAN_SEED) {
+    insert.run(
+      plan.name,
+      plan.guaranteedMonths,
+      JSON.stringify(plan.components)
+    );
+  }
+}
+
+const VEHICLE_SEED = [
+  {
+    model: "VW Golf",
+    plate: "DA-FS 1234",
+    klass: "B197",
+    status: "aktiv" as const,
+    accent: "bg-sky-500/10 text-sky-600",
+    details: [
+      { label: "Getriebe", value: "Schaltgetriebe" },
+      { label: "Kraftstoff", value: "Diesel" },
+      { label: "Kilometerstand", value: "84.320 km" },
+      { label: "Fahrlehrer/in", value: "Nadine Aksoy" },
+      { label: "Nächste HU", value: "03/2027" },
+      { label: "Versicherung", value: "Allianz · gültig" },
+    ],
+  },
+  {
+    model: "Cupra Born",
+    plate: "DA-FS 9012",
+    klass: "B197",
+    status: "aktiv" as const,
+    accent: "bg-violet-500/10 text-violet-600",
+    details: [
+      { label: "Getriebe", value: "Automatik" },
+      { label: "Kraftstoff", value: "Elektro" },
+      { label: "Kilometerstand", value: "24.900 km" },
+      { label: "Fahrlehrer/in", value: "Sven Kappel" },
+      { label: "Nächste HU", value: "08/2027" },
+      { label: "Versicherung", value: "HDI · gültig" },
+    ],
+  },
+  {
+    model: "Audi A3",
+    plate: "DA-FS 5678",
+    klass: "B Automatik",
+    status: "wartung" as const,
+    accent: "bg-emerald-500/10 text-emerald-600",
+    details: [
+      { label: "Getriebe", value: "Automatik" },
+      { label: "Kraftstoff", value: "Benzin" },
+      { label: "Kilometerstand", value: "51.090 km" },
+      { label: "Fahrlehrer/in", value: "Emre Gül" },
+      { label: "Nächste HU", value: "11/2026" },
+      { label: "Versicherung", value: "HUK · gültig" },
+    ],
+  },
+];
+
+function initVehicles(db: Database) {
+  const hasPlate = db.query<{ n: number }, [string]>(
+    "SELECT count(*) AS n FROM vehicles WHERE plate = ?"
+  );
+  const insert = db.prepare(
+    `INSERT INTO vehicles (model, plate, klass, status, accent, details)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  );
+  for (const vehicle of VEHICLE_SEED) {
+    const exists = hasPlate.get(vehicle.plate)!.n > 0;
+    if (exists) continue;
+    insert.run(
+      vehicle.model,
+      vehicle.plate,
+      vehicle.klass,
+      vehicle.status,
+      vehicle.accent,
+      JSON.stringify(vehicle.details)
+    );
+  }
+}
+
+/* Seed students — the demo roster from src/lib/student-data.ts. After this
+   one-time import the DB is the source of truth (/api/students). */
+function initStudents(db: Database) {
+  const count = db
+    .query<{ n: number }, []>("SELECT count(*) AS n FROM students")
+    .get()!.n;
+  if (count > 0) return;
+  const insert = db.prepare(
+    `INSERT INTO students (
+       first_name, last_name, birthday, phone, email, address, classes,
+       driving_school, registration_date, contract_number, customer_number,
+       status, instructor, vehicle, balance, last_lesson, next_lesson,
+       progress, lessons, documents, theory
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const s of STUDENT_SEED) {
+    insert.run(
+      s.firstName,
+      s.lastName,
+      s.birthday,
+      s.phone,
+      s.email,
+      s.address,
+      s.classes,
+      s.drivingSchool,
+      s.registrationDate,
+      s.contractNumber,
+      s.customerNumber,
+      s.status,
+      s.instructor,
+      s.vehicle,
+      s.balance,
+      s.lastLesson,
+      s.nextLesson,
+      s.progress,
+      JSON.stringify(s.lessons),
+      JSON.stringify(s.documents),
+      JSON.stringify(s.theory)
+    );
+  }
+}
+
+/* Seed instructors — the same people the demo calendar/students reference. */
+const INSTRUCTOR_SEED = [
+  { firstName: "Köksal", lastName: "Gül", phone: "+49 176 2016 2780", email: "koeksal@fahrschule-guel.de", classes: "B, B197", vehicle: "VW Golf", since: "03/2008", status: "aktiv" },
+  { firstName: "Nadine", lastName: "Aksoy", phone: "+49 151 5566 7788", email: "nadine@fahrschule-guel.de", classes: "B", vehicle: "VW Golf", since: "08/2019", status: "aktiv" },
+  { firstName: "Emre", lastName: "Gül", phone: "+49 160 9988 7766", email: "emre@fahrschule-guel.de", classes: "A, B", vehicle: "Audi A3", since: "05/2021", status: "aktiv" },
+  { firstName: "Sven", lastName: "Kappel", phone: "+49 171 2233 4455", email: "sven@fahrschule-guel.de", classes: "B197", vehicle: "Cupra Born", since: "02/2024", status: "aktiv" },
+] as const;
+
+function initInstructors(db: Database) {
+  const count = db
+    .query<{ n: number }, []>("SELECT count(*) AS n FROM instructors")
+    .get()!.n;
+  if (count > 0) return;
+  const insert = db.prepare(
+    `INSERT INTO instructors (first_name, last_name, phone, email, classes, vehicle, since, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const i of INSTRUCTOR_SEED) {
+    insert.run(i.firstName, i.lastName, i.phone, i.email, i.classes, i.vehicle, i.since, i.status);
+  }
 }
 
 function initAccounts(db: Database) {
@@ -141,7 +445,7 @@ function initAccounts(db: Database) {
     `INSERT INTO accounts (number, name, kind, vat_rate, vat_label, active, opening_cents, opening_date)
      VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
   );
-  for (const a of SKR03_ACCOUNTS) {
+  for (const a of SKR04_ACCOUNTS) {
     insert.run(
       a.number,
       a.name,

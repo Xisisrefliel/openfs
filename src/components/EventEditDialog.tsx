@@ -459,7 +459,10 @@ export function EventEditDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      {instructorOptions.map(option => (
+                      {(instructorOptions.includes(draft.instructor)
+                        ? instructorOptions
+                        : [draft.instructor, ...instructorOptions]
+                      ).map(option => (
                         <SelectItem key={option} value={option}>
                           {option}
                         </SelectItem>

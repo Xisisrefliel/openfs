@@ -50,7 +50,7 @@ import {
   toMinutes,
   TODAY,
 } from "@/lib/calendar-data";
-import { students } from "@/lib/student-data";
+import { useStudents } from "@/hooks/use-students";
 
 type IconCmp = React.ComponentType<{ className?: string }>;
 
@@ -118,8 +118,7 @@ function Navigation() {
 /* Grid — stat cards                                                   */
 /* ------------------------------------------------------------------ */
 
-// Counts derived from the shared libraries — one source of truth.
-const activeStudents = students.filter(student => student.status === "aktiv").length;
+// Counts derived from the shared sources — students come from the DB.
 const fahrstundenThisWeek = allEvents.filter(isFahrstunde).length;
 const fahrstundenToday = eventsOn(TODAY).filter(isFahrstunde).length;
 
@@ -133,15 +132,7 @@ type Stat = {
   hint?: string;
 };
 
-const stats: Stat[] = [
-  {
-    label: "Aktive Fahrschüler",
-    value: String(activeStudents),
-    Icon: Users,
-    iconClass: "bg-indigo-500/10 text-indigo-600",
-    href: "/fahrschueler",
-    hint: `von ${students.length}`,
-  },
+const staticStats: Stat[] = [
   {
     label: "Fahrstunden (Woche)",
     value: String(fahrstundenThisWeek),
@@ -169,6 +160,22 @@ const stats: Stat[] = [
 ];
 
 function Grid() {
+  const { students } = useStudents();
+  const activeStudents = students.filter(
+    student => student.status === "aktiv"
+  ).length;
+  const stats: Stat[] = [
+    {
+      label: "Aktive Fahrschüler",
+      value: String(activeStudents),
+      Icon: Users,
+      iconClass: "bg-indigo-500/10 text-indigo-600",
+      href: "/fahrschueler",
+      hint: `von ${students.length}`,
+    },
+    ...staticStats,
+  ];
+
   return (
     <section className="stagger-in grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map(({ label, value, Icon, iconClass, href, trend, hint }) => (

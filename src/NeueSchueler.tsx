@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Building2,
@@ -16,6 +16,13 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
+import { useInstructors } from "@/hooks/use-instructors";
+import { useVehicleOptions } from "@/hooks/use-vehicle-options";
+import {
+  createStudent,
+  useStudents,
+  type StudentRecord,
+} from "@/hooks/use-students";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -62,13 +69,6 @@ import { cn } from "@/lib/utils";
 type IconCmp = React.ComponentType<{ className?: string }>;
 
 const classOptions = ["A", "B", "B197", "BE"];
-const vehicleOptions = ["Audi A3", "Cupra Born", "VW Golf", "Nicht zugeteilt"];
-const instructorOptions = [
-  "Nadine Aksoy",
-  "Emre Guel",
-  "Sven Kappel",
-  "Nicht zugeteilt",
-];
 const documentOptions = ["Personalausweis", "Passbild", "Sehtest", "Vertrag"];
 
 /* Pflichtstunden (Sonderfahrten) — feste Vorgaben, Stand bei Anmeldung 0. */
@@ -94,14 +94,20 @@ const parseDate = (value: string): Date | undefined => {
   return new Date(year, month - 1, day);
 };
 
-/* IDs are assigned by the system, not entered by hand. Generate a sequential
-   pair (customer + contract) that continues the existing numbering range. */
-function generateIds() {
-  const offset = Math.floor(Math.random() * 60);
-  const contract = 1043 + offset;
+/* IDs are assigned by the system, not entered by hand. Continue the
+   numbering range of the students already in the database. */
+function nextIds(students: StudentRecord[]) {
+  const maxCustomer = students.reduce(
+    (max, s) => Math.max(max, Number(s.customerNumber) || 0),
+    10058
+  );
+  const maxContract = students.reduce(
+    (max, s) => Math.max(max, Number(s.contractNumber.split("-").pop()) || 0),
+    1042
+  );
   return {
-    customerNumber: String(10059 + offset),
-    contractNumber: `V-2026-${contract}`,
+    customerNumber: String(maxCustomer + 1),
+    contractNumber: `V-2026-${maxContract + 1}`,
   };
 }
 
@@ -182,11 +188,21 @@ function Section({
 }
 
 export function NeueSchueler() {
+  const { students, refresh } = useStudents();
+  const { vehicleOptions } = useVehicleOptions();
   const [form, setForm] = useState<FormState>(() => ({
     ...initialForm,
-    ...generateIds(),
+    ...nextIds([]),
   }));
   const [dirty, setDirty] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  // Assignable instructors come from the DB-backed roster (/fahrlehrer).
+  const { assignableNames: instructorOptions } = useInstructors();
+
+  // The system-assigned numbers continue the DB range, which loads async.
+  useEffect(() => {
+    setForm(current => ({ ...current, ...nextIds(students) }));
+  }, [students]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm(current => ({ ...current, [key]: value }));
@@ -204,18 +220,39 @@ export function NeueSchueler() {
   };
 
   const reset = () => {
-    setForm({ ...initialForm, ...generateIds() });
+    setForm({ ...initialForm, ...nextIds(students) });
     setDirty(false);
   };
 
-  const canSubmit = form.firstName.trim() !== "" && form.lastName.trim() !== "";
+  const canSubmit =
+    !submitting &&
+    form.firstName.trim() !== "" &&
+    form.lastName.trim() !== "";
 
-  const submit = () => {
+  const submit = async () => {
     if (!canSubmit) return;
-    toast.success("Schüler/in angelegt", {
-      description: `${form.firstName} ${form.lastName} wurde zur Fahrschule hinzugefügt.`,
-    });
-    reset();
+    setSubmitting(true);
+    try {
+      await createStudent({
+        ...form,
+        progress: 0,
+        lessons: requiredLessons.map(lesson => ({
+          label: lesson.label,
+          done: lesson.target,
+        })),
+      });
+      toast.success("Schüler/in angelegt", {
+        description: `${form.firstName} ${form.lastName} wurde zur Fahrschule hinzugefügt.`,
+      });
+      await refresh();
+      reset();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Anlegen fehlgeschlagen."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

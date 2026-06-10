@@ -1,48 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  CalendarClock,
-  Check,
-  Edit3,
-  FileText,
-  GraduationCap,
   Printer,
-  User,
-  X,
 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
-import { students, type Student } from "@/lib/student-data";
+import { VertragDialog } from "./components/VertragDialog.tsx";
+import { useStudents, type StudentRecord } from "@/hooks/use-students";
+import type { Student } from "@/lib/student-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -52,7 +22,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { cn } from "@/lib/utils";
 
 type SortKey = Extract<
   keyof Student,
@@ -82,28 +51,6 @@ const sortLabels: Record<SortKey, string> = {
   registrationDate: "Anmeldedatum",
   contractNumber: "Vertragsnummer",
 };
-
-type StudentEdit = Pick<
-  Student,
-  | "firstName"
-  | "lastName"
-  | "classes"
-  | "balance"
-  | "phone"
-  | "email"
-  | "address"
-  | "birthday"
-  | "lastLesson"
-  | "nextLesson"
-  | "drivingSchool"
-  | "registrationDate"
-  | "instructor"
-  | "vehicle"
-  | "status"
->;
-
-const classOptions = ["A", "B", "B197", "BE"];
-const vehicleOptions = ["Audi A3", "Cupra Born", "VW Golf", "Nicht zugeteilt"];
 
 const parseDate = (value: string) => {
   if (value === "Nicht geplant") return Number.POSITIVE_INFINITY;
@@ -173,499 +120,20 @@ function SortableHead({
   );
 }
 
-function DetailItem({
-  label,
-  value,
+export function Fahrschueler({
+  navigate,
 }: {
-  label: string;
-  value: string;
+  navigate: (to: string) => void;
 }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="text-sm">{value}</dd>
-    </div>
-  );
-}
-
-function EditableField({
-  id,
-  label,
-  value,
-  editing,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  editing: boolean;
-  onChange: (value: string) => void;
-}) {
-  if (!editing) {
-    return <DetailItem label={label} value={value} />;
-  }
-
-  return (
-    <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
-        id={id}
-        value={value}
-        onChange={event => onChange(event.target.value)}
-      />
-    </Field>
-  );
-}
-
-function EditableSelectField({
-  label,
-  value,
-  editing,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  editing: boolean;
-  options: string[];
-  onChange: (value: string) => void;
-}) {
-  if (!editing) {
-    return <DetailItem label={label} value={value} />;
-  }
-
-  return (
-    <Field>
-      <FieldLabel>{label}</FieldLabel>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {options.map(option => (
-              <SelectItem key={option} value={option}>
-                {option}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-    </Field>
-  );
-}
-
-function StudentDetailsDialog({
-  student,
-  open,
-  onOpenChange,
-  onSave,
-}: {
-  student: Student | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (contractNumber: string, updates: StudentEdit) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<StudentEdit | null>(null);
-  const [showEditActionsHint, setShowEditActionsHint] = useState(false);
-
-  useEffect(() => {
-    if (!editing) return;
-
-    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "Sie sind im Bearbeitungsmodus. Wirklich verlassen?";
-    };
-
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [editing]);
-
-  if (!student) return null;
-
-  const editValue = draft ?? student;
-  const hasDebt = editValue.balance.startsWith("-");
-  const fullName = `${editValue.firstName} ${editValue.lastName}`;
-  const updateDraft = (key: keyof StudentEdit, value: string) => {
-    setDraft(current => ({ ...(current ?? student), [key]: value }));
-  };
-  const startEditing = () => {
-    setDraft({
-      firstName: student.firstName,
-      lastName: student.lastName,
-      classes: student.classes,
-      balance: student.balance,
-      phone: student.phone,
-      email: student.email,
-      address: student.address,
-      birthday: student.birthday,
-      lastLesson: student.lastLesson,
-      nextLesson: student.nextLesson,
-      drivingSchool: student.drivingSchool,
-      registrationDate: student.registrationDate,
-      instructor: student.instructor,
-      vehicle: student.vehicle,
-      status: student.status,
-    });
-    setEditing(true);
-  };
-  const cancelEditing = () => {
-    setDraft(null);
-    setEditing(false);
-  };
-  const saveEditing = () => {
-    if (!draft) return;
-
-    onSave(student.contractNumber, draft);
-    setEditing(false);
-    setDraft(null);
-  };
-  const triggerEditActionsHint = () => {
-    setShowEditActionsHint(true);
-    window.setTimeout(() => setShowEditActionsHint(false), 1100);
-  };
-  const requestClose = (nextOpen: boolean) => {
-    if (!nextOpen && editing) {
-      triggerEditActionsHint();
-      return;
-    }
-
-    onOpenChange(nextOpen);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={requestClose}>
-      <DialogContent
-        className="max-h-[calc(100svh-2rem)] overflow-auto sm:max-w-5xl"
-        onEscapeKeyDown={event => {
-          if (editing) {
-            event.preventDefault();
-            triggerEditActionsHint();
-          }
-        }}
-        onPointerDownOutside={event => {
-          if (editing) {
-            event.preventDefault();
-            triggerEditActionsHint();
-          }
-        }}
-      >
-        <DialogHeader>
-          <div className="flex flex-col gap-3 pr-8 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <User />
-              </div>
-              <div className="flex flex-col gap-1">
-                <DialogTitle className="text-xl">{fullName}</DialogTitle>
-                <DialogDescription>
-                  {editValue.contractNumber} · Klasse {editValue.classes}
-                </DialogDescription>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {editing ? (
-                <ToggleGroup
-                  type="single"
-                  value={editValue.status}
-                  onValueChange={value => {
-                    if (value === "aktiv" || value === "inaktiv") {
-                      setDraft(current => ({
-                        ...(current ?? student),
-                        status: value,
-                      }));
-                    }
-                  }}
-                  variant="outline"
-                  size="sm"
-                  spacing={0}
-                  aria-label="Fahrschueler Status bearbeiten"
-                >
-                  <ToggleGroupItem value="aktiv" aria-label="Als aktiv markieren">
-                    Aktiv
-                  </ToggleGroupItem>
-                  <ToggleGroupItem value="inaktiv" aria-label="Als inaktiv markieren">
-                    Inaktiv
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              ) : (
-                <Badge variant="secondary">
-                  {student.status === "aktiv" ? "Aktiv" : "Inaktiv"}
-                </Badge>
-              )}
-              <Badge
-                variant="outline"
-                className={
-                  hasDebt
-                    ? "bg-red-50 text-red-700 ring-red-600/20"
-                    : "bg-green-50 text-green-700 ring-green-600/20"
-                }
-              >
-                Bilanz {editValue.balance}
-              </Badge>
-              {editing ? (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className={cn(
-                      showEditActionsHint &&
-                        "scale-[1.02] transition-transform"
-                    )}
-                    style={
-                      showEditActionsHint
-                        ? { boxShadow: "0 0 0 3px var(--ring)" }
-                        : undefined
-                    }
-                    onClick={saveEditing}
-                  >
-                    <Check data-icon="inline-start" />
-                    Speichern
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      showEditActionsHint &&
-                        "scale-[1.02] border-primary text-primary transition-transform"
-                    )}
-                    style={
-                      showEditActionsHint
-                        ? { boxShadow: "0 0 0 3px var(--ring)" }
-                        : undefined
-                    }
-                    onClick={cancelEditing}
-                  >
-                    <X data-icon="inline-start" />
-                    Abbrechen
-                  </Button>
-                </>
-              ) : (
-                <Button type="button" variant="outline" size="sm" onClick={startEditing}>
-                  <Edit3 data-icon="inline-start" />
-                  Bearbeiten
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-4">
-          <div className="grid items-stretch gap-4 lg:grid-cols-3">
-            <Card className="h-full lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Ausbildung</CardTitle>
-                <CardDescription>
-                  Fortschritt, Fahrstunden und nächste Planung
-                </CardDescription>
-                <CardAction>
-                  <Badge variant="outline">{editValue.classes}</Badge>
-                </CardAction>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <Progress value={student.progress} className="h-2" />
-                  <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
-                    {student.progress}%
-                  </span>
-                </div>
-                <div className="overflow-hidden rounded-lg border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/40 hover:bg-muted/40">
-                        <TableHead>Bereich</TableHead>
-                        <TableHead className="text-right">Stand</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {student.lessons.map(lesson => (
-                        <TableRow key={lesson.label}>
-                          <TableCell>{lesson.label}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {lesson.done}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card size="sm" className="h-full">
-                <CardHeader>
-                  <CardTitle>Kontakt</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <FieldGroup className="gap-3">
-                    <EditableField
-                      id="student-phone"
-                      label="Telefon"
-                      value={editValue.phone}
-                      editing={editing}
-                      onChange={value => updateDraft("phone", value)}
-                    />
-                    <EditableField
-                      id="student-email"
-                      label="E-Mail"
-                      value={editValue.email}
-                      editing={editing}
-                      onChange={value => updateDraft("email", value)}
-                    />
-                    <EditableField
-                      id="student-address"
-                      label="Adresse"
-                      value={editValue.address}
-                      editing={editing}
-                      onChange={value => updateDraft("address", value)}
-                    />
-                    <EditableField
-                      id="student-birthday"
-                      label="Geburtsdatum"
-                      value={editValue.birthday}
-                      editing={editing}
-                      onChange={value => updateDraft("birthday", value)}
-                    />
-                  </FieldGroup>
-                </CardContent>
-              </Card>
-
-            <Card size="sm" className="h-full">
-              <CardHeader>
-                <CardTitle>Fahrlehrer/in</CardTitle>
-                <CardDescription>{editValue.classes}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center gap-2">
-                <GraduationCap />
-                {editing ? (
-                  <Input
-                    value={editValue.instructor}
-                    onChange={event => updateDraft("instructor", event.target.value)}
-                  />
-                ) : (
-                  <span>{editValue.instructor}</span>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card size="sm" className="h-full">
-              <CardHeader>
-                <CardTitle>Fahrzeug</CardTitle>
-                <CardDescription>{editValue.classes}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex items-center gap-2">
-                <CalendarClock />
-                {editing ? (
-                  <Select
-                    value={editValue.vehicle}
-                    onValueChange={value => updateDraft("vehicle", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {vehicleOptions.map(option => (
-                          <SelectItem key={option} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span>{editValue.vehicle}</span>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card size="sm" className="h-full">
-              <CardHeader>
-                <CardTitle>Dokumente</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                {student.documents.map(document => (
-                  <div key={document} className="flex items-center gap-2 text-sm">
-                    <FileText />
-                    <span>{document}</span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>Vertrag</CardTitle>
-              <CardDescription>
-                Vertragsdaten, Fahrschule und Abrechnungszuordnung
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FieldGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <EditableField
-                    id="student-first-name"
-                    label="Vorname"
-                    value={editValue.firstName}
-                    editing={editing}
-                    onChange={value => updateDraft("firstName", value)}
-                  />
-                  <EditableField
-                    id="student-last-name"
-                    label="Nachname"
-                    value={editValue.lastName}
-                    editing={editing}
-                    onChange={value => updateDraft("lastName", value)}
-                  />
-                  <EditableSelectField
-                    id="student-class"
-                    label="Klasse"
-                    value={editValue.classes}
-                    editing={editing}
-                    options={classOptions}
-                    onChange={value => updateDraft("classes", value)}
-                  />
-                  <EditableField
-                    id="student-balance"
-                    label="Bilanz"
-                    value={editValue.balance}
-                    editing={editing}
-                    onChange={value => updateDraft("balance", value)}
-                  />
-                  <DetailItem label="Kundennummer" value={student.customerNumber} />
-                  <EditableField
-                    id="student-registration-date"
-                    label="Anmeldedatum"
-                    value={editValue.registrationDate}
-                    editing={editing}
-                    onChange={value => updateDraft("registrationDate", value)}
-                  />
-                  <DetailItem label="Vertragsnummer" value={student.contractNumber} />
-                  <EditableField
-                    id="student-driving-school"
-                    label="Fahrschule"
-                    value={editValue.drivingSchool}
-                    editing={editing}
-                    onChange={value => updateDraft("drivingSchool", value)}
-                  />
-              </FieldGroup>
-            </CardContent>
-          </Card>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function Fahrschueler() {
-  const [studentRows, setStudentRows] = useState<Student[]>(students);
+  // DB-backed: the roster comes from /api/students, edits go back via PATCH.
+  const { students: studentRows } = useStudents();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("aktiv");
   const [sortKey, setSortKey] = useState<SortKey>("lastName");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [vertragStudent, setVertragStudent] = useState<StudentRecord | null>(
+    null
+  );
 
   const filteredStudents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -719,16 +187,8 @@ export function Fahrschueler() {
     setStatusFilter("aktiv");
   };
 
-  const saveStudent = (contractNumber: string, updates: StudentEdit) => {
-    setStudentRows(current =>
-      current.map(student =>
-        student.contractNumber === contractNumber ? { ...student, ...updates } : student
-      )
-    );
-    setSelectedStudent(current =>
-      current?.contractNumber === contractNumber ? { ...current, ...updates } : current
-    );
-  };
+  const openStudent = (student: StudentRecord) =>
+    navigate(`/fahrschueler/${student.id}`);
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
@@ -851,14 +311,14 @@ export function Fahrschueler() {
 
                   return (
                     <TableRow
-                      key={student.contractNumber}
+                      key={student.id}
                       tabIndex={0}
                       className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
-                      onClick={() => setSelectedStudent(student)}
+                      onClick={() => openStudent(student)}
                       onKeyDown={event => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
-                          setSelectedStudent(student);
+                          openStudent(student);
                         }
                       }}
                     >
@@ -892,7 +352,10 @@ export function Fahrschueler() {
                             variant="ghost"
                             size="icon-sm"
                             aria-label={`${student.contractNumber} drucken`}
-                            onClick={event => event.stopPropagation()}
+                            onClick={event => {
+                              event.stopPropagation();
+                              setVertragStudent(student);
+                            }}
                           >
                             <Printer data-icon="inline-start" />
                           </Button>
@@ -906,13 +369,9 @@ export function Fahrschueler() {
           </div>
         </div>
       </div>
-      <StudentDetailsDialog
-        student={selectedStudent}
-        open={selectedStudent !== null}
-        onOpenChange={open => {
-          if (!open) setSelectedStudent(null);
-        }}
-        onSave={saveStudent}
+      <VertragDialog
+        student={vertragStudent}
+        onClose={() => setVertragStudent(null)}
       />
     </div>
   );

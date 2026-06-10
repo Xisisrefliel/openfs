@@ -426,6 +426,8 @@ function Toolbar({
   onStatusChange,
   onNew,
   onDatev,
+  onPrintFiltered,
+  hasPrintableRows,
   balances,
 }: {
   tab: TabKey;
@@ -437,6 +439,8 @@ function Toolbar({
   onStatusChange: (value: StatusFilter) => void;
   onNew: () => void;
   onDatev: () => void;
+  onPrintFiltered: () => void;
+  hasPrintableRows: boolean;
   balances: { openingCents: number; closingCents: number } | null;
 }) {
   const action =
@@ -502,11 +506,8 @@ function Toolbar({
             variant="secondary"
             size="icon-sm"
             aria-label="Drucken"
-            onClick={() =>
-              toast(
-                "Quittungen drucken Sie über das Drucker-Symbol an der jeweiligen Buchung."
-              )
-            }
+            onClick={onPrintFiltered}
+            disabled={!hasPrintableRows}
           >
             <Printer data-icon="inline-start" />
           </Button>
@@ -553,7 +554,7 @@ export function Buchhaltung() {
   const [refresh, setRefresh] = useState(0);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [stornoTarget, setStornoTarget] = useState<StornoTarget | null>(null);
-  const [quittungId, setQuittungId] = useState<number | null>(null);
+  const [quittungIds, setQuittungIds] = useState<number[]>([]);
 
   // Debounce the search box so we don't hit the API per keystroke.
   useEffect(() => {
@@ -641,7 +642,7 @@ export function Buchhaltung() {
         <RowActions
           printable={row.printable}
           stornoEligible={!row.storniert && !row.isStorno}
-          onPrint={() => setQuittungId(row.id)}
+          onPrint={() => setQuittungIds([row.id])}
           onStorno={() =>
             setStornoTarget({ id: row.id, label: stornoLabel(row.belegNr, row.description) })
           }
@@ -693,7 +694,7 @@ export function Buchhaltung() {
         <RowActions
           printable={row.printable}
           stornoEligible={!row.storniert && !row.isStorno}
-          onPrint={() => setQuittungId(row.transactionId)}
+          onPrint={() => setQuittungIds([row.transactionId])}
           onStorno={() =>
             setStornoTarget({
               id: row.transactionId,
@@ -862,6 +863,32 @@ export function Buchhaltung() {
     );
   };
 
+  const printableTransactionIds = (() => {
+    if (tab === "ledger") {
+      return (
+        ledger.data?.rows
+          ?.filter(row => row.printable)
+          .map(row => row.id) ?? []
+      );
+    }
+    if (tab === "journal") {
+      return (
+        journal.data?.rows
+          ?.filter(row => row.printable)
+          .map(row => row.transactionId) ?? []
+      );
+    }
+    return [];
+  })();
+
+  const printFilteredRows = () => {
+    if (!printableTransactionIds.length) {
+      toast.info("Keine druckbaren Einträge im aktuellen Filter.");
+      return;
+    }
+    setQuittungIds(printableTransactionIds);
+  };
+
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-background">
       <PageHeader
@@ -910,6 +937,8 @@ export function Buchhaltung() {
                 onStatusChange={setStatus}
                 balances={ledger.data}
                 onDatev={exportDatev}
+                onPrintFiltered={printFilteredRows}
+                hasPrintableRows={printableTransactionIds.length > 0}
                 onNew={() => {
                   if (tab === "accounts") {
                     toast("Der Kontenrahmen SKR 03 ist fest hinterlegt.");
@@ -941,7 +970,7 @@ export function Buchhaltung() {
         accounts={accounts.data?.accounts ?? []}
         onCreated={printableId => {
           refetch();
-          if (printableId != null) setQuittungId(printableId);
+          if (printableId != null) setQuittungIds([printableId]);
         }}
       />
       <StornoDialog
@@ -950,8 +979,8 @@ export function Buchhaltung() {
         onDone={refetch}
       />
       <QuittungDialog
-        transactionId={quittungId}
-        onClose={() => setQuittungId(null)}
+        transactionIds={quittungIds}
+        onClose={() => setQuittungIds([])}
       />
     </div>
   );

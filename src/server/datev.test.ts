@@ -74,7 +74,7 @@ describe("file structure", () => {
     expect(fields[18]).toBe("1"); //      Buchungstyp Finanzbuchhaltung
     expect(fields[20]).toBe("1"); //      Festschreibung (GoBD)
     expect(fields[21]).toBe('"EUR"');
-    expect(fields[26]).toBe('"03"'); //   SKR
+    expect(fields[26]).toBe('"04"'); //   SKR
   });
 
   test("filename follows the EXTF_ convention", () => {
@@ -99,21 +99,21 @@ describe("file structure", () => {
 });
 
 describe("booking rows", () => {
-  test("Zahlung auf Guthaben: Konto 1000 S an 1718, kein BU (Automatik)", () => {
+  test("Zahlung auf Guthaben: Konto 1600 S an 3272, kein BU (Automatik)", () => {
     createTransaction(db, {
       type: "zahlung_guthaben",
       date: "2026-06-08",
       amountCents: 40983,
-      geldkonto: "1000",
+      geldkonto: "1600",
       paymentMethod: "bar",
       student: STUDENT,
     });
     const fields = exportLines()[2]!.split(";");
     expect(fields[0]).toBe("409,83");
     expect(fields[1]).toBe('"S"');
-    expect(fields[6]).toBe("1000");
-    expect(fields[7]).toBe("1718");
-    expect(fields[8]).toBe(""); // 1718 ist Automatikkonto
+    expect(fields[6]).toBe("1600");
+    expect(fields[7]).toBe("3272");
+    expect(fields[8]).toBe(""); // 3272 ist Automatikkonto
     expect(fields[9]).toBe("0806"); // TTMM
     expect(fields[10]).toBe('"T0000124A"');
     expect(fields[13]).toBe('"Zahlung auf Ausbildungskonto"');
@@ -124,7 +124,7 @@ describe("booking rows", () => {
       type: "guthaben_uebertragung",
       date: "2026-06-08",
       amountCents: 13000,
-      habenKonto: "8400",
+      habenKonto: "4400",
       student: STUDENT,
       description: "Fahrübungsstunde (90)",
     });
@@ -132,71 +132,71 @@ describe("booking rows", () => {
       type: "guthaben_uebertragung",
       date: "2026-06-08",
       amountCents: 12983,
-      habenKonto: "1590",
+      habenKonto: "1370",
       student: STUDENT,
       description: "TÜV Prüfungsgebühr",
     });
     const lines = exportLines();
     const fahrstunde = lines[2]!.split(";");
     expect(fahrstunde[1]).toBe('"S"');
-    expect(fahrstunde[6]).toBe("1718");
-    expect(fahrstunde[7]).toBe("8400");
-    expect(fahrstunde[8]).toBe(""); // 8400 Automatikkonto
+    expect(fahrstunde[6]).toBe("3272");
+    expect(fahrstunde[7]).toBe("4400");
+    expect(fahrstunde[8]).toBe(""); // 4400 Automatikkonto
     const tuev = lines[3]!.split(";");
-    expect(tuev[7]).toBe("1590");
+    expect(tuev[7]).toBe("1370");
     expect(tuev[8]).toBe(""); // durchlaufender Posten — keine USt
   });
 
-  test("Ausgabe 19 % wird gedreht: Konto 1200 H an 4530 mit BU 9", () => {
+  test("Ausgabe 19 % wird gedreht: Konto 1800 H an 6530 mit BU 9", () => {
     createTransaction(db, {
       type: "ausgabe",
       date: "2026-06-08",
       amountCents: 11900,
-      geldkonto: "1200",
-      aufwandKonto: "4530",
+      geldkonto: "1800",
+      aufwandKonto: "6530",
       description: "Tankrechnung Fahrschulwagen",
     });
     const fields = exportLines()[2]!.split(";");
     expect(fields[0]).toBe("119,00");
     expect(fields[1]).toBe('"H"'); // Geldkonto im Haben
-    expect(fields[6]).toBe("1200");
-    expect(fields[7]).toBe("4530"); // BU-Schlüssel gehört zum Gegenkonto
+    expect(fields[6]).toBe("1800");
+    expect(fields[7]).toBe("6530"); // BU-Schlüssel gehört zum Gegenkonto
     expect(fields[8]).toBe('"9"'); // Vorsteuer 19 %
   });
 
-  test("Storno einer Ausgabe: 1200 S an 4530 mit BU 9, kein Drehen nötig", () => {
+  test("Storno einer Ausgabe: 1800 S an 6530 mit BU 9, kein Drehen nötig", () => {
     const created = createTransaction(db, {
       type: "ausgabe",
       date: "2026-06-08",
       amountCents: 11900,
-      geldkonto: "1200",
-      aufwandKonto: "4530",
+      geldkonto: "1800",
+      aufwandKonto: "6530",
       description: "Tankrechnung",
     });
     stornoTransaction(db, created.id, "Doppelt erfasst", "2026-06-09");
     const lines = exportLines();
     const storno = lines[3]!.split(";");
     expect(storno[1]).toBe('"S"');
-    expect(storno[6]).toBe("1200");
-    expect(storno[7]).toBe("4530");
+    expect(storno[6]).toBe("1800");
+    expect(storno[7]).toBe("6530");
     expect(storno[8]).toBe('"9"');
     expect(storno[9]).toBe("0906");
   });
 
-  test("Transfer läuft über 1360 Geldtransit (zwei Zeilen)", () => {
+  test("Transfer läuft über 1460 Geldtransit (zwei Zeilen)", () => {
     createTransaction(db, {
       type: "transfer",
       date: "2026-06-08",
       amountCents: 80000,
-      fromKonto: "1000",
-      toKonto: "1200",
+      fromKonto: "1600",
+      toKonto: "1800",
     });
     const lines = exportLines();
     expect(lines.length).toBe(4);
     const first = lines[2]!.split(";");
-    expect([first[6], first[7]]).toEqual(["1360", "1000"]);
+    expect([first[6], first[7]]).toEqual(["1460", "1600"]);
     const second = lines[3]!.split(";");
-    expect([second[6], second[7]]).toEqual(["1200", "1360"]);
+    expect([second[6], second[7]]).toEqual(["1800", "1460"]);
   });
 
   test("rows are chronological and fields contain no raw separators", () => {

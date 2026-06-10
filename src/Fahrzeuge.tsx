@@ -1,7 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Car, Cog, Fuel, Gauge, Pencil, Plus, ShieldCheck, User, Wrench } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
+import { useInstructors } from "@/hooks/use-instructors";
+import {
+  useVehicles,
+  updateVehicle,
+  type Vehicle as VehicleRecord,
+  type VehicleDetail,
+} from "@/hooks/use-vehicles";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,54 +44,20 @@ import { cn } from "@/lib/utils";
 type IconCmp = React.ComponentType<{ className?: string }>;
 
 type Detail = { Icon: IconCmp; label: string; value: string };
-
-type Vehicle = {
-  model: string;
-  plate: string;
-  klass: string;
-  status: "aktiv" | "wartung";
-  accent: string;
+type Vehicle = VehicleRecord & {
   details: Detail[];
 };
 
-const vehicles: Vehicle[] = [
-  {
-    model: "VW Golf",
-    plate: "DA-FS 1234",
-    klass: "B197",
-    status: "aktiv",
-    accent: "bg-sky-500/10 text-sky-600",
-    details: [
-      { Icon: Cog, label: "Getriebe", value: "Schaltgetriebe" },
-      { Icon: Fuel, label: "Kraftstoff", value: "Diesel" },
-      { Icon: Gauge, label: "Kilometerstand", value: "84.320 km" },
-      { Icon: User, label: "Fahrlehrer/in", value: "Nadine Aksoy" },
-      { Icon: Wrench, label: "Nächste HU", value: "03/2027" },
-      { Icon: ShieldCheck, label: "Versicherung", value: "Allianz · gültig" },
-    ],
-  },
-  {
-    model: "Audi A3",
-    plate: "DA-FS 5678",
-    klass: "B Automatik",
-    status: "wartung",
-    accent: "bg-emerald-500/10 text-emerald-600",
-    details: [
-      { Icon: Cog, label: "Getriebe", value: "Automatik" },
-      { Icon: Fuel, label: "Kraftstoff", value: "Benzin" },
-      { Icon: Gauge, label: "Kilometerstand", value: "51.090 km" },
-      { Icon: User, label: "Fahrlehrer/in", value: "Emre Gül" },
-      { Icon: Wrench, label: "Nächste HU", value: "11/2026" },
-      { Icon: ShieldCheck, label: "Versicherung", value: "HUK · gültig" },
-    ],
-  },
-];
+const detailIcons: Readonly<Record<string, IconCmp>> = {
+  Getriebe: Cog,
+  Kraftstoff: Fuel,
+  Kilometerstand: Gauge,
+  "Fahrlehrer/in": User,
+  "Nächste HU": Wrench,
+  Versicherung: ShieldCheck,
+};
 
-type VehicleDraft = {
-  model: string;
-  plate: string;
-  klass: string;
-  status: Vehicle["status"];
+type VehicleDraft = Omit<VehicleRecord, "id" | "details" | "accent"> & {
   gearbox: string;
   fuel: string;
   mileage: string;
@@ -101,6 +74,38 @@ const detailLabels = {
   inspection: "Nächste HU",
   insurance: "Versicherung",
 } as const;
+
+const DEFAULT_ICON = Wrench;
+
+function mapVehicleDetails(details: VehicleDetail[]): Detail[] {
+  const values = new Map(details.map(item => [item.label, item.value]));
+  return Object.values(detailLabels).map(label => ({
+    Icon: detailIcons[label] ?? DEFAULT_ICON,
+    label,
+    value: values.get(label) ?? "",
+  }));
+}
+
+function toVehicle(record: VehicleRecord): Vehicle {
+  return {
+    ...record,
+    details: mapVehicleDetails(record.details),
+  };
+}
+
+function toApiPayload(vehicle: Vehicle) {
+  return {
+    model: vehicle.model,
+    plate: vehicle.plate,
+    klass: vehicle.klass,
+    status: vehicle.status,
+    accent: vehicle.accent,
+    details: vehicle.details.map(detail => ({
+      label: detail.label,
+      value: detail.value,
+    })),
+  };
+}
 
 function vehicleToDraft(vehicle: Vehicle): VehicleDraft {
   const detailValue = (label: string) =>
@@ -148,11 +153,13 @@ function VehicleEditDialog({
   open,
   onOpenChange,
   onSave,
+  instructorOptions,
 }: {
   vehicle: Vehicle | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (vehicle: Vehicle) => void;
+  onSave: (vehicle: Vehicle) => Promise<void> | void;
+  instructorOptions: string[];
 }) {
   const [draft, setDraft] = useState<VehicleDraft | null>(null);
 
@@ -258,11 +265,26 @@ function VehicleEditDialog({
           </Field>
           <Field>
             <FieldLabel htmlFor="vehicle-instructor">Fahrlehrer/in</FieldLabel>
-            <Input
-              id="vehicle-instructor"
+            <Select
               value={draft.instructor}
-              onChange={event => update("instructor", event.target.value)}
-            />
+              onValueChange={value => update("instructor", value)}
+            >
+              <SelectTrigger id="vehicle-instructor" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {(instructorOptions.includes(draft.instructor)
+                    ? instructorOptions
+                    : [draft.instructor, ...instructorOptions]
+                  ).map(option => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
           <Field>
             <FieldLabel htmlFor="vehicle-inspection">Nächste HU</FieldLabel>
@@ -290,9 +312,13 @@ function VehicleEditDialog({
           </DialogClose>
           <Button
             type="button"
-            onClick={() => {
-              onSave(applyDraft(vehicle, draft));
-              handleOpenChange(false);
+            onClick={async () => {
+              try {
+                await onSave(applyDraft(vehicle, draft));
+                handleOpenChange(false);
+              } catch (error) {
+                console.error("Fahrzeug konnte nicht gespeichert werden:", error);
+              }
             }}
           >
             Speichern
@@ -370,11 +396,17 @@ function VehicleCard({
 }
 
 export function Fahrzeuge() {
-  const [vehicleList, setVehicleList] = useState(vehicles);
-  const [editingPlate, setEditingPlate] = useState<string | null>(null);
+  const { assignableNames: instructorOptions } = useInstructors();
+  const { vehicles: storedVehicles, loading, refresh } = useVehicles();
+  const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
+  const vehicleList = useMemo(
+    () => storedVehicles.map(toVehicle),
+    [storedVehicles]
+  );
   const editingVehicle =
-    vehicleList.find(vehicle => vehicle.plate === editingPlate) ?? null;
+    vehicleList.find(vehicle => vehicle.id === editingVehicleId) ?? null;
 
+  // DB-backed roster — same source as /fahrlehrer and the calendar.
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
       <PageHeader
@@ -388,11 +420,12 @@ export function Fahrzeuge() {
 
       <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
         <div className="stagger-in grid gap-4 md:grid-cols-2 2xl:gap-5">
+          {loading && <div className="text-sm text-muted-foreground">Lade Fahrzeuge…</div>}
           {vehicleList.map(vehicle => (
             <VehicleCard
-              key={vehicle.plate}
+              key={vehicle.id}
               vehicle={vehicle}
-              onEdit={() => setEditingPlate(vehicle.plate)}
+              onEdit={() => setEditingVehicleId(vehicle.id)}
             />
           ))}
         </div>
@@ -400,19 +433,20 @@ export function Fahrzeuge() {
 
       <VehicleEditDialog
         vehicle={editingVehicle}
+        instructorOptions={instructorOptions}
         open={editingVehicle !== null}
         onOpenChange={open => {
           if (!open) {
-            setEditingPlate(null);
+            setEditingVehicleId(null);
           }
         }}
-        onSave={updatedVehicle => {
-          setVehicleList(current =>
-            current.map(vehicle =>
-              vehicle.plate === editingPlate ? updatedVehicle : vehicle
-            )
-          );
-          setEditingPlate(null);
+        onSave={async updatedVehicle => {
+          if (!editingVehicleId) {
+            return;
+          }
+          await updateVehicle(editingVehicleId, toApiPayload(updatedVehicle));
+          await refresh();
+          setEditingVehicleId(null);
         }}
       />
     </div>

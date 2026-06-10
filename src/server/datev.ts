@@ -16,8 +16,8 @@
 /*  - Data rows: Umsatz always positive with S/H-Kennzeichen relative  */
 /*    to "Konto"; Belegdatum is TTMM (the year comes from the header   */
 /*    Wirtschaftsjahr — a Stapel must therefore stay in ONE year).     */
-/*  - BU-Schlüssel applies to the Gegenkonto. SKR-03-Automatikkonten   */
-/*    (8400, 8300, 1718, …) calculate USt themselves and must NOT get  */
+/*  - BU-Schlüssel applies to the Gegenkonto. SKR-04-Automatikkonten   */
+/*    (4400, 4300, 3272, …) calculate USt themselves and must NOT get  */
 /*    a BU-Schlüssel; non-automatic Aufwandskonten get Vorsteuer keys  */
 /*    (9 = 19 %, 8 = 7 %).                                             */
 /* ------------------------------------------------------------------ */
@@ -35,9 +35,9 @@ export const DATEV_COLUMNS =
 
 export const DATEV_COLUMN_COUNT = 125;
 
-/* SKR-03-Automatikkonten used in this app: USt is derived from the    */
+/* SKR-04-Automatikkonten used in this app: USt is derived from the    */
 /* account itself — a BU-Schlüssel would be rejected by the import.    */
-const AUTOMATIK_KONTEN = new Set(["8400", "8300", "1718"]);
+const AUTOMATIK_KONTEN = new Set(["4400", "4300", "3272"]);
 
 /* Column indices (0-based) of the fields we fill. */
 const COL = {
@@ -144,7 +144,7 @@ function headerRow(options: {
   fields[19] = "0"; //                  20 Rechnungslegungszweck unabhängig
   fields[20] = "1"; //                  21 Festschreibung (GoBD)
   fields[21] = '"EUR"'; //              22 Währungskennzeichen
-  fields[26] = '"03"'; //               27 SKR
+  fields[26] = '"04"'; //               27 SKR
   return fields.join(";");
 }
 
@@ -156,7 +156,7 @@ function buSchluessel(account: Account | undefined, vatRate: number | null): str
   if (AUTOMATIK_KONTEN.has(account.number)) return "";
   if (account.kind === "aufwand") return vatRate === 19 ? '"9"' : '"8"';
   // Revenue on non-automatic accounts would need 2/3 — does not occur
-  // with the seeded SKR 03 chart (8400/8300 are Automatikkonten).
+  // with the seeded SKR 04 chart (4400/4300 are Automatikkonten).
   if (account.kind === "erloes") return vatRate === 19 ? '"3"' : '"2"';
   return "";
 }
@@ -222,7 +222,7 @@ export function generateDatevExport(
     // S/H bezieht sich auf "Konto"; der BU-Schlüssel gehört zum
     // Gegenkonto. Steht das steuerrelevante (nicht-automatische)
     // Konto im Soll, wird die Buchung gedreht, damit der Schlüssel
-    // am Gegenkonto landet (z. B. Ausgabe: 1200 "H" an 4530 BU 9).
+    // am Gegenkonto landet (z. B. Ausgabe: 1800 "H" an 6530 BU 9).
     const flip =
       buSchluessel(soll, row.vatRate) !== "" &&
       buSchluessel(haben, row.vatRate) === "";

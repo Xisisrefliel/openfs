@@ -4,7 +4,7 @@
 /* are derived server-side by the booking engine.                      */
 /* ------------------------------------------------------------------ */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ import {
   type TransactionType,
 } from "@/lib/accounting-types";
 import { formatCents, parseEuroToCents, splitVat } from "@/lib/money";
-import { students } from "@/lib/student-data";
+import { useStudents, type StudentRecord } from "@/hooks/use-students";
 import { accountingApi, toIsoDate } from "./api";
 
 const TYPES: TransactionType[] = [
@@ -66,7 +66,10 @@ const NEEDS_DESCRIPTION: TransactionType[] = [
   "ausgabe",
 ];
 
-function studentRef(customerNo: string): StudentRef | null {
+function studentRef(
+  students: StudentRecord[],
+  customerNo: string
+): StudentRef | null {
   const student = students.find(s => s.customerNumber === customerNo);
   if (!student) return null;
   return {
@@ -112,22 +115,41 @@ export function PaymentDialog({
   onClose,
   accounts,
   onCreated,
+  defaultCustomerNo,
 }: {
   open: boolean;
   onClose: () => void;
   accounts: Account[];
   /** printableId is set when the new transaction can yield a Quittung */
   onCreated: (printableId: number | null) => void;
+  /** Preselect this student (e.g. on the Fahrschüler detail page). */
+  defaultCustomerNo?: string;
 }) {
+  const { students } = useStudents();
   const [type, setType] = useState<TransactionType>("zahlung_guthaben");
   const [date, setDate] = useState(() => toIsoDate(new Date()));
   const [amount, setAmount] = useState("");
-  const [customerNo, setCustomerNo] = useState(students[0]?.customerNumber ?? "");
+  const [customerNo, setCustomerNo] = useState("");
+
+  // Students load async — default to the first one once the list arrives.
+  useEffect(() => {
+    if (!customerNo && students.length > 0) {
+      setCustomerNo(defaultCustomerNo ?? students[0]!.customerNumber);
+    }
+  }, [customerNo, students, defaultCustomerNo]);
+
+  // Re-pin the preselected student whenever the dialog opens.
+  useEffect(() => {
+    if (open && defaultCustomerNo) {
+      setCustomerNo(defaultCustomerNo);
+    }
+  }, [open, defaultCustomerNo]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bar");
-  const [geldkonto, setGeldkonto] = useState("1000");
-  const [habenKonto, setHabenKonto] = useState("8400");
-  const [aufwandKonto, setAufwandKonto] = useState("4530");
-  const [toKonto, setToKonto] = useState("1200");
+  // SKR 04 defaults: 1600 Kasse, 4400 Erlöse 19 %, 6530 Kfz-Kosten, 1800 Bank
+  const [geldkonto, setGeldkonto] = useState("1600");
+  const [habenKonto, setHabenKonto] = useState("4400");
+  const [aufwandKonto, setAufwandKonto] = useState("6530");
+  const [toKonto, setToKonto] = useState("1800");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -141,7 +163,7 @@ export function PaymentDialog({
 
   // Account whose VAT setting governs this booking (mirrors the engine).
   const vatAccount = useMemo(() => {
-    if (type === "zahlung_guthaben") return accounts.find(a => a.number === "1718");
+    if (type === "zahlung_guthaben") return accounts.find(a => a.kind === "anzahlung");
     if (type === "direktzahlung" || type === "guthaben_uebertragung") {
       return accounts.find(a => a.number === habenKonto);
     }
@@ -165,7 +187,9 @@ export function PaymentDialog({
       toast.error("Bitte einen gültigen Betrag eingeben (z. B. 409,83).");
       return;
     }
-    const student = NEEDS_STUDENT.includes(type) ? studentRef(customerNo) : null;
+    const student = NEEDS_STUDENT.includes(type)
+      ? studentRef(students, customerNo)
+      : null;
     if (NEEDS_STUDENT.includes(type) && !student) {
       toast.error("Bitte einen Fahrschüler auswählen.");
       return;

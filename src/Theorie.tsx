@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Printer, Trash2 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
-import { students } from "@/lib/student-data";
+import { useStudents } from "@/hooks/use-students";
+import type { Student } from "@/lib/student-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,9 +25,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-// The /theorie view derived from the shared student roster — same people
-// as /fahrschueler, projected onto the theory-course fields.
-const learners = students.map(student => ({
+// The /theorie view derived from the shared DB-backed student roster — same
+// people as /fahrschueler, projected onto the theory-course fields.
+const toLearner = (student: Student) => ({
   name: `${student.firstName} ${student.lastName}`,
   phone: student.phone,
   className: student.classes,
@@ -36,7 +37,7 @@ const learners = students.map(student => ({
   preExams: student.theory.preExams,
   exam: student.theory.exam,
   status: student.theory.status,
-}));
+});
 
 const statusTone: Record<string, string> = {
   Aktiv: "bg-blue-50 text-blue-700 ring-blue-600/20",
@@ -45,7 +46,7 @@ const statusTone: Record<string, string> = {
   Pausiert: "bg-muted text-muted-foreground ring-border",
 };
 
-type Learner = (typeof learners)[number];
+type Learner = ReturnType<typeof toLearner>;
 type SortKey = keyof Learner;
 type SortDirection = "asc" | "desc";
 
@@ -137,11 +138,14 @@ function SortableHead({
 }
 
 export function Theorie() {
+  const { students } = useStudents();
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const learners = useMemo(() => students.map(toLearner), [students]);
 
   const filteredLearners = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -175,7 +179,7 @@ export function Theorie() {
 
         return left.name.localeCompare(right.name, "de");
       });
-  }, [classFilter, query, sortDirection, sortKey, statusFilter]);
+  }, [classFilter, learners, query, sortDirection, sortKey, statusFilter]);
 
   const handleSort = (key: SortKey) => {
     if (key === sortKey) {

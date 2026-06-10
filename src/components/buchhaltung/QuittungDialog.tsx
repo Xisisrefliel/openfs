@@ -196,26 +196,52 @@ function QuittungSheet({ data }: { data: QuittungData }) {
 }
 
 export function QuittungDialog({
-  transactionId,
+  transactionIds,
   onClose,
 }: {
-  transactionId: number | null;
+  transactionIds: number[];
   onClose: () => void;
 }) {
-  const [data, setData] = useState<QuittungData | null>(null);
+  const [data, setData] = useState<QuittungData[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (transactionId == null) {
-      setData(null);
+    if (!transactionIds.length) {
+      setData([]);
+      setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
-    accountingApi
-      .quittung(transactionId)
-      .then(result => {
-        if (!cancelled) setData(result);
+    setData([]);
+
+    Promise.allSettled(transactionIds.map(id => accountingApi.quittung(id)))
+      .then(results => {
+        if (cancelled) return;
+        const nextData: QuittungData[] = [];
+        let failed = 0;
+
+        results.forEach(result => {
+          if (result.status === "fulfilled") {
+            nextData.push(result.value);
+          } else {
+            failed += 1;
+          }
+        });
+
+        if (!nextData.length) {
+          if (failed > 0) {
+            toast.error("Keine der ausgewählten Quittungen konnten geladen werden.");
+          }
+          onClose();
+        } else if (failed > 0) {
+          const parts = transactionIds.length === 1 ? "" : "n";
+          toast.error(
+            `${failed} Quittung${parts} im Batch konnten nicht geladen werden.`
+          );
+        }
+
+        setData(nextData);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -227,19 +253,30 @@ export function QuittungDialog({
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transactionId]);
+  }, [transactionIds.join(","), onClose]);
 
   const printRoot = document.getElementById("print-root");
-  const missingTaxId =
-    data != null && !data.issuer.steuernummer && !data.issuer.ustIdNr;
+  const missingTaxId = data.some(
+    entry => !entry.issuer.steuernummer && !entry.issuer.ustIdNr
+  );
+  const title =
+    data.length === 1
+      ? ` ${data[0]!.quittungNr}`
+      : data.length > 1
+        ? ` (${data.length})`
+        : "";
+  const showDescription = data.length > 1
+    ? `${data.length} Quittungen aus den gefilterten Ergebnissen`
+    : "Gültiger Zahlungsbeleg nach § 368 BGB und § 14 UStG.";
 
   return (
     <Dialog
-      open={transactionId != null}
+      open={transactionIds.length > 0}
       onOpenChange={open => {
         if (!open) onClose();
       }}
@@ -247,10 +284,10 @@ export function QuittungDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            Quittung{data ? ` ${data.quittungNr}` : ""}
+            Quittung{title}
           </DialogTitle>
           <DialogDescription>
-            Gültiger Zahlungsbeleg nach § 368 BGB und § 14 UStG.
+            {showDescription}
           </DialogDescription>
         </DialogHeader>
 
@@ -265,17 +302,36 @@ export function QuittungDialog({
           </div>
         )}
 
-        {loading || !data ? (
+        {loading || !data.length ? (
           <div className="flex min-h-64 items-center justify-center">
             <Spinner />
           </div>
         ) : (
           <>
             <div className="max-h-[60vh] overflow-auto rounded-lg border shadow-sm">
-              <QuittungSheet data={data} />
+              <div className="flex flex-col gap-6 p-2">
+                {data.map(item => (
+                  <QuittungSheet key={item.quittungNr} data={item} />
+                ))}
+              </div>
             </div>
             {/* Print copy outside the app root — the only thing printed. */}
-            {printRoot && createPortal(<QuittungSheet data={data} />, printRoot)}
+            {printRoot &&
+              createPortal(
+                <div className="bg-white">
+                  {data.map((item, index) => (
+                    <div
+                      key={`${item.quittungNr}-${index}`}
+                      style={{
+                        breakAfter: index + 1 < data.length ? "page" : "auto",
+                      }}
+                    >
+                      <QuittungSheet data={item} />
+                    </div>
+                  ))}
+                </div>,
+                printRoot
+              )}
           </>
         )}
 

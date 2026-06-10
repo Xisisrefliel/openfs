@@ -33,9 +33,12 @@ import { Buchhaltung } from "./Buchhaltung";
 import { Kalendar } from "./Kalendar";
 import { nonFahrstundeTypes } from "@/lib/calendar-data";
 import { cn } from "@/lib/utils";
+import { Fahrlehrer } from "./Fahrlehrer";
 import { Fahrschueler } from "./Fahrschueler";
+import { FahrschuelerDetail } from "./FahrschuelerDetail";
 import { Fahrzeuge } from "./Fahrzeuge";
 import { NeueSchueler } from "./NeueSchueler";
+import { Preisangebot } from "./Preisangebot";
 import { Profil } from "./Profil";
 import { Theorie } from "./Theorie";
 import { Toaster } from "@/components/ui/sonner";
@@ -92,7 +95,7 @@ const navGroups: {
     items: [
       { label: "Marketing", Icon: Megaphone },
       { label: "Schulprofil", Icon: Building2 },
-      { label: "Preisangebot", Icon: Tag },
+      { label: "Preisangebot", Icon: Tag, route: "/preisangebot" },
       { label: "Bewertungen", Icon: Heart },
     ],
   },
@@ -104,7 +107,7 @@ const navGroups: {
       { label: "Terminanfragen", Icon: CalendarClock },
       { label: "Fahrschule", Icon: Building2 },
       { label: "Kalender", Icon: CalendarDays, route: "/kalendar" },
-      { label: "Fahrlehrer/in", Icon: Users },
+      { label: "Fahrlehrer/in", Icon: Users, route: "/fahrlehrer" },
       { label: "Fahrzeuge", Icon: Car, route: "/fahrzeuge" },
       { label: "Fahrschüler", Icon: GraduationCap, route: "/fahrschueler" },
       { label: "Theorie Gruppen", Icon: BookOpen },
@@ -314,13 +317,20 @@ export function App() {
     new URLSearchParams(search).get("filter") === "non-fahrstunde"
       ? nonFahrstundeTypes
       : undefined;
+  const studentDetailMatch = path.match(/^\/fahrschueler\/(\d+)$/);
   const page =
     path === "/profil" ? (
       <Profil />
     ) : path === "/theorie" ? (
       <Theorie />
+    ) : studentDetailMatch ? (
+      <FahrschuelerDetail
+        key={studentDetailMatch[1]}
+        studentId={Number(studentDetailMatch[1])}
+        navigate={navigate}
+      />
     ) : path === "/fahrschueler" ? (
-      <Fahrschueler />
+      <Fahrschueler navigate={navigate} />
     ) : path === "/buchhaltung" ? (
       <Buchhaltung />
     ) : path === "/kalendar" ? (
@@ -330,8 +340,12 @@ export function App() {
       />
     ) : path === "/fahrzeuge" ? (
       <Fahrzeuge />
+    ) : path === "/fahrlehrer" ? (
+      <Fahrlehrer />
     ) : path === "/neue-schueler" ? (
       <NeueSchueler />
+    ) : path === "/preisangebot" ? (
+      <Preisangebot />
     ) : (
       <Dashboard />
     );

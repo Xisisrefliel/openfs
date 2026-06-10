@@ -23,6 +23,7 @@ import {
   type CalendarEventCardTheme,
 } from "./components/CalendarEventCard.tsx";
 import { EventEditDialog } from "./components/EventEditDialog.tsx";
+import { useInstructors } from "@/hooks/use-instructors";
 import {
   addDays,
   type CalEvent,
@@ -142,7 +143,6 @@ const calendarEventThemes: Record<EventType, CalendarEventCardTheme> = {
 /* Filter configuration                                               */
 /* ------------------------------------------------------------------ */
 
-const instructorOptions = ["Köksal G.", "Nadine Aksoy", "Emre Guel"];
 const niederlassungOptions = ["Fahrschule Gül"];
 const vehicleOptions = ["Golf", "BMW X1"];
 
@@ -474,6 +474,9 @@ export function Kalendar({
   const [selected, setSelected] = useState<Date | undefined>(TODAY);
   const [calendarEvents, setCalendarEvents] =
     useState<CalEvent[]>(getCalendarEvents);
+  // Instructor names come from the DB (/api/instructors) so the filter and
+  // the edit dialog always match the roster managed on /fahrlehrer.
+  const { names: instructorOptions } = useInstructors();
   const [instructors, setInstructors] = useState<Set<string>>(new Set());
   const [niederlassungen, setNiederlassungen] = useState<Set<string>>(new Set());
   const [vehicles, setVehicles] = useState<Set<string>>(new Set());
