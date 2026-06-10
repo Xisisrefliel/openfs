@@ -79,7 +79,10 @@ const requiredLessons = [
   { label: "Theorieunterricht", target: "0/14 Einheiten" },
 ];
 
-const TODAY = "09.06.2026";
+const now = new Date();
+const TODAY = `${String(now.getDate()).padStart(2, "0")}.${String(
+  now.getMonth() + 1
+).padStart(2, "0")}.${now.getFullYear()}`;
 
 const formatDate = (date: Date) =>
   [
