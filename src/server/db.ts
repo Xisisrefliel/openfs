@@ -134,6 +134,22 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,            -- ISO "YYYY-MM-DD"
+  start TEXT NOT NULL,           -- "HH:MM"
+  end TEXT NOT NULL,             -- "HH:MM"
+  title TEXT NOT NULL,
+  subtitle TEXT NOT NULL DEFAULT '',
+  location TEXT NOT NULL DEFAULT '',
+  instructor TEXT NOT NULL DEFAULT 'Nicht zugeteilt',
+  vehicle TEXT NOT NULL DEFAULT '',
+  type TEXT NOT NULL CHECK (type IN ('Praktisch','Theorie','Vorstellung zur prakt. Prüfung','Theorieprüfung','Andere')),
+  tentative INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(date);
+
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_bookings_transaction ON bookings(transaction_id);
 `;
@@ -267,6 +283,7 @@ export function openDb(path = "data/fahrschule.db"): Database {
   initInstructors(db);
   initStudents(db);
   initPricePlans(db);
+  initCalendarEvents(db);
   return db;
 }
 
@@ -368,6 +385,163 @@ function initVehicles(db: Database) {
       vehicle.status,
       vehicle.accent,
       JSON.stringify(vehicle.details)
+    );
+  }
+}
+
+/* Seed calendar events — the demo week from src/lib/calendar-data.ts,
+   authored by weekday (0 = Monday … 6 = Sunday) and anchored to the week
+   of the real current date. After this one-time import the DB is the
+   source of truth (/api/calendar-events). */
+type CalendarEventSeed = {
+  day: number;
+  start: string;
+  end: string;
+  title: string;
+  subtitle?: string;
+  location?: string;
+  instructor: string;
+  vehicle?: string;
+  type:
+    | "Praktisch"
+    | "Theorie"
+    | "Vorstellung zur prakt. Prüfung"
+    | "Theorieprüfung"
+    | "Andere";
+  tentative?: boolean;
+};
+
+const CALENDAR_EVENT_SEED: CalendarEventSeed[] = [
+  {
+    day: 0,
+    start: "18:00",
+    end: "19:30",
+    title: "Thema 9: Verkehrsverhalten bei Fahrmanöver; Verkehrsbeobachtung",
+    subtitle: "Köksal Gül",
+    location: "Fahrschule Gül",
+    instructor: "Köksal Gül",
+    type: "Theorie",
+  },
+  {
+    day: 1,
+    start: "09:00",
+    end: "09:45",
+    title: "Fahrstunde · Stadt",
+    subtitle: "Lena Braun",
+    instructor: "Nadine Aksoy",
+    vehicle: "Golf",
+    type: "Praktisch",
+  },
+  {
+    day: 1,
+    start: "18:00",
+    end: "19:30",
+    title: "Thema 10: Ruhender Verkehr",
+    subtitle: "Köksal Gül",
+    location: "Fahrschule Gül",
+    instructor: "Köksal Gül",
+    type: "Theorie",
+  },
+  {
+    day: 2,
+    start: "11:00",
+    end: "12:30",
+    title: "Überlandfahrt · Klasse B",
+    subtitle: "Jonas Meyer",
+    instructor: "Emre Gül",
+    vehicle: "BMW X1",
+    type: "Praktisch",
+  },
+  {
+    day: 3,
+    start: "08:30",
+    end: "09:15",
+    title: "Fahrübungsstunde · B197",
+    subtitle: "Zahra Rezaie",
+    instructor: "Köksal Gül",
+    vehicle: "Golf",
+    type: "Praktisch",
+    tentative: true,
+  },
+  {
+    day: 3,
+    start: "14:00",
+    end: "15:30",
+    title: "Vorstellung · Prüfungsvorbereitung",
+    subtitle: "Aylin Demir",
+    instructor: "Emre Gül",
+    vehicle: "BMW X1",
+    type: "Vorstellung zur prakt. Prüfung",
+  },
+  {
+    day: 4,
+    start: "10:00",
+    end: "10:45",
+    title: "Theorieprüfung · TÜV",
+    subtitle: "Tom Richter",
+    location: "TÜV Süd",
+    instructor: "Nadine Aksoy",
+    type: "Theorieprüfung",
+  },
+  {
+    day: 4,
+    start: "16:00",
+    end: "17:00",
+    title: "Fahrstunde · Autobahn",
+    subtitle: "Mara Köhler",
+    instructor: "Nadine Aksoy",
+    vehicle: "Golf",
+    type: "Praktisch",
+  },
+  {
+    day: 5,
+    start: "09:00",
+    end: "11:00",
+    title: "Erste-Hilfe Kurs",
+    subtitle: "Gruppe A",
+    location: "Fahrschule Gül",
+    instructor: "Köksal Gül",
+    type: "Andere",
+  },
+];
+
+function initCalendarEvents(db: Database) {
+  const count = db
+    .query<{ n: number }, []>("SELECT count(*) AS n FROM calendar_events")
+    .get()!.n;
+  if (count > 0) return;
+
+  // Monday of the current week — same logic as startOfWeek in
+  // src/lib/calendar-data.ts (Monday = 0).
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const offset = (today.getDay() + 6) % 7;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - offset);
+  const toISODate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+      date.getDate()
+    ).padStart(2, "0")}`;
+
+  const insert = db.prepare(
+    `INSERT INTO calendar_events
+       (date, start, "end", title, subtitle, location, instructor, vehicle, type, tentative)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const event of CALENDAR_EVENT_SEED) {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + event.day);
+    insert.run(
+      toISODate(date),
+      event.start,
+      event.end,
+      event.title,
+      event.subtitle ?? "",
+      event.location ?? "",
+      event.instructor,
+      event.vehicle ?? "",
+      event.type,
+      event.tentative ? 1 : 0
     );
   }
 }
