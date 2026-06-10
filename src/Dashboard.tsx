@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, XAxis } from "recharts";
 import {
   ArrowRight,
@@ -42,7 +42,6 @@ import {
   addDays,
   type CalEvent,
   eventTypeShortLabel,
-  getCalendarEvents,
   isFahrstunde,
   isSameDay,
   parseISODate,
@@ -50,6 +49,7 @@ import {
   toMinutes,
   TODAY,
 } from "@/lib/calendar-data";
+import { useCalendarEvents } from "@/hooks/use-calendar-events";
 import { useStudents } from "@/hooks/use-students";
 
 type IconCmp = React.ComponentType<{ className?: string }>;
@@ -62,13 +62,13 @@ function goTo(url: string) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Shared calendar data — every widget below is derived from this so   */
-/* the dashboard always agrees with /kalendar.                         */
+/* Shared calendar data — every widget below is derived from the        */
+/* persisted events (via useCalendarEvents) so the dashboard always     */
+/* agrees with /kalendar.                                               */
 /* ------------------------------------------------------------------ */
 
 const weekStart = startOfWeek(TODAY);
 const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-const allEvents = getCalendarEvents();
 
 const byDateTime = (a: CalEvent, b: CalEvent) =>
   a.date === b.date
@@ -77,8 +77,8 @@ const byDateTime = (a: CalEvent, b: CalEvent) =>
       ? -1
       : 1;
 
-const eventsOn = (day: Date) =>
-  allEvents.filter(event => isSameDay(parseISODate(event.date), day));
+const eventsOn = (events: CalEvent[], day: Date) =>
+  events.filter(event => isSameDay(parseISODate(event.date), day));
 
 const dashboardCardClass =
   "rounded-lg border border-border/80 ring-0 shadow-none";
@@ -118,10 +118,6 @@ function Navigation() {
 /* Grid — stat cards                                                   */
 /* ------------------------------------------------------------------ */
 
-// Counts derived from the shared sources — students come from the DB.
-const fahrstundenThisWeek = allEvents.filter(isFahrstunde).length;
-const fahrstundenToday = eventsOn(TODAY).filter(isFahrstunde).length;
-
 type Stat = {
   label: string;
   value: string;
@@ -132,38 +128,43 @@ type Stat = {
   hint?: string;
 };
 
-const staticStats: Stat[] = [
-  {
-    label: "Fahrstunden (Woche)",
-    value: String(fahrstundenThisWeek),
-    Icon: CalendarDays,
-    iconClass: "bg-amber-500/10 text-amber-600",
-    href: "/kalendar",
-    hint: `${fahrstundenToday} heute`,
-  },
-  {
-    label: "Umsatz (Monat)",
-    value: "€ 42.350",
-    Icon: Euro,
-    iconClass: "bg-emerald-500/10 text-emerald-600",
-    href: "/buchhaltung",
-    trend: { delta: "+5,2%", up: true },
-  },
-  {
-    label: "Offene Rechnungen",
-    value: "14",
-    Icon: FileWarning,
-    iconClass: "bg-rose-500/10 text-rose-600",
-    href: "/buchhaltung",
-    trend: { delta: "-3", up: false },
-  },
-];
-
-function Grid() {
+function Grid({ events }: { events: CalEvent[] }) {
   const { students } = useStudents();
   const activeStudents = students.filter(
     student => student.status === "aktiv"
   ).length;
+
+  // Counts derived from the shared sources — students come from the DB.
+  const fahrstundenThisWeek = events.filter(isFahrstunde).length;
+  const fahrstundenToday = eventsOn(events, TODAY).filter(isFahrstunde).length;
+
+  const staticStats: Stat[] = [
+    {
+      label: "Fahrstunden (Woche)",
+      value: String(fahrstundenThisWeek),
+      Icon: CalendarDays,
+      iconClass: "bg-amber-500/10 text-amber-600",
+      href: "/kalendar",
+      hint: `${fahrstundenToday} heute`,
+    },
+    {
+      label: "Umsatz (Monat)",
+      value: "€ 42.350",
+      Icon: Euro,
+      iconClass: "bg-emerald-500/10 text-emerald-600",
+      href: "/buchhaltung",
+      trend: { delta: "+5,2%", up: true },
+    },
+    {
+      label: "Offene Rechnungen",
+      value: "14",
+      Icon: FileWarning,
+      iconClass: "bg-rose-500/10 text-rose-600",
+      href: "/buchhaltung",
+      trend: { delta: "-3", up: false },
+    },
+  ];
+
   const stats: Stat[] = [
     {
       label: "Aktive Fahrschüler",
@@ -224,18 +225,21 @@ function Grid() {
 
 const WEEKDAY_LABELS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
-// Fahrstunden (practical driving lessons) per weekday, straight from the
-// calendar events — same items the /kalendar grid renders.
-const chartData = weekDays.map((day, i) => ({
-  day: WEEKDAY_LABELS[i],
-  value: eventsOn(day).filter(isFahrstunde).length,
-}));
-
 const chartConfig = {
   value: { label: "Fahrstunden", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
-function Chart() {
+function Chart({ events }: { events: CalEvent[] }) {
+  // Fahrstunden (practical driving lessons) per weekday, straight from the
+  // calendar events — same items the /kalendar grid renders.
+  const chartData = useMemo(
+    () =>
+      weekDays.map((day, i) => ({
+        day: WEEKDAY_LABELS[i],
+        value: eventsOn(events, day).filter(isFahrstunde).length,
+      })),
+    [events]
+  );
   const total = chartData.reduce((s, d) => s + d.value, 0);
   const max = Math.max(...chartData.map(d => d.value));
   return (
@@ -280,17 +284,17 @@ function Chart() {
 /* List — upcoming appointments                                        */
 /* ------------------------------------------------------------------ */
 
-// Everything that isn't a routine driving lesson — theory, exams, exam prep,
-// courses. Clicking through opens the calendar filtered to exactly these.
-const nonFahrstundeEvents = allEvents
-  .filter(event => !isFahrstunde(event))
-  .sort(byDateTime);
-
 const weekdayShort = (date: Date) =>
   date.toLocaleDateString("de-DE", { weekday: "short" }).replace(".", "");
 
-function List() {
+function List({ events }: { events: CalEvent[] }) {
   const openCalendar = () => goTo("/kalendar?filter=non-fahrstunde");
+  // Everything that isn't a routine driving lesson — theory, exams, exam
+  // prep, courses. Clicking through opens the calendar filtered to these.
+  const nonFahrstundeEvents = useMemo(
+    () => events.filter(event => !isFahrstunde(event)).sort(byDateTime),
+    [events]
+  );
   return (
     <Card className={dashboardCardClass}>
       <CardHeader className={dashboardCardHeaderClass}>
@@ -363,15 +367,17 @@ function List() {
 /* Calendar — month view with agenda                                   */
 /* ------------------------------------------------------------------ */
 
-// Days that have at least one event, for the calendar's dot markers.
-const eventDates = [...new Set(allEvents.map(event => event.date))].map(
-  parseISODate
-);
-
-function MonthCalendar() {
+function MonthCalendar({ events }: { events: CalEvent[] }) {
   const [selected, setSelected] = useState<Date | undefined>(TODAY);
+  // Days that have at least one event, for the calendar's dot markers.
+  const eventDates = useMemo(
+    () => [...new Set(events.map(event => event.date))].map(parseISODate),
+    [events]
+  );
   const dayEvents = selected
-    ? eventsOn(selected).sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
+    ? eventsOn(events, selected).sort(
+        (a, b) => toMinutes(a.start) - toMinutes(b.start)
+      )
     : [];
   const isToday = selected ? isSameDay(selected, TODAY) : false;
   const dayLabel = selected
@@ -463,20 +469,21 @@ function MonthCalendar() {
 /* ------------------------------------------------------------------ */
 
 export function Dashboard() {
+  const { events } = useCalendarEvents();
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
       <Navigation />
       <div className={cn("flex flex-1 flex-col gap-4 overflow-y-auto p-4 2xl:gap-5 2xl:p-6")}>
-        <Grid />
+        <Grid events={events} />
         <div className="stagger-in grid grid-cols-1 items-start gap-4 2xl:gap-5 lg:grid-cols-12">
           <div className="lg:col-span-5">
-            <Chart />
+            <Chart events={events} />
           </div>
           <div className="lg:col-span-4">
-            <List />
+            <List events={events} />
           </div>
           <div className="lg:col-span-3">
-            <MonthCalendar />
+            <MonthCalendar events={events} />
           </div>
         </div>
       </div>
