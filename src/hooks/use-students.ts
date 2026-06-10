@@ -44,6 +44,12 @@ export async function updateStudent(
   );
 }
 
+export async function deleteStudent(id: number): Promise<void> {
+  await parseOrThrow<{ ok: true }>(
+    await fetch(`/api/students/${id}`, { method: "DELETE" })
+  );
+}
+
 export function useStudents() {
   const { items: students, loading, refresh } = useFetchList(
     fetchStudents,

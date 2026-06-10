@@ -21,7 +21,7 @@ import {
   listPricePlans,
   updatePricePlan,
 } from "./price-plans";
-import { createStudent, listStudents, updateStudent } from "./students";
+import { createStudent, deleteStudent, listStudents, updateStudent } from "./students";
 import { getVehicleOptions } from "../lib/vehicle-options";
 import {
   createVehicle,
@@ -121,6 +121,15 @@ export function studentRoutes(db: Database) {
             throw new ValidationError("Ungültige Fahrschüler-ID.");
           }
           return json(updateStudent(db, id, await req.json()));
+        })(),
+      DELETE: (req: BunRequest<"/api/students/:id">) =>
+        handle(() => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Fahrschüler-ID.");
+          }
+          deleteStudent(db, id);
+          return json({ ok: true });
         })(),
     },
   };

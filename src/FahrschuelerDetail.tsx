@@ -6,7 +6,8 @@
 /* ------------------------------------------------------------------ */
 
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageHeader } from "./components/PageHeader.tsx";
 import { DokumenteTab } from "./components/fahrschueler/DokumenteTab";
@@ -16,8 +17,19 @@ import { UebersichtTab } from "./components/fahrschueler/UebersichtTab";
 import { ZahlungTab } from "./components/fahrschueler/ZahlungTab";
 import type { Student } from "@/lib/student-data";
 import { useInstructors } from "@/hooks/use-instructors";
-import { updateStudent, useStudents } from "@/hooks/use-students";
+import { deleteStudent, updateStudent, useStudents } from "@/hooks/use-students";
 import { useVehicleOptions } from "@/hooks/use-vehicle-options";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,6 +69,19 @@ export function FahrschuelerDetail({
   const save = async (updates: Partial<Student>) => {
     await updateStudent(studentId, updates);
     await refresh();
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteStudent(studentId);
+      toast.success("Fahrschüler/in gelöscht.");
+      await refresh();
+      navigate("/fahrschueler");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
+      );
+    }
   };
 
   const renderTab = () => {
@@ -126,6 +151,37 @@ export function FahrschuelerDetail({
               >
                 Bilanz {student.balance}
               </Badge>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon-sm"
+                    aria-label={`${student.firstName} ${student.lastName} löschen`}
+                  >
+                    <Trash2 />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Fahrschüler/in löschen?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {student.firstName} {student.lastName} wird endgültig
+                      gelöscht. Buchungen und Quittungen bleiben erhalten — sie
+                      enthalten eine eigene Kopie der Schülerdaten.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      onClick={handleDelete}
+                    >
+                      Endgültig löschen
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </>
           )
         }

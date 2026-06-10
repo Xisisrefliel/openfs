@@ -7,9 +7,15 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import type { Database } from "bun:sqlite";
 
 import { openDb } from "./db";
-import { ValidationError } from "./engine";
+import {
+  createTransaction,
+  listJournal,
+  listLedger,
+  ValidationError,
+} from "./engine";
 import {
   createStudent,
+  deleteStudent,
   getStudent,
   listStudents,
   updateStudent,
@@ -198,6 +204,61 @@ describe("students", () => {
 
   test("getStudent with unknown id → ValidationError", () => {
     expect(() => getStudent(db, 999999)).toThrow(ValidationError);
+  });
+
+  test("deleteStudent: removes the row (listStudents length drops by 1)", () => {
+    const before = listStudents(db).length;
+    const student = createStudent(db, makeStudent());
+    expect(listStudents(db).length).toBe(before + 1);
+    deleteStudent(db, student.id);
+    expect(listStudents(db).length).toBe(before);
+  });
+
+  test("deleteStudent: unknown id → ValidationError", () => {
+    expect(() => deleteStudent(db, 999999)).toThrow(ValidationError);
+  });
+
+  test("deleteStudent: accounting snapshot survives (ledger keeps student name, journal rows intact)", () => {
+    // Create a student and a transaction that snapshots their data.
+    const student = createStudent(db, makeStudent({
+      firstName: "Accounting",
+      lastName: "Snapshot",
+      customerNumber: uniq("SNAP-C-"),
+      contractNumber: uniq("SNAP-V-"),
+    }));
+    const fullName = `${student.firstName} ${student.lastName}`;
+    const studentPayload = {
+      customerNo: student.customerNumber,
+      name: fullName,
+      address: student.address,
+      contractNo: student.contractNumber,
+      classes: student.classes,
+    };
+
+    const journalBefore = listJournal(db, {}).length;
+    createTransaction(db, {
+      type: "zahlung_guthaben",
+      date: "2026-06-09",
+      amountCents: 10000,
+      geldkonto: "1600",
+      paymentMethod: "bar",
+      student: studentPayload,
+    });
+    const journalAfterCreate = listJournal(db, {}).length;
+    expect(journalAfterCreate).toBeGreaterThan(journalBefore);
+
+    // Delete the student — hard delete.
+    deleteStudent(db, student.id);
+    expect(() => getStudent(db, student.id)).toThrow(ValidationError);
+
+    // The ledger snapshot must still carry the student's name.
+    const ledger = listLedger(db, {});
+    const ledgerHasName = ledger.rows.some(row => row.studentName === fullName);
+    expect(ledgerHasName).toBe(true);
+
+    // The journal rows must still exist (no cascade delete).
+    const journalAfterDelete = listJournal(db, {}).length;
+    expect(journalAfterDelete).toBe(journalAfterCreate);
   });
 });
 

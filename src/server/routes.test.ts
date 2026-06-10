@@ -120,6 +120,47 @@ describe("PATCH /api/students/:id", () => {
   });
 });
 
+describe("DELETE /api/students/:id", () => {
+  test("valid id → 200 { ok: true }, then GET list no longer contains it", async () => {
+    const id = uniq();
+    const postRes = await fetch(url("/api/students"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: "Delete",
+        lastName: "Me",
+        contractNumber: `V-DEL-${id}`,
+        customerNumber: `K-DEL-${id}`,
+      }),
+    });
+    expect(postRes.status).toBe(201);
+    const created = await postRes.json() as { id: number };
+    expect(created.id).toBeGreaterThan(0);
+
+    const delRes = await fetch(url(`/api/students/${created.id}`), {
+      method: "DELETE",
+    });
+    expect(delRes.status).toBe(200);
+    const delBody = await delRes.json() as { ok: boolean };
+    expect(delBody.ok).toBe(true);
+
+    const listRes = await fetch(url("/api/students"));
+    expect(listRes.status).toBe(200);
+    const list = await listRes.json() as { students: { id: number }[] };
+    const ids = list.students.map(s => s.id);
+    expect(ids).not.toContain(created.id);
+  });
+
+  test("non-numeric id 'abc' → 400", async () => {
+    const res = await fetch(url("/api/students/abc"), {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Ungültige");
+  });
+});
+
 /* ================================================================== */
 /* Instructors                                                          */
 /* ================================================================== */

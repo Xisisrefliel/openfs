@@ -289,3 +289,8 @@ export function updateStudent(
   );
   return getStudent(db, id);
 }
+
+export function deleteStudent(db: Database, id: number): void {
+  getStudent(db, id); // throws ValidationError if unknown
+  db.prepare("DELETE FROM students WHERE id = ?").run(id);
+}
