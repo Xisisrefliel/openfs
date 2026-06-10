@@ -30,6 +30,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .cache
 *.tsbuildinfo
 
+# Claude Code agent worktrees (disposable checkouts, never commit)
+.claude/worktrees/
+
 # IntelliJ based IDEs
 .idea
 
