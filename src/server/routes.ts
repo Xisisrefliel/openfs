@@ -258,7 +258,8 @@ export function accountingRoutes(db: Database) {
             from: params.get("from") ?? undefined,
             to: params.get("to") ?? undefined,
           });
-          return new Response(bytes, {
+          // Bun accepts Uint8Array bodies; DOM lib types lag
+          return new Response(bytes as unknown as BodyInit, {
             headers: {
               "Content-Type": "text/csv; charset=windows-1252",
               "Content-Disposition": `attachment; filename="${filename}"`,
