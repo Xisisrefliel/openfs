@@ -9,10 +9,10 @@ import { useMemo, useState } from "react";
 import {
   eventTypeOptions,
   eventTypeShortLabel,
-  getCalendarEvents,
   toMinutes,
   type EventType,
 } from "@/lib/calendar-data";
+import { useCalendarEvents } from "@/hooks/use-calendar-events";
 import type { StudentRecord } from "@/hooks/use-students";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -59,16 +59,17 @@ type TypeFilter = "alle" | EventType;
 export function StundenTab({ student }: { student: StudentRecord }) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("alle");
   const fullName = `${student.firstName} ${student.lastName}`;
+  const { events: allEvents } = useCalendarEvents();
 
   const events = useMemo(
     () =>
-      getCalendarEvents()
+      allEvents
         .filter(event => event.subtitle === fullName)
         .filter(event => typeFilter === "alle" || event.type === typeFilter)
         .toSorted((left, right) =>
           `${left.date} ${left.start}`.localeCompare(`${right.date} ${right.start}`)
         ),
-    [fullName, typeFilter]
+    [allEvents, fullName, typeFilter]
   );
 
   return (

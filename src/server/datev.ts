@@ -65,10 +65,15 @@ function belegdatum(isoDate: string): string {
   return `${day}${month}`;
 }
 
-/** Quote a DATEV text field; quotes/semicolons/line breaks sanitized. */
+/** Quote a DATEV text field; quotes/semicolons/line breaks sanitized and
+ *  spreadsheet formula triggers (=, +, -, @, tab) neutralized with a
+ *  leading apostrophe so exported CSVs are inert in Excel/LibreOffice. */
 function text(value: string, limit: number): string {
-  const cleaned = value.replace(/["\r\n]/g, "'").slice(0, limit);
-  return `"${cleaned}"`;
+  let cleaned = value.replace(/["\r\n\t]/g, "'");
+  if (/^[=+\-@]/.test(cleaned)) {
+    cleaned = `'${cleaned}`;
+  }
+  return `"${cleaned.slice(0, limit)}"`;
 }
 
 /** Belegfeld 1 allows only a-zA-Z0-9 $ & % * + - / */

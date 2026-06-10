@@ -3,7 +3,7 @@
 /* The HTTP wrappers live in routes.ts (studentRoutes).                */
 /* ------------------------------------------------------------------ */
 
-import type { Database } from "bun:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 
 import type { Student } from "../lib/student-data";
 import { ValidationError } from "./engine";
@@ -252,7 +252,7 @@ export function createStudent(
   const data = normalize(input, EMPTY);
   const row = guardUnique(() =>
     db
-      .query<{ id: number }, ReturnType<typeof writeParams>>(
+      .query<{ id: number }, SQLQueryBindings[]>(
         `INSERT INTO students (
            first_name, last_name, birthday, phone, email, address, classes,
            driving_school, registration_date, contract_number, customer_number,
@@ -288,4 +288,9 @@ export function updateStudent(
       .run(...writeParams(data), id)
   );
   return getStudent(db, id);
+}
+
+export function deleteStudent(db: Database, id: number): void {
+  getStudent(db, id); // throws ValidationError if unknown
+  db.prepare("DELETE FROM students WHERE id = ?").run(id);
 }

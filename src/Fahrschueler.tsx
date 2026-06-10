@@ -56,7 +56,7 @@ const parseDate = (value: string) => {
   if (value === "Nicht geplant") return Number.POSITIVE_INFINITY;
 
   const [datePart, timePart = "00:00"] = value.split(", ");
-  const [day, month, year] = datePart.split(".").map(Number);
+  const [day, month, year] = (datePart ?? "").split(".").map(Number);
   const [hour, minute] = timePart.split(":").map(Number);
 
   if (!day || !month || !year) return 0;

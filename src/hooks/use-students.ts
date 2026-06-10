@@ -7,21 +7,10 @@
 /* createStudent so they persist across reloads.                       */
 /* ------------------------------------------------------------------ */
 
-import { useCallback, useEffect, useState } from "react";
-
 import type { Student } from "@/lib/student-data";
+import { parseOrThrow, useFetchList } from "@/lib/api";
 
 export type StudentRecord = Student & { id: number };
-
-async function parseOrThrow<T>(response: Response): Promise<T> {
-  const data = (await response.json().catch(() => null)) as
-    | (T & { error?: string })
-    | null;
-  if (!response.ok || !data) {
-    throw new Error(data?.error ?? "Anfrage fehlgeschlagen.");
-  }
-  return data;
-}
 
 export async function fetchStudents(): Promise<StudentRecord[]> {
   const data = await parseOrThrow<{ students: StudentRecord[] }>(
@@ -55,23 +44,16 @@ export async function updateStudent(
   );
 }
 
+export async function deleteStudent(id: number): Promise<void> {
+  await parseOrThrow<{ ok: true }>(
+    await fetch(`/api/students/${id}`, { method: "DELETE" })
+  );
+}
+
 export function useStudents() {
-  const [students, setStudents] = useState<StudentRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    try {
-      setStudents(await fetchStudents());
-    } catch (error) {
-      console.error("Fahrschüler konnten nicht geladen werden:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
+  const { items: students, loading, refresh } = useFetchList(
+    fetchStudents,
+    "Fahrschüler konnten nicht geladen werden"
+  );
   return { students, loading, refresh };
 }

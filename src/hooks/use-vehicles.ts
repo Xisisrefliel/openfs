@@ -5,7 +5,7 @@
 /* so all vehicle edits persist and survive reloads.                   */
 /* ------------------------------------------------------------------ */
 
-import { useCallback, useEffect, useState } from "react";
+import { parseOrThrow, useFetchList } from "@/lib/api";
 
 export type VehicleDetail = {
   label: string;
@@ -25,16 +25,6 @@ export type Vehicle = {
 };
 
 type VehicleInput = Omit<Vehicle, "id">;
-
-async function parseOrThrow<T>(response: Response): Promise<T> {
-  const data = (await response.json().catch(() => null)) as
-    | (T & { error?: string })
-    | null;
-  if (!response.ok || !data) {
-    throw new Error(data?.error ?? "Anfrage fehlgeschlagen.");
-  }
-  return data;
-}
 
 export async function fetchVehicles(): Promise<Vehicle[]> {
   const data = await parseOrThrow<{ vehicles: Vehicle[] }>(
@@ -75,22 +65,9 @@ export async function deleteVehicle(id: number): Promise<void> {
 }
 
 export function useVehicles() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    try {
-      setVehicles(await fetchVehicles());
-    } catch (error) {
-      console.error("Fahrzeuge konnten nicht geladen werden:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
+  const { items: vehicles, loading, refresh } = useFetchList(
+    fetchVehicles,
+    "Fahrzeuge konnten nicht geladen werden"
+  );
   return { vehicles, loading, refresh };
 }

@@ -7,7 +7,8 @@
 /* across the whole app.                                               */
 /* ------------------------------------------------------------------ */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
+import { parseOrThrow, useFetchList } from "@/lib/api";
 
 export type InstructorStatus = "aktiv" | "inaktiv";
 
@@ -31,16 +32,6 @@ export const UNASSIGNED_INSTRUCTOR = "Nicht zugeteilt";
 export const instructorName = (
   instructor: Pick<Instructor, "firstName" | "lastName">
 ) => `${instructor.firstName} ${instructor.lastName}`.trim();
-
-async function parseOrThrow<T>(response: Response): Promise<T> {
-  const data = (await response.json().catch(() => null)) as
-    | (T & { error?: string })
-    | null;
-  if (!response.ok || !data) {
-    throw new Error(data?.error ?? "Anfrage fehlgeschlagen.");
-  }
-  return data;
-}
 
 export async function fetchInstructors(): Promise<Instructor[]> {
   const data = await parseOrThrow<{ instructors: Instructor[] }>(
@@ -81,22 +72,10 @@ export async function deleteInstructor(id: number): Promise<void> {
 }
 
 export function useInstructors() {
-  const [instructors, setInstructors] = useState<Instructor[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    try {
-      setInstructors(await fetchInstructors());
-    } catch (error) {
-      console.error("Fahrlehrer konnten nicht geladen werden:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  const { items: instructors, loading, refresh } = useFetchList(
+    fetchInstructors,
+    "Fahrlehrer konnten nicht geladen werden"
+  );
 
   /* Full names of all instructors (active first), for filter lists. */
   const names = useMemo(() => instructors.map(instructorName), [instructors]);

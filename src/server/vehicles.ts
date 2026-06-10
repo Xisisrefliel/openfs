@@ -155,7 +155,10 @@ type VehicleTextKey = "model" | "plate" | "klass" | "accent";
 function normalize(input: Partial<VehicleInput>, current: Vehicle): Vehicle {
   const str = (key: VehicleTextKey): string => {
     const value = input[key as keyof VehicleInput];
-    if (value === undefined) return current[key as keyof Omit<Vehicle, "id">];
+    if (value === undefined) {
+      const cur = current[key as keyof Omit<Vehicle, "id">];
+      return Array.isArray(cur) ? "" : String(cur);
+    }
     if (typeof value !== "string") {
       throw new ValidationError(`Feld '${key}' muss ein Text sein.`);
     }

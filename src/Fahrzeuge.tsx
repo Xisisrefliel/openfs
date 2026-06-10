@@ -47,7 +47,7 @@ import { cn } from "@/lib/utils";
 type IconCmp = React.ComponentType<{ className?: string }>;
 
 type Detail = { Icon: IconCmp; label: string; value: string };
-type Vehicle = VehicleRecord & {
+type Vehicle = Omit<VehicleRecord, "details"> & {
   details: Detail[];
 };
 

@@ -21,7 +21,14 @@ import {
   listPricePlans,
   updatePricePlan,
 } from "./price-plans";
-import { createStudent, listStudents, updateStudent } from "./students";
+import { createStudent, deleteStudent, listStudents, updateStudent } from "./students";
+import {
+  createCalendarEvent,
+  type CalendarEventInput,
+  deleteCalendarEvent,
+  listCalendarEvents,
+  updateCalendarEvent,
+} from "./calendar-events";
 import { getVehicleOptions } from "../lib/vehicle-options";
 import {
   createVehicle,
@@ -122,6 +129,15 @@ export function studentRoutes(db: Database) {
           }
           return json(updateStudent(db, id, await req.json()));
         })(),
+      DELETE: (req: BunRequest<"/api/students/:id">) =>
+        handle(() => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Fahrschüler-ID.");
+          }
+          deleteStudent(db, id);
+          return json({ ok: true });
+        })(),
     },
   };
 }
@@ -160,20 +176,21 @@ export function pricePlanRoutes(db: Database) {
 export function vehicleRoutes(db: Database) {
   return {
     "/api/vehicle-options": {
-      GET: () => {
-        const models = listVehicleModels(db);
-        const defaults = getVehicleOptions();
-        const unassigned = "Nicht zugeteilt";
-        const options = new Set<string>(defaults.filter(value => value !== unassigned));
-        for (const model of models) {
-          options.add(model);
-        }
-        return json({ vehicleOptions: [...options, unassigned] });
-      },
+      GET: () =>
+        handle(() => {
+          const models = listVehicleModels(db);
+          const defaults = getVehicleOptions();
+          const unassigned = "Nicht zugeteilt";
+          const options = new Set<string>(defaults.filter(value => value !== unassigned));
+          for (const model of models) {
+            options.add(model);
+          }
+          return json({ vehicleOptions: [...options, unassigned] });
+        })(),
     },
 
     "/api/vehicles": {
-      GET: () => json({ vehicles: listVehicles(db) }),
+      GET: () => handle(() => json({ vehicles: listVehicles(db) }))(),
       POST: (req: BunRequest) =>
         handle(async () => 
           json(createVehicle(db, (await req.json()) as Partial<VehicleInput>), 201)
@@ -196,6 +213,51 @@ export function vehicleRoutes(db: Database) {
             throw new ValidationError("Ungültige Fahrzeug-ID.");
           }
           deleteVehicle(db, id);
+          return json({ ok: true });
+        })(),
+    },
+  };
+}
+
+export function calendarEventRoutes(db: Database) {
+  return {
+    "/api/calendar-events": {
+      GET: (req: BunRequest) =>
+        handle(() => {
+          const params = new URL(req.url).searchParams;
+          const events = listCalendarEvents(db, {
+            from: params.get("from") ?? undefined,
+            to: params.get("to") ?? undefined,
+          });
+          return json({ events });
+        })(),
+      POST: (req: BunRequest) =>
+        handle(async () =>
+          json(
+            createCalendarEvent(db, (await req.json()) as Partial<CalendarEventInput>),
+            201
+          )
+        )(),
+    },
+
+    "/api/calendar-events/:id": {
+      PATCH: (req: BunRequest<"/api/calendar-events/:id">) =>
+        handle(async () => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Termin-ID.");
+          }
+          return json(
+            updateCalendarEvent(db, id, (await req.json()) as Partial<CalendarEventInput>)
+          );
+        })(),
+      DELETE: (req: BunRequest<"/api/calendar-events/:id">) =>
+        handle(() => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Termin-ID.");
+          }
+          deleteCalendarEvent(db, id);
           return json({ ok: true });
         })(),
     },
@@ -258,7 +320,8 @@ export function accountingRoutes(db: Database) {
             from: params.get("from") ?? undefined,
             to: params.get("to") ?? undefined,
           });
-          return new Response(bytes, {
+          // Bun accepts Uint8Array bodies; DOM lib types lag
+          return new Response(bytes as unknown as BodyInit, {
             headers: {
               "Content-Type": "text/csv; charset=windows-1252",
               "Content-Disposition": `attachment; filename="${filename}"`,
