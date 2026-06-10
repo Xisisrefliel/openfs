@@ -3,7 +3,9 @@ import { CalendarClock, CalendarDays, Check, Clock, X } from "lucide-react";
 
 import {
   type CalEvent,
+  type EventPreset,
   type EventType,
+  eventPresets,
   eventTypeOptions,
   parseISODate,
   toISODate,
@@ -13,6 +15,14 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -77,12 +87,15 @@ const scrollTimeListWithWheel = (
   event.stopPropagation();
 };
 
-const keepDialogOpenForPopover = (event: Event) => {
+const floatingContentSelector =
+  '[data-slot="popover-content"], [data-slot="combobox-content"]';
+
+const keepDialogOpenForFloatingContent = (event: Event) => {
   const target = event.target;
   if (
-    document.querySelector('[data-slot="popover-content"]') ||
+    document.querySelector(floatingContentSelector) ||
     (target instanceof Element &&
-      target.closest('[data-slot="popover-content"]'))
+      target.closest(floatingContentSelector))
   ) {
     event.preventDefault();
   }
@@ -281,6 +294,7 @@ export function EventEditDialog({
   onOpenChange,
   onSave,
   instructorOptions,
+  studentOptions,
   vehicleOptions,
 }: {
   event: CalEvent | null;
@@ -288,6 +302,7 @@ export function EventEditDialog({
   onOpenChange: (open: boolean) => void;
   onSave: (id: string, updates: CalEvent) => void;
   instructorOptions: string[];
+  studentOptions: string[];
   vehicleOptions: string[];
 }) {
   const [draft, setDraft] = useState<CalEvent | null>(event);
@@ -301,6 +316,19 @@ export function EventEditDialog({
 
   const update = <K extends keyof CalEvent>(key: K, value: CalEvent[K]) =>
     setDraft(current => (current ? { ...current, [key]: value } : current));
+  const applyPreset = (preset: EventPreset) => {
+    setDraft(current => {
+      if (!current) return current;
+      const startMinutes = toMinutes(current.start);
+
+      return {
+        ...current,
+        title: preset.title,
+        type: preset.type,
+        end: formatTimeValue(startMinutes + preset.duration),
+      };
+    });
+  };
 
   const updateStartTime = (value: string) => {
     setDraft(current => {
@@ -325,6 +353,10 @@ export function EventEditDialog({
     day: "numeric",
     month: "long",
   });
+  const selectableVehicleOptions =
+    draft.vehicle && !vehicleOptions.includes(draft.vehicle)
+      ? [draft.vehicle, ...vehicleOptions]
+      : vehicleOptions;
 
   const cancel = () => {
     setDraft(event);
@@ -340,9 +372,9 @@ export function EventEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-h-[calc(100svh-2rem)] overflow-auto sm:max-w-2xl"
-        onFocusOutside={keepDialogOpenForPopover}
-        onInteractOutside={keepDialogOpenForPopover}
-        onPointerDownOutside={keepDialogOpenForPopover}
+        onFocusOutside={keepDialogOpenForFloatingContent}
+        onInteractOutside={keepDialogOpenForFloatingContent}
+        onPointerDownOutside={keepDialogOpenForFloatingContent}
       >
         <DialogHeader>
           <div className="flex flex-col gap-3 pr-8 sm:flex-row sm:items-start sm:justify-between">
@@ -380,6 +412,24 @@ export function EventEditDialog({
         <Card size="sm">
           <CardContent>
             <FieldGroup className="grid gap-4 sm:grid-cols-2">
+              <Field className="sm:col-span-2">
+                <FieldLabel>Schnellauswahl</FieldLabel>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {eventPresets.map(preset => (
+                    <Button
+                      key={preset.label}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="justify-center"
+                      onClick={() => applyPreset(preset)}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
+              </Field>
+
               <Field className="sm:col-span-2">
                 <FieldLabel htmlFor="event-title">Titel</FieldLabel>
                 <Input
@@ -438,14 +488,47 @@ export function EventEditDialog({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="event-subtitle">Teilnehmer/in</FieldLabel>
-                <Input
-                  id="event-subtitle"
-                  value={draft.subtitle ?? ""}
-                  onChange={e =>
-                    update("subtitle", e.target.value || undefined)
+                <FieldLabel htmlFor="event-subtitle">Fahrschüler</FieldLabel>
+                <Combobox
+                  items={studentOptions}
+                  inputValue={draft.subtitle ?? ""}
+                  value={
+                    draft.subtitle && studentOptions.includes(draft.subtitle)
+                      ? draft.subtitle
+                      : null
                   }
-                />
+                  onInputValueChange={(value, eventDetails) => {
+                    if (
+                      eventDetails.reason !== "input-change" &&
+                      eventDetails.reason !== "input-clear" &&
+                      eventDetails.reason !== "clear-press"
+                    ) {
+                      return;
+                    }
+                    update("subtitle", value || undefined);
+                  }}
+                  onValueChange={value =>
+                    update("subtitle", value ?? undefined)
+                  }
+                  autoHighlight
+                >
+                  <ComboboxInput
+                    id="event-subtitle"
+                    placeholder="Namen eingeben oder auswählen"
+                    className="w-full"
+                    showClear
+                  />
+                  <ComboboxContent>
+                    <ComboboxEmpty>Keine Fahrschüler gefunden.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(option: string) => (
+                        <ComboboxItem key={option} value={option}>
+                          {option}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
               </Field>
 
               <Field>
@@ -486,7 +569,7 @@ export function EventEditDialog({
                   <SelectContent>
                     <SelectGroup>
                       <SelectItem value={NO_VEHICLE}>Kein Fahrzeug</SelectItem>
-                      {vehicleOptions.map(option => (
+                      {selectableVehicleOptions.map(option => (
                         <SelectItem key={option} value={option}>
                           {option}
                         </SelectItem>

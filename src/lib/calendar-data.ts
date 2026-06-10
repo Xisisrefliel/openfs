@@ -49,6 +49,27 @@ export const eventTypeShortLabel: Record<EventType, string> = {
   Andere: "Extra",
 };
 
+/* Quick-create presets shared by the "Ereignis" dropdown (click or
+   drag onto the grid) and the edit dialog's Schnellauswahl row. */
+export type EventPreset = {
+  label: string;
+  title: string;
+  type: EventType;
+  duration: number; // minutes
+};
+
+export const eventPresets: EventPreset[] = [
+  { label: "Fahrstunde 45", title: "Fahrstunde", type: "Praktisch", duration: 45 },
+  { label: "Fahrstunde 90", title: "Doppelstunde", type: "Praktisch", duration: 90 },
+  { label: "Theorie 90", title: "Theorieunterricht", type: "Theorie", duration: 90 },
+  {
+    label: "Prüfung 45",
+    title: "Praktische Prüfung",
+    type: "Vorstellung zur prakt. Prüfung",
+    duration: 45,
+  },
+];
+
 /* A "Fahrstunde" is a regular practical driving lesson. Theory lessons,
    exams, exam prep and other appointments are NOT Fahrstunden. */
 export const isFahrstunde = (event: { type: EventType }) =>

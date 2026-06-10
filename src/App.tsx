@@ -288,7 +288,20 @@ function AppSidebar({
 }
 
 function ShellControls() {
-  const { state } = useSidebar();
+  const { state, isMobile } = useSidebar();
+  const [sidebarScrolled, setSidebarScrolled] = useState(false);
+
+  // The sidebar nav scrolls underneath this fixed strip (SidebarContent
+  // starts below it via pt-[52px]). Track its scroll position so the
+  // strip can cast a shadow once items have actually slid under it.
+  useEffect(() => {
+    const content = document.querySelector('[data-slot="sidebar-content"]');
+    if (!(content instanceof HTMLElement)) return;
+    const onScroll = () => setSidebarScrolled(content.scrollTop > 0);
+    onScroll();
+    content.addEventListener("scroll", onScroll, { passive: true });
+    return () => content.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <div className="pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2 pt-2.5">
@@ -301,7 +314,22 @@ function ShellControls() {
           "absolute inset-0 bg-sidebar transition-transform duration-300 ease-drawer motion-reduce:transition-none",
           state === "expanded" ? "translate-x-0" : "-translate-x-full"
         )}
-      />
+      >
+        {/* Scroll fade on the bottom edge — not a shadow (gray on the
+            same-colored sidebar reads as a smudge) but a mask in the
+            sidebar's own color: items dissolve as they slide under the
+            strip, hinting there's content to scroll back up to. Lives
+            inside the backdrop so it slides with it. */}
+        <div
+          aria-hidden
+          className={cn(
+            "absolute inset-x-0 top-full h-10 bg-gradient-to-b from-sidebar via-sidebar/70 to-transparent transition-opacity duration-300",
+            !isMobile && state === "expanded" && sidebarScrolled
+              ? "opacity-100"
+              : "opacity-0"
+          )}
+        />
+      </div>
       <div className="pointer-events-auto relative flex items-center gap-1">
         <SidebarTrigger className="size-7 bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent" />
         <Button

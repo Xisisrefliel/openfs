@@ -1,34 +1,26 @@
 import { useEffect, useState } from "react";
 
-import { getVehicleOptions } from "@/lib/vehicle-options";
-
-type VehicleOptionsResponse = {
-  vehicleOptions?: string[];
-};
+import { UNASSIGNED_VEHICLE } from "@/lib/vehicle-options";
+import { fetchVehicles } from "@/hooks/use-vehicles";
 
 export function useVehicleOptions() {
-  const [vehicleOptions, setVehicleOptions] = useState<string[]>(
-    getVehicleOptions()
-  );
+  const [vehicleOptions, setVehicleOptions] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
 
     const loadOptions = async () => {
       try {
-        const response = await fetch("/api/vehicle-options");
-        if (!response.ok) {
+        const vehicles = await fetchVehicles();
+        if (!active) {
           return;
         }
 
-        const data = (await response.json()) as VehicleOptionsResponse;
-        if (!active || !Array.isArray(data.vehicleOptions)) {
-          return;
-        }
-
-        setVehicleOptions(data.vehicleOptions);
+        const models = vehicles.map(vehicle => vehicle.model);
+        setVehicleOptions([...new Set(models), UNASSIGNED_VEHICLE]);
       } catch {
-        // Keep fallback to the local default in case endpoint is unavailable.
+        // Keep the selector usable if the endpoint is temporarily unavailable.
+        if (active) setVehicleOptions([UNASSIGNED_VEHICLE]);
       }
     };
 

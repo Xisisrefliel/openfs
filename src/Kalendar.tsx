@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  GripVertical,
   Moon,
   Printer,
   Plus,
@@ -24,10 +25,13 @@ import {
 } from "./components/CalendarEventCard.tsx";
 import { EventEditDialog } from "./components/EventEditDialog.tsx";
 import { useInstructors } from "@/hooks/use-instructors";
+import { useStudents } from "@/hooks/use-students";
 import {
   addDays,
   type CalEvent,
+  type EventPreset,
   type EventType,
+  eventPresets,
   eventTypeOptions,
   isSameDay,
   parseISODate,
@@ -37,6 +41,7 @@ import {
   TODAY,
 } from "@/lib/calendar-data";
 import {
+  createCalendarEvent,
   deleteCalendarEvent,
   updateCalendarEvent,
   useCalendarEvents,
@@ -52,15 +57,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -86,6 +91,7 @@ const HOUR_MARKS = Array.from(
 
 /* Demo "now" — anchored to the seeded week so the indicator lands sensibly. */
 const NOW_MINUTES = 13 * 60 + 30;
+const NEW_EVENT_ID = "__new_calendar_event__";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
@@ -100,6 +106,18 @@ const formatMinutes = (minutes: number) => {
   return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 };
 
+const nextEditableStartTime = () => {
+  const now = new Date();
+  const roundedMinutes = Math.ceil(now.getMinutes() / SNAP_MINUTES) * SNAP_MINUTES;
+  const minutes = clamp(
+    now.getHours() * 60 + roundedMinutes,
+    START_HOUR * 60,
+    END_HOUR * 60 - 45
+  );
+
+  return formatMinutes(minutes);
+};
+
 const topForMinutes = (minutes: number) =>
   ((minutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
 
@@ -107,40 +125,62 @@ const topForMinutes = (minutes: number) =>
 /* Event type themes                                                  */
 /* ------------------------------------------------------------------ */
 
+/* Color-block cards: each event type owns a full tint — surface, rail,
+   ink — so the week grid reads as a mosaic of color, not white boxes. */
 const calendarEventThemes: Record<EventType, CalendarEventCardTheme> = {
   Praktisch: {
+    surface:
+      "border-sky-200/80 bg-sky-50 hover:border-sky-300 hover:bg-sky-100/80 dark:border-sky-800/60 dark:bg-sky-950/50 dark:hover:border-sky-700 dark:hover:bg-sky-950/70",
     rail: "bg-sky-500",
-    badge: "bg-sky-500/10 text-sky-700 ring-sky-500/15",
-    icon: "text-sky-600",
-    focus: "focus-visible:ring-sky-500/25 hover:border-sky-300",
+    text: "text-sky-950 dark:text-sky-100",
+    meta: "text-sky-900/65 dark:text-sky-200/65",
+    icon: "text-sky-600/80 dark:text-sky-400/80",
+    chip: "text-sky-600 dark:text-sky-400",
+    focus: "focus-visible:ring-sky-500/30",
     shortLabel: "Praxis",
   },
   Theorie: {
+    surface:
+      "border-indigo-200/80 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/80 dark:border-indigo-800/60 dark:bg-indigo-950/50 dark:hover:border-indigo-700 dark:hover:bg-indigo-950/70",
     rail: "bg-indigo-500",
-    badge: "bg-indigo-500/10 text-indigo-700 ring-indigo-500/15",
-    icon: "text-indigo-600",
-    focus: "focus-visible:ring-indigo-500/25 hover:border-indigo-300",
+    text: "text-indigo-950 dark:text-indigo-100",
+    meta: "text-indigo-900/65 dark:text-indigo-200/65",
+    icon: "text-indigo-600/80 dark:text-indigo-400/80",
+    chip: "text-indigo-600 dark:text-indigo-400",
+    focus: "focus-visible:ring-indigo-500/30",
     shortLabel: "Theorie",
   },
   "Vorstellung zur prakt. Prüfung": {
+    surface:
+      "border-amber-300/70 bg-amber-50 hover:border-amber-400/80 hover:bg-amber-100/80 dark:border-amber-800/60 dark:bg-amber-950/50 dark:hover:border-amber-700 dark:hover:bg-amber-950/70",
     rail: "bg-amber-500",
-    badge: "bg-amber-500/10 text-amber-700 ring-amber-500/15",
-    icon: "text-amber-600",
-    focus: "focus-visible:ring-amber-500/25 hover:border-amber-300",
+    text: "text-amber-950 dark:text-amber-100",
+    meta: "text-amber-900/65 dark:text-amber-200/65",
+    icon: "text-amber-600/90 dark:text-amber-400/80",
+    chip: "text-amber-600 dark:text-amber-400",
+    focus: "focus-visible:ring-amber-500/30",
     shortLabel: "Prüfung",
   },
   Theorieprüfung: {
+    surface:
+      "border-rose-200/80 bg-rose-50 hover:border-rose-300 hover:bg-rose-100/80 dark:border-rose-800/60 dark:bg-rose-950/50 dark:hover:border-rose-700 dark:hover:bg-rose-950/70",
     rail: "bg-rose-500",
-    badge: "bg-rose-500/10 text-rose-700 ring-rose-500/15",
-    icon: "text-rose-600",
-    focus: "focus-visible:ring-rose-500/25 hover:border-rose-300",
+    text: "text-rose-950 dark:text-rose-100",
+    meta: "text-rose-900/65 dark:text-rose-200/65",
+    icon: "text-rose-600/80 dark:text-rose-400/80",
+    chip: "text-rose-600 dark:text-rose-400",
+    focus: "focus-visible:ring-rose-500/30",
     shortLabel: "TÜV",
   },
   Andere: {
+    surface:
+      "border-emerald-200/80 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100/80 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/70",
     rail: "bg-emerald-500",
-    badge: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/15",
-    icon: "text-emerald-600",
-    focus: "focus-visible:ring-emerald-500/25 hover:border-emerald-300",
+    text: "text-emerald-950 dark:text-emerald-100",
+    meta: "text-emerald-900/65 dark:text-emerald-200/65",
+    icon: "text-emerald-600/80 dark:text-emerald-400/80",
+    chip: "text-emerald-600 dark:text-emerald-400",
+    focus: "focus-visible:ring-emerald-500/30",
     shortLabel: "Extra",
   },
 };
@@ -286,14 +326,8 @@ function EventBlock({
   const theme = calendarEventThemes[event.type];
   const compact = slotHeight < 58;
   // Cards up to ~1h are too short for a wrapped meta row — it would squeeze
-  // the title. They clamp the meta to one line and reveal the rest on hover.
+  // the title. Title and meta stay single-line and truncate instead.
   const dense = !compact && slotHeight < 80;
-  // Compact/dense cards grow on hover/focus to reveal the full meta row.
-  // Expand to the size of a 1h15 event — just enough for that extra line.
-  const expandedHeight =
-    compact || dense
-      ? Math.max(slotHeight, (75 / 60) * HOUR_HEIGHT - 1)
-      : slotHeight;
 
   return (
     <CalendarEventCard
@@ -317,7 +351,6 @@ function EventBlock({
           left: `calc(${column * widthPct}% + 2px)`,
           width: `calc(${widthPct}% - 4px)`,
           "--card-h": `${slotHeight}px`,
-          "--card-h-expanded": `${expandedHeight}px`,
         } as CSSProperties
       }
     />
@@ -492,7 +525,19 @@ export function Kalendar({
   // Instructor names come from the DB (/api/instructors) so the filter and
   // the edit dialog always match the roster managed on /fahrlehrer.
   const { names: instructorOptions } = useInstructors();
+  const { students } = useStudents();
   const { vehicleOptions } = useVehicleOptions();
+  const studentOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          students
+            .map(student => `${student.firstName} ${student.lastName}`.trim())
+            .filter(Boolean)
+        )
+      ).toSorted((left, right) => left.localeCompare(right, "de")),
+    [students]
+  );
   const [instructors, setInstructors] = useState<Set<string>>(new Set());
   const [niederlassungen, setNiederlassungen] = useState<Set<string>>(new Set());
   const [vehicles, setVehicles] = useState<Set<string>>(new Set());
@@ -501,6 +546,14 @@ export function Kalendar({
   );
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalEvent | null>(null);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
+  // Live placement while a preset from the "Ereignis" menu is dragged over
+  // the grid. day/startMinutes are null while the pointer is off the grid.
+  const [presetDrag, setPresetDrag] = useState<{
+    preset: EventPreset;
+    day: number | null;
+    startMinutes: number | null;
+  } | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const dayGridRef = useRef<HTMLDivElement>(null);
 
@@ -725,7 +778,146 @@ export function Kalendar({
     setTimeout(() => setEditingEvent(event), 0);
   };
 
+  // Opens the edit dialog for a not-yet-persisted event. Deferred so the
+  // dropdown finishes closing (and clears its body `pointer-events: none`)
+  // before the dialog mounts — same trick as handleEventEdit.
+  const openNewEventDialog = (draft: Omit<CalEvent, "id">) => {
+    setTimeout(() => setEditingEvent({ id: NEW_EVENT_ID, ...draft }), 0);
+  };
+
+  const openPresetEditor = (preset: EventPreset, date: string, start: string) => {
+    openNewEventDialog({
+      date,
+      start,
+      end: formatMinutes(toMinutes(start) + preset.duration),
+      title: preset.title,
+      instructor: instructorOptions[0] ?? "Nicht zugeteilt",
+      vehicle: vehicleOptions.find(option => option !== "Nicht zugeteilt"),
+      type: preset.type,
+    });
+  };
+
+  const handleEventCreate = () => {
+    const start = nextEditableStartTime();
+    openNewEventDialog({
+      date: toISODate(selected ?? TODAY),
+      start,
+      end: formatMinutes(toMinutes(start) + 45),
+      title: "Fahrstunde",
+      instructor: instructorOptions[0] ?? "Nicht zugeteilt",
+      vehicle: vehicleOptions.find(option => option !== "Nicht zugeteilt"),
+      type: "Praktisch",
+    });
+  };
+
+  // A preset item supports both gestures: a plain click opens the dialog at
+  // the next quarter-hour, while dragging carries the preset onto the grid
+  // as a ghost block — on drop, the dialog opens with date/start/end already
+  // set from the drop position.
+  const handlePresetPointerDown = (
+    preset: EventPreset,
+    pointerEvent: ReactPointerEvent<HTMLDivElement>
+  ) => {
+    if (pointerEvent.button !== 0) return;
+    pointerEvent.preventDefault();
+    const origin = { x: pointerEvent.clientX, y: pointerEvent.clientY };
+    let moved = false;
+    let placement: { day: number; startMinutes: number } | null = null;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      event.preventDefault();
+      if (
+        !moved &&
+        Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < 6
+      ) {
+        return;
+      }
+      if (!moved) {
+        moved = true;
+        // Close the menu as soon as a real drag starts; from here the
+        // ghost block is the drag feedback.
+        setCreateMenuOpen(false);
+      }
+
+      const grid = dayGridRef.current;
+      if (!grid) return;
+      const rect = grid.getBoundingClientRect();
+      const insideGrid =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+      if (!insideGrid) {
+        placement = null;
+        setPresetDrag({ preset, day: null, startMinutes: null });
+        return;
+      }
+
+      const dayWidth = rect.width / DAY_COUNT;
+      const day = clamp(
+        Math.floor((event.clientX - rect.left) / dayWidth),
+        0,
+        DAY_COUNT - 1
+      );
+      const rawStartMinutes =
+        ((event.clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60;
+      const startMinutes = clamp(
+        snapMinutes(rawStartMinutes),
+        START_HOUR * 60,
+        END_HOUR * 60 - preset.duration
+      );
+      placement = { day, startMinutes };
+      setPresetDrag({ preset, day, startMinutes });
+    };
+
+    const cleanup = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", finishDrag);
+      window.removeEventListener("pointercancel", cancelDrag);
+      setPresetDrag(null);
+    };
+    const finishDrag = () => {
+      cleanup();
+      if (!moved) {
+        setCreateMenuOpen(false);
+        openPresetEditor(
+          preset,
+          toISODate(selected ?? TODAY),
+          nextEditableStartTime()
+        );
+        return;
+      }
+      if (placement) {
+        openPresetEditor(
+          preset,
+          toISODate(addDays(weekStart, placement.day)),
+          formatMinutes(placement.startMinutes)
+        );
+      }
+    };
+    const cancelDrag = () => cleanup();
+
+    window.addEventListener("pointermove", handlePointerMove, {
+      passive: false,
+    });
+    window.addEventListener("pointerup", finishDrag, { once: true });
+    window.addEventListener("pointercancel", cancelDrag, { once: true });
+  };
+
   const handleEventSave = (id: string, updates: CalEvent) => {
+    if (id === NEW_EVENT_ID) {
+      const { id: _id, ...payload } = updates;
+      void createCalendarEvent(payload)
+        .then(created => {
+          setCalendarEvents(current => [...current, created]);
+          void refreshEvents();
+        })
+        .catch(() => {
+          toast.error("Termin konnte nicht erstellt werden.");
+        });
+      return;
+    }
+
     setCalendarEvents(current =>
       current.map(event => (event.id === id ? updates : event))
     );
@@ -774,19 +966,10 @@ export function Kalendar({
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
       <PageHeader>
-        <div className="flex items-center gap-2 pl-[124px] lg:pl-72">
-          <Select defaultValue="woche">
-            <SelectTrigger size="sm" className="w-28 md:w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="tag">Tag</SelectItem>
-                <SelectItem value="woche">Woche</SelectItem>
-                <SelectItem value="monat">Monat</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+        {/* No extra padding: PageHeader's animated spacer already makes
+            room for the fixed shell controls when the sidebar collapses,
+            so the view controls hug the left edge while it's expanded. */}
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
             <Button
               type="button"
@@ -830,10 +1013,46 @@ export function Kalendar({
           >
             <Printer />
           </Button>
-          <Button type="button" size="sm">
-            <Plus data-icon="inline-start" />
-            Ereignis
-          </Button>
+          <DropdownMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" size="sm">
+                <Plus data-icon="inline-start" />
+                Ereignis
+                <ChevronDown data-icon="inline-end" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                Klicken oder in den Kalender ziehen
+              </DropdownMenuLabel>
+              {eventPresets.map(preset => {
+                const theme = calendarEventThemes[preset.type];
+                return (
+                  <DropdownMenuItem
+                    key={preset.label}
+                    className="cursor-grab gap-2.5 active:cursor-grabbing"
+                    onPointerDown={pointerEvent =>
+                      handlePresetPointerDown(preset, pointerEvent)
+                    }
+                  >
+                    <span
+                      className={cn("size-2 shrink-0 rounded-full", theme.rail)}
+                    />
+                    <span className="flex-1 truncate">{preset.title}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {preset.duration} Min.
+                    </span>
+                    <GripVertical className="size-3.5 text-muted-foreground/60" />
+                  </DropdownMenuItem>
+                );
+              })}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={handleEventCreate}>
+                <Plus className="size-3.5 text-muted-foreground" />
+                Eigenes Ereignis
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </PageHeader>
 
@@ -995,6 +1214,43 @@ export function Kalendar({
                 >
                   <span className="h-px flex-1 bg-indigo-500/55" />
                 </div>
+
+                {/* Ghost block while a preset is dragged from the menu */}
+                {presetDrag &&
+                  presetDrag.day !== null &&
+                  presetDrag.startMinutes !== null && (
+                    <div
+                      className="pointer-events-none absolute z-20 overflow-hidden rounded-md border border-dashed border-foreground/30 bg-background/95 shadow-md"
+                      style={{
+                        top: topForMinutes(presetDrag.startMinutes),
+                        left: `calc(${(presetDrag.day * 100) / DAY_COUNT}% + 2px)`,
+                        width: `calc(${100 / DAY_COUNT}% - 4px)`,
+                        height: Math.max(
+                          (presetDrag.preset.duration / 60) * HOUR_HEIGHT - 1,
+                          44
+                        ),
+                      }}
+                    >
+                      <span
+                        className={cn(
+                          "absolute inset-y-0 left-0 w-1",
+                          calendarEventThemes[presetDrag.preset.type].rail
+                        )}
+                      />
+                      <div className="flex h-full flex-col justify-center gap-0.5 py-1 pr-2 pl-3">
+                        <span className="truncate text-xs font-medium">
+                          {presetDrag.preset.title}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                          {formatMinutes(presetDrag.startMinutes)}–
+                          {formatMinutes(
+                            presetDrag.startMinutes + presetDrag.preset.duration
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                 {days.map(day => {
                   const today = isSameDay(day, TODAY);
                   const dayEvents = visibleEvents.filter(
@@ -1065,6 +1321,7 @@ export function Kalendar({
         }}
         onSave={handleEventSave}
         instructorOptions={instructorOptions}
+        studentOptions={studentOptions}
         vehicleOptions={vehicleOptions}
       />
     </div>

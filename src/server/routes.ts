@@ -30,7 +30,7 @@ import {
   listCalendarEvents,
   updateCalendarEvent,
 } from "./calendar-events";
-import { getVehicleOptions } from "../lib/vehicle-options";
+import { UNASSIGNED_VEHICLE } from "../lib/vehicle-options";
 import {
   createVehicle,
   type VehicleInput,
@@ -180,13 +180,8 @@ export function vehicleRoutes(db: Database) {
       GET: () =>
         handle(() => {
           const models = listVehicleModels(db);
-          const defaults = getVehicleOptions();
-          const unassigned = "Nicht zugeteilt";
-          const options = new Set<string>(defaults.filter(value => value !== unassigned));
-          for (const model of models) {
-            options.add(model);
-          }
-          return json({ vehicleOptions: [...options, unassigned] });
+          const options = [...new Set(models), UNASSIGNED_VEHICLE];
+          return json({ vehicleOptions: options });
         })(),
     },
 
