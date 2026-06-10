@@ -7,19 +7,8 @@
 /* so they persist across reloads.                                     */
 /* ------------------------------------------------------------------ */
 
-import { useCallback, useEffect, useState } from "react";
-
 import type { PricePlanInput, PricePlanRecord } from "@/lib/price-plan";
-
-async function parseOrThrow<T>(response: Response): Promise<T> {
-  const data = (await response.json().catch(() => null)) as
-    | (T & { error?: string })
-    | null;
-  if (!response.ok || !data) {
-    throw new Error(data?.error ?? "Anfrage fehlgeschlagen.");
-  }
-  return data;
-}
+import { parseOrThrow, useFetchList } from "@/lib/api";
 
 export async function fetchPricePlans(): Promise<PricePlanRecord[]> {
   const data = await parseOrThrow<{ plans: PricePlanRecord[] }>(
@@ -60,22 +49,9 @@ export async function deletePricePlan(id: number): Promise<void> {
 }
 
 export function usePricePlans() {
-  const [plans, setPlans] = useState<PricePlanRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    try {
-      setPlans(await fetchPricePlans());
-    } catch (error) {
-      console.error("Preispläne konnten nicht geladen werden:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
+  const { items: plans, loading, refresh } = useFetchList(
+    fetchPricePlans,
+    "Preispläne konnten nicht geladen werden"
+  );
   return { plans, loading, refresh };
 }
