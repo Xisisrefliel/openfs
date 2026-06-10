@@ -24,6 +24,8 @@ import {
   createInstructor,
   deleteInstructor,
   listInstructors,
+  type InstructorInput,
+  type InstructorStatus,
 } from "./instructors";
 import {
   createVehicle,
@@ -64,7 +66,7 @@ function makeStudent(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeInstructor(overrides: Record<string, unknown> = {}) {
+function makeInstructor(overrides: Partial<InstructorInput> = {}): InstructorInput {
   return {
     firstName: "Anna",
     lastName: "Test",
@@ -73,7 +75,7 @@ function makeInstructor(overrides: Record<string, unknown> = {}) {
     classes: "B",
     vehicle: "",
     since: "2024-01-01",
-    status: "aktiv",
+    status: "aktiv" as const,
     ...overrides,
   };
 }
@@ -288,7 +290,7 @@ describe("instructors", () => {
 
   test("createInstructor: bad status → ValidationError", () => {
     expect(() =>
-      createInstructor(db, makeInstructor({ status: "gekündigt" }))
+      createInstructor(db, makeInstructor({ status: "gekündigt" as InstructorStatus }))
     ).toThrow(ValidationError);
   });
 
@@ -389,7 +391,7 @@ describe("price plans", () => {
       ],
     });
     expect(updated.name).toBe("Neues Paket");
-    expect(updated.components[0].label).toBe("Intensivstunde");
+    expect(updated.components[0]!.label).toBe("Intensivstunde");
   });
 
   test("deletePricePlan: removes the row", () => {
