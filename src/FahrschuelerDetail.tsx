@@ -54,6 +54,16 @@ export function FahrschuelerDetail({
   const student = students.find(entry => entry.id === studentId) ?? null;
   const hasDebt = student?.balance.startsWith("-") ?? false;
 
+  const backToFahrschueler = () => {
+    navigate("/fahrschueler");
+
+    window.setTimeout(() => {
+      if (window.location.pathname !== "/fahrschueler") {
+        window.location.assign("/fahrschueler");
+      }
+    }, 0);
+  };
+
   const save = async (updates: Partial<Student>) => {
     await updateStudent(studentId, updates);
     await refresh();
@@ -136,7 +146,7 @@ export function FahrschuelerDetail({
             variant="ghost"
             size="icon-sm"
             aria-label="Zurück zur Fahrschülerliste"
-            onClick={() => navigate("/fahrschueler")}
+            onClick={backToFahrschueler}
           >
             <ArrowLeft />
           </Button>
@@ -168,7 +178,7 @@ export function FahrschuelerDetail({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => navigate("/fahrschueler")}
+              onClick={backToFahrschueler}
             >
               <ArrowLeft data-icon="inline-start" />
               Zur Übersicht

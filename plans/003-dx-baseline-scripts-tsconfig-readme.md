@@ -1,4 +1,4 @@
-# Plan 003: Establish the DX baseline — test/typecheck scripts, fix the tsconfig deprecation, write a real README
+# Plan 003 (v2): Establish the DX baseline — test/typecheck scripts, fix the tsconfig deprecation AND the nine type errors it was masking, write a real README
 
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
@@ -7,7 +7,7 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 3d7e8c0..HEAD -- package.json tsconfig.json README.md`
+> **Drift check (run first)**: `git diff --stat 30287a8..HEAD -- package.json tsconfig.json README.md bun-env.d.ts src/App.tsx src/Fahrschueler.tsx src/Fahrzeuge.tsx src/server/routes.ts src/server/students.ts src/server/vehicles.ts src/components/ui/calendar.tsx`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -15,190 +15,217 @@
 ## Status
 
 - **Priority**: P1
-- **Effort**: S
-- **Risk**: LOW
+- **Effort**: M (was S in v1 — expanded after execution discovered masked type errors)
+- **Risk**: LOW–MED
 - **Depends on**: none
 - **Category**: dx
-- **Planned at**: commit `3d7e8c0`, 2026-06-10
+- **Planned at**: commit `30287a8`, 2026-06-10 (v2; v1 was at `3d7e8c0`)
 
-## Why this matters
+## Why this matters (v2 history included)
 
-Every other plan in `plans/` uses `bun test` and `bunx tsc --noEmit` as its
-verification gates. Today neither is registered as a package script, and the
-typecheck does not exit 0: `tsconfig.json` uses the deprecated `baseUrl`
-option, so `bunx tsc --noEmit` fails with TS5101 even though the code itself
-is clean. The README is still the unmodified Bun template, which means the
-project's purpose, setup, and an important security assumption (no
-authentication — local single-user tool) are all undocumented. This plan
-makes "is the codebase healthy?" a one-command question and records the
-deployment assumption before anyone deploys this with real PII in it.
+Every other plan uses `bun test` and `bunx tsc --noEmit` as verification
+gates. The typecheck does not exit 0: `tsconfig.json` uses the deprecated
+`baseUrl`, which under TypeScript 6.0.3 is a hard TS5101 error that **aborts
+type-checking early**. The v1 executor discovered that removing `baseUrl`
+lets the checker run to completion and surface **nine pre-existing type
+errors** in `src/` that were invisible before. So a working typecheck gate
+requires both removing `baseUrl` AND fixing those nine errors. The README is
+still the unmodified Bun template; the app's purpose and its no-auth
+assumption are undocumented.
 
 ## Current state
 
-- `package.json` — scripts section (lines 6–10) has only `dev`, `build`, `start`:
+- `package.json` scripts (lines 6–10): only `dev`, `build`, `start`.
+- `tsconfig.json:24` — `"baseUrl": ".",` followed by `paths: { "@/*": ["./src/*"] }`.
+  With `"moduleResolution": "bundler"`, `paths` works without `baseUrl`
+  (entries are relative). Verified by the v1 executor: removing `baseUrl`
+  produces NO `@/...` resolution errors.
+- `bun-env.d.ts` — declares `*.svg` and `*.module.css` only; **no plain
+  `*.css` declaration** (causes error 1 below).
+- `bunx tsc --noEmit` after removing `baseUrl` reports exactly these nine
+  errors (verified during v1 execution at commit `30287a8`):
 
-```json
-"scripts": {
-  "dev": "bun --hot src/index.ts",
-  "build": "bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='\"production\"' --env='BUN_PUBLIC_*'",
-  "start": "NODE_ENV=production bun src/index.ts"
-}
-```
+  1. `src/App.tsx(1,8) TS2882` — side-effect import `./index.css` has no
+     module declaration.
+  2. `src/components/ui/calendar.tsx(91,9) TS2353` — object literal property
+     `table` does not exist on react-day-picker's `ClassNames` type
+     (vendored shadcn component vs react-day-picker v10 type changes).
+  3. `src/Fahrschueler.tsx(59,30) TS18048` — `datePart` is possibly
+     undefined.
+  4. `src/Fahrzeuge.tsx(163,5) TS2322` — detail array element type mismatch
+     (missing `Icon`).
+  5. `src/Fahrzeuge.tsx(417,35) TS2339` — property `Icon` does not exist on
+     `VehicleDetail`.
+  6. `src/server/routes.ts(261,31) TS2345` — `Uint8Array` not assignable to
+     `BodyInit` (the DATEV export `new Response(bytes, ...)`).
+  7. `src/server/students.ts(255,30) TS2344` — tuple type from
+     `ReturnType<typeof writeParams>` incompatible with `SQLQueryBindings`.
+  8. `src/server/students.ts(264,12) TS2554` — wrong argument count
+     (follow-on from 7).
+  9. `src/server/vehicles.ts(158,30) TS2322` — `string | VehicleDetail[]`
+     not assignable to `string`.
 
-- `tsconfig.json:24-27` — the deprecated option and the alias it supports:
-
-```json
-"baseUrl": ".",
-"paths": {
-  "@/*": ["./src/*"]
-}
-```
-
-  With `"moduleResolution": "bundler"` (line 12), `paths` works **without**
-  `baseUrl` as long as the entries are relative (they already are: `./src/*`).
-  The correct fix is to delete the `baseUrl` line, not to add
-  `ignoreDeprecations`.
-
-- `bunx tsc --noEmit` currently outputs exactly one error:
-
-```
-tsconfig.json(24,5): error TS5101: Option 'baseUrl' is deprecated and will stop functioning in TypeScript 7.0. ...
-```
-
-- `bun test` currently passes: 58 tests across 5 files
-  (`src/lib/money.test.ts`, `src/lib/amount-in-words.test.ts`,
-  `src/server/engine.test.ts`, `src/server/datev.test.ts`,
-  `src/server/migration.test.ts`).
-
-- `README.md` — 294 bytes, the default Bun template ("To install
-  dependencies… bun install…"). Nothing about the app.
-
-- What the app actually is (for the README rewrite): a single-user web app
-  for managing a German driving school (Fahrschule Gül). Bun.serve backend
-  (`src/index.ts`) + React 19 SPA. SQLite database at `data/fahrschule.db`
-  (`bun:sqlite`, WAL mode). Features: dashboard, week calendar (`/kalendar`),
-  student management (`/fahrschueler`, `/neue-schueler`), instructors
-  (`/fahrlehrer`), vehicles (`/fahrzeuge`), theory (`/theorie`), price plans
-  (`/preisangebot`), double-entry accounting with SKR 04 accounts, Quittungen
-  (receipts) and DATEV CSV export (`/buchhaltung`), company profile
-  (`/profil`). There is **no authentication** anywhere — every `/api/*` route
-  is open. That is acceptable for local single-user use but must be stated.
-  GoBD principles in the accounting layer: bookings are immutable,
-  corrections only via Storno, gapless Beleg/Buchungs/Quittungs number
-  sequences (see header comment of `src/server/db.ts:1-9`).
+- `bun test` passes (58+ tests). README.md is the 294-byte Bun template.
+- App facts for the README rewrite: single-user web app for managing a
+  German driving school (Fahrschule Gül). Bun.serve backend (`src/index.ts`)
+  + React 19 SPA. SQLite at `data/fahrschule.db` (bun:sqlite, WAL).
+  Features: dashboard, week calendar, student/instructor/vehicle/price-plan
+  management, double-entry accounting (SKR 04, GoBD-shaped: immutable
+  bookings, Storno-only corrections, gapless number sequences — see
+  `src/server/db.ts:1-9`), Quittungen, DATEV CSV export, company profile.
+  **No authentication anywhere** — acceptable for local single-user use,
+  must be documented.
 
 ## Commands you will need
 
 | Purpose   | Command             | Expected on success |
 |-----------|---------------------|---------------------|
 | Install   | `bun install`       | exit 0              |
-| Tests     | `bun test`          | 58 pass, 0 fail     |
-| Typecheck | `bunx tsc --noEmit` | currently FAILS with TS5101; exits 0 after Step 1 |
+| Tests     | `bun test`          | all pass            |
+| Typecheck | `bunx tsc --noEmit` | exit 0 after Steps 1–2 |
 
 ## Scope
 
-**In scope** (the only files you should modify):
-- `package.json`
-- `tsconfig.json`
-- `README.md`
+**In scope**:
+- `package.json`, `tsconfig.json`, `README.md`, `bun-env.d.ts`
+- Minimal type-level fixes ONLY in: `src/App.tsx`,
+  `src/components/ui/calendar.tsx`, `src/Fahrschueler.tsx`,
+  `src/Fahrzeuge.tsx`, `src/server/routes.ts`, `src/server/students.ts`,
+  `src/server/vehicles.ts`
 
-**Out of scope** (do NOT touch, even though they look related):
-- `CLAUDE.md` / `AGENTS.md` — Bun convention docs, intentionally generic.
-- `vite.config.ts` — looks like dead config but is a documented shim so the
-  shadcn CLI can resolve the `@/*` alias (see its header comment). Leave it.
-- Any file under `src/` — this plan is config + docs only.
-- CI workflow files — explicitly deferred (see Maintenance notes).
+**Out of scope**:
+- ANY runtime behavior change. Every fix in Step 2 must be type-level
+  (annotations, declarations, narrowing, targeted casts). If a fix seems to
+  require changing runtime logic, STOP.
+- `CLAUDE.md`/`AGENTS.md`, `vite.config.ts` (documented shadcn shim), CI
+  workflows (deferred).
+- Refactoring anything beyond the nine listed errors.
 
 ## Git workflow
 
-- Branch: `advisor/003-dx-baseline` (or commit directly to `main` if that is
-  how the operator works — recent history commits straight to `main`).
-- Commit message style: short lowercase imperative, e.g. `add test/typecheck scripts, fix tsconfig, write README` (matches `git log` style like "improved fahrschüler page").
-- Do NOT push unless the operator instructed it.
+- Branch: `advisor/003-dx-baseline` (recreate/reset it if a stale empty one
+  exists from the v1 attempt).
+- Commit message style: short lowercase imperative.
+- Do NOT push unless instructed.
 
 ## Steps
 
-### Step 1: Remove the deprecated `baseUrl` from tsconfig.json
+### Step 1: Remove `baseUrl` from tsconfig.json
 
-Delete only the line `"baseUrl": ".",` (line 24). Keep `paths` exactly as is.
+Delete the line `"baseUrl": ".",`. Keep `paths` as is.
 
-**Verify**: `bunx tsc --noEmit` → exits 0, no output. (If new errors about
-`@/...` imports appear, `paths` resolution broke — STOP, restore the line,
-and report.)
+**Verify**: `bunx tsc --noEmit` → exactly the nine errors listed above (no
+TS5101, no `@/...` resolution errors). If you see different/extra errors,
+compare carefully; >2 unexpected errors is a STOP.
 
-### Step 2: Add `test` and `typecheck` scripts to package.json
+### Step 2: Fix the nine errors, type-level only, one at a time
 
-In the `scripts` object add:
+Run `bunx tsc --noEmit` after each fix; the error count must strictly
+decrease.
+
+1. **App.tsx / *.css**: add to `bun-env.d.ts` (above the `*.module.css`
+   block so the more specific pattern still wins):
+   ```ts
+   declare module "*.css";
+   ```
+2. **ui/calendar.tsx `table`**: open the file and
+   `node_modules/react-day-picker/dist/index.d.ts` (or wherever `ClassNames`
+   is exported) to see the v10 key names. If the intent of the `table` entry
+   maps to an obvious renamed key (e.g. `month_grid`), rename the key. If no
+   obvious mapping exists, keep runtime output identical by casting that one
+   object: `classNames={{ ... } as Partial<ClassNames>}` — wait: a cast that
+   silently drops the class would change rendering. Prefer the rename if the
+   v10 type clearly renamed it; otherwise add a single
+   `// @ts-expect-error -- react-day-picker v10 renamed ClassNames keys; vendored shadcn file, revisit on next shadcn update`
+   directly above the offending property. Do NOT delete the property.
+3. **Fahrschueler.tsx `datePart`**: narrow with a fallback (`?? ""`) or an
+   early guard — whichever matches the surrounding code; the displayed
+   string for valid input must not change.
+4. + 5. **Fahrzeuge.tsx Icon**: read lines ~90–170 and ~400–425. The local
+   `Vehicle`/detail shape includes a rendered `Icon` component while the
+   imported `VehicleDetail` (from `@/hooks/use-vehicles`) is `{ label,
+   value }`. Fix by typing the LOCAL detail shape explicitly (e.g. a local
+   `type VehicleDetailView = VehicleDetail & { Icon: LucideIcon }` used in
+   the local `Vehicle` type and in `createEmptyVehicle`/render), so no cast
+   is needed. Runtime values unchanged.
+6. **routes.ts Response body**: change the DATEV response to satisfy
+   `BodyInit` without copying bytes differently at runtime. Acceptable:
+   `new Response(bytes as unknown as BodyInit, ...)` with a one-line comment
+   (`Bun accepts Uint8Array bodies; DOM lib types lag`). Also acceptable:
+   typing the `generateDatevExport` return as `Uint8Array<ArrayBuffer>` IF
+   that compiles without touching datev.ts logic — note that plan 006 also
+   edits datev.ts in a parallel branch; prefer the routes.ts-local cast to
+   avoid a merge conflict.
+7. + 8. **students.ts query typing**: the generic
+   `db.query<{ id: number }, ReturnType<typeof writeParams>>(...)` tuple no
+   longer satisfies `SQLQueryBindings[]` because `writeParams` returns a
+   readonly tuple containing union types. Loosen the binding generic (e.g.
+   use `SQLQueryBindings[]` as the params type, or type `writeParams`'s
+   return as `SQLQueryBindings[]`) — runtime args unchanged. Error 8
+   disappears with 7 if done right.
+9. **vehicles.ts line ~158**: read the surrounding `normalize`/mapper code;
+   a value typed `string | VehicleDetail[]` is assigned where `string` is
+   expected — add the discriminating narrow (likely an
+   `Array.isArray(...)` branch or a per-key conditional) WITHOUT changing
+   which value is stored.
+
+**Verify**: `bunx tsc --noEmit` → exit 0, no output.
+
+### Step 3: Add `test` and `typecheck` scripts to package.json
 
 ```json
 "test": "bun test",
 "typecheck": "tsc --noEmit"
 ```
 
-(`tsc` resolves from `node_modules/.bin` via Bun's script runner; typescript
-is already available — `bunx tsc` worked during recon.)
+**Verify**: `bun run test` → all pass. `bun run typecheck` → exit 0.
 
-**Verify**: `bun run test` → 58 pass, 0 fail. `bun run typecheck` → exit 0.
+### Step 4: Rewrite README.md
 
-### Step 3: Rewrite README.md
+Replace the template with: title + one-paragraph description (use the app
+facts above, invent nothing); stack list; getting-started commands
+(`bun install`, `bun dev`, `bun test`, `bun run typecheck`,
+`bun run build`; note `data/fahrschule.db` is created+seeded on first
+start); a **Security & deployment** section stating in your own words: no
+authentication, designed for single-user local use, DB contains personal
+and financial data, do not expose to a network without adding auth; and a
+5–8 line architecture sketch (`src/index.ts` → `src/server/routes.ts` →
+domain modules; GoBD-shaped accounting engine; pages in `src/*.tsx`; shared
+code in `src/lib/`; agent plans in `plans/`).
 
-Replace the template content with (German or English — match the operator's
-preference; the UI is German, English docs are fine):
-
-1. **Title + one-paragraph description** — what the app is (use the facts in
-   "Current state" above; do not invent features).
-2. **Stack** — Bun (serve + bundler + test runner), React 19, Tailwind v4,
-   shadcn/ui, `bun:sqlite`.
-3. **Getting started** — `bun install`, `bun dev` (server on the URL Bun
-   prints), `bun test`, `bun run typecheck`, `bun run build`. Note the SQLite
-   file is created at `data/fahrschule.db` on first start and is seeded with
-   demo data.
-4. **Security & deployment** section — copy this intent, in your own words:
-   > This app has **no authentication**. It is designed to run locally for a
-   > single user on a trusted machine. The database contains personal data
-   > (students' names, contact details) and financial records. Do **not**
-   > expose the server to a network or the internet without adding an
-   > authentication layer first.
-5. **Architecture** — 5–8 lines: `src/index.ts` mounts routes from
-   `src/server/routes.ts`; domain modules in `src/server/`; accounting engine
-   is GoBD-shaped (immutable bookings, Storno-only corrections, gapless
-   sequences); pages in `src/*.tsx`; shared types/helpers in `src/lib/`;
-   plans for agents in `plans/`.
-
-**Verify**: `grep -ci "authentif\|authentication" README.md` → ≥ 1, and
+**Verify**: `grep -ci "authentif\|authentication" README.md` → ≥ 1;
 `grep -c "bun-react-template\|To install dependencies" README.md` → 0.
 
 ## Test plan
 
-No new tests — this plan changes config and docs only. The verification is
-that the existing suite and the typecheck both pass via the new scripts.
+No new tests. Gates: full existing suite via `bun run test`, plus
+`bun run typecheck` exiting 0 — which is the deliverable.
 
 ## Done criteria
 
 - [ ] `bun run typecheck` exits 0 with no output
-- [ ] `bun run test` exits 0, 58+ tests pass
-- [ ] `README.md` describes the app and contains the no-auth warning
-- [ ] `git status` shows changes only to `package.json`, `tsconfig.json`, `README.md`
+- [ ] `bun run test` exits 0, all tests pass
+- [ ] `git diff --stat` touches only in-scope files
+- [ ] Each Step-2 fix is type-level (reviewer reads the diff for runtime changes)
+- [ ] README describes the app and contains the no-auth warning
 - [ ] `plans/README.md` status row updated
 
 ## STOP conditions
 
 Stop and report back (do not improvise) if:
 
-- Removing `baseUrl` produces new `Cannot find module '@/...'` errors from
-  `tsc` (would mean the TypeScript version in `node_modules` is older than
-  expected — report the version from `bunx tsc --version`).
-- `bun test` does not pass 58 tests before you change anything (baseline is
-  already broken — report instead of fixing unrelated tests).
+- After Step 1 the error list differs from the nine listed by more than two
+  entries (the baseline shifted).
+- Any of the nine fixes cannot be done without changing runtime behavior.
+- A fix in `src/components/ui/calendar.tsx` would change which CSS classes
+  are applied at runtime (visual regression risk in a vendored file).
+- `bun test` fails at any point after a Step-2 fix (type-level fixes must
+  never break tests).
 
 ## Maintenance notes
 
-- Plans 004–009 reference `bun run test` / `bun run typecheck` as gates; if
-  you rename the scripts, update those plans.
-- **Deferred**: a CI workflow (GitHub Actions: install → typecheck → test →
-  build). Deferred because no remote/CI provider is configured in this repo;
-  add it when the repo gets a remote. The scripts added here are the
-  prerequisite.
-- A linter/formatter (Biome would fit Bun) was considered and deferred — the
-  codebase is consistent enough that it's not the bottleneck; revisit if more
-  contributors join.
+- The `@ts-expect-error` (if used) in `ui/calendar.tsx` should be revisited
+  whenever shadcn components are re-vendored.
+- CI workflow and linter remain deferred (see v1 notes): add GitHub Actions
+  (install → typecheck → test → build) when the repo gets a remote.
+- Plans 004–009 cite `bun run test`/`bun run typecheck` once this lands.

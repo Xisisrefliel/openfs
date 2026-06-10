@@ -14,6 +14,18 @@ export type TheoryStatus = "Aktiv" | "In Prüfung" | "Bereit" | "Pausiert";
 
 export type Lesson = { label: string; done: string };
 
+export type UploadedStudentDocument = {
+  kind: "upload";
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+  dataUrl: string;
+};
+
+export type StudentDocument = string | UploadedStudentDocument;
+
 export type TheoryProfile = {
   lastLogin: string;
   preExams: string;
@@ -49,7 +61,7 @@ export type Student = {
   nextLesson: string;
   progress: number;
   lessons: Lesson[];
-  documents: string[];
+  documents: StudentDocument[];
   // Theory course (the /theorie view)
   theory: TheoryProfile;
 };

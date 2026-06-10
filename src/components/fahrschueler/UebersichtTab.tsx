@@ -37,6 +37,11 @@ import {
   EditableSelectField,
   type StudentEdit,
 } from "./fields";
+import {
+  getStudentDocumentKey,
+  getStudentDocumentMeta,
+  getStudentDocumentName,
+} from "@/lib/student-documents";
 
 /** "11.08.1999" → "26 Jahre" (empty string when unparsable). */
 function formatAge(birthday: string): string {
@@ -462,10 +467,20 @@ export function UebersichtTab({
                   Noch keine Dokumente hinterlegt.
                 </p>
               ) : (
-                student.documents.map(document => (
-                  <div key={document} className="flex items-center gap-2 text-sm">
+                student.documents.map((document, index) => (
+                  <div
+                    key={getStudentDocumentKey(document, index)}
+                    className="flex min-w-0 items-start gap-2 text-sm"
+                  >
                     <FileText />
-                    <span>{document}</span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">
+                        {getStudentDocumentName(document)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {getStudentDocumentMeta(document)}
+                      </span>
+                    </span>
                   </div>
                 ))
               )}

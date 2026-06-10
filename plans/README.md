@@ -16,14 +16,14 @@ plan excerpts reflect that working-tree state.
 |------|-------|----------|--------|------------|--------|
 | 001  | Enable creation of vehicles from the /fahrzeuge page | P1 | M | — | DONE (implemented in working tree 2026-06-10, uncommitted) |
 | 002  | Bind calendar vehicle options to DB-backed vehicle list | P2 | M | — | DONE (implemented in working tree 2026-06-10, uncommitted) |
-| 003  | DX baseline: test/typecheck scripts, tsconfig fix, real README | P1 | S | — | TODO |
-| 004  | Integration tests for API routes and CRUD modules | P1 | M | 003 (soft) | TODO |
-| 006  | Neutralize CSV formula injection in DATEV export | P1 | S | — | TODO |
-| 007  | Small correctness fixes (res.ok checks, swallowed error, hardcoded date) | P2 | S | — | TODO |
-| 005  | Dedupe hook fetch layer (shared parseOrThrow + useFetchList) | P2 | S–M | 003 (soft) | TODO |
-| 008  | Student delete path (server, route, hook, UI) | P2 | M | 004 | TODO |
-| 009  | Calendar persistence: calendar_events table, API, wire all consumers | P1 | L | 004; 005 recommended | TODO |
-| 010  | Design spike: link Fahrstunden to accounting (doc only) | P3 | M | 009 | TODO |
+| 003  | DX baseline: test/typecheck scripts, tsconfig fix, real README | P1 | S | — | DONE (advisor/003-dx-baseline @ 59c74cf) |
+| 004  | Integration tests for API routes and CRUD modules | P1 | M | 003 (soft) | DONE (advisor/004-api-tests @ 9d1fae7) |
+| 006  | Neutralize CSV formula injection in DATEV export | P1 | S | — | DONE (advisor/006-datev-csv-injection @ 492d46e) |
+| 007  | Small correctness fixes (res.ok checks, swallowed error, hardcoded date) | P2 | S | — | DONE (advisor/007-small-fixes @ 886a788) |
+| 005  | Dedupe hook fetch layer (shared parseOrThrow + useFetchList) | P2 | S–M | 003 (soft) | DONE (advisor/005-dedupe-hooks @ 3cb81c0) |
+| 008  | Student delete path (server, route, hook, UI) | P2 | M | 004 | DONE (advisor/008-student-delete @ 333ee20 + type-fix d14a3ca = advisor/integration) |
+| 009  | Calendar persistence: calendar_events table, API, wire all consumers | P1 | L | 004; 005 recommended | DONE (advisor/009-calendar-persistence @ 2448aec; browser smoke pending) |
+| 010  | Design spike: link Fahrstunden to accounting (doc only) | P3 | M | 009 | DONE (advisor/010-lessons-billing-design @ 1ed6e66; doc copied to plans/design/lessons-billing.md) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
