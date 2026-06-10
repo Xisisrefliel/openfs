@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useVehicleOptions } from "@/hooks/use-vehicle-options";
 import {
   Collapsible,
   CollapsibleContent,
@@ -144,8 +145,6 @@ const calendarEventThemes: Record<EventType, CalendarEventCardTheme> = {
 /* ------------------------------------------------------------------ */
 
 const niederlassungOptions = ["Fahrschule Gül"];
-const vehicleOptions = ["Golf", "BMW X1"];
-
 /* ------------------------------------------------------------------ */
 /* Date formatters                                                    */
 /* ------------------------------------------------------------------ */
@@ -477,6 +476,7 @@ export function Kalendar({
   // Instructor names come from the DB (/api/instructors) so the filter and
   // the edit dialog always match the roster managed on /fahrlehrer.
   const { names: instructorOptions } = useInstructors();
+  const { vehicleOptions } = useVehicleOptions();
   const [instructors, setInstructors] = useState<Set<string>>(new Set());
   const [niederlassungen, setNiederlassungen] = useState<Set<string>>(new Set());
   const [vehicles, setVehicles] = useState<Set<string>>(new Set());

@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Car, Cog, Fuel, Gauge, Pencil, Plus, ShieldCheck, User, Wrench } from "lucide-react";
+import { Car, Cog, Fuel, Gauge, Pencil, Plus, ShieldCheck, Trash2, User, Wrench } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageHeader } from "./components/PageHeader.tsx";
 import { useInstructors } from "@/hooks/use-instructors";
 import {
   useVehicles,
   updateVehicle,
+  createVehicle,
+  deleteVehicle,
   type Vehicle as VehicleRecord,
   type VehicleDetail,
 } from "@/hooks/use-vehicles";
@@ -93,6 +96,22 @@ function toVehicle(record: VehicleRecord): Vehicle {
   };
 }
 
+function createEmptyVehicle(): Vehicle {
+  return {
+    id: 0,
+    model: "",
+    plate: "",
+    klass: "",
+    status: "aktiv",
+    accent: "bg-slate-500/10 text-slate-600",
+    details: Object.values(detailLabels).map(label => ({
+      Icon: detailIcons[label] ?? DEFAULT_ICON,
+      label,
+      value: label === "Fahrlehrer/in" ? "Nicht zugeteilt" : "",
+    })),
+  };
+}
+
 function toApiPayload(vehicle: Vehicle) {
   return {
     model: vehicle.model,
@@ -154,18 +173,20 @@ function VehicleEditDialog({
   onOpenChange,
   onSave,
   instructorOptions,
+  mode,
 }: {
   vehicle: Vehicle | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (vehicle: Vehicle) => Promise<void> | void;
   instructorOptions: string[];
+  mode: "create" | "edit";
 }) {
   const [draft, setDraft] = useState<VehicleDraft | null>(null);
 
   useEffect(() => {
     setDraft(open && vehicle ? vehicleToDraft(vehicle) : null);
-  }, [open, vehicle]);
+  }, [open, vehicle?.id]);
 
   function update<Key extends keyof VehicleDraft>(
     key: Key,
@@ -189,9 +210,13 @@ function VehicleEditDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Fahrzeug bearbeiten</DialogTitle>
+          <DialogTitle>
+            {mode === "create" ? "Fahrzeug hinzufügen" : "Fahrzeug bearbeiten"}
+          </DialogTitle>
           <DialogDescription>
-            Stammdaten, Status und Fahrzeugdetails aktualisieren.
+            {mode === "create"
+              ? "Fahrzeugdaten anlegen."
+              : "Stammdaten, Status und Fahrzeugdetails aktualisieren."}
           </DialogDescription>
         </DialogHeader>
 
@@ -332,9 +357,11 @@ function VehicleEditDialog({
 function VehicleCard({
   vehicle,
   onEdit,
+  onDelete,
 }: {
   vehicle: Vehicle;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <Card>
@@ -369,6 +396,15 @@ function VehicleCard({
             >
               <Pencil />
             </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon-sm"
+              aria-label={`${vehicle.model} löschen`}
+              onClick={onDelete}
+            >
+              <Trash2 />
+            </Button>
           </div>
         </CardAction>
       </CardHeader>
@@ -399,19 +435,53 @@ export function Fahrzeuge() {
   const { assignableNames: instructorOptions } = useInstructors();
   const { vehicles: storedVehicles, loading, refresh } = useVehicles();
   const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
+  const [isCreateVehicleOpen, setIsCreateVehicleOpen] = useState(false);
+  const emptyVehicle = useMemo(() => createEmptyVehicle(), []);
   const vehicleList = useMemo(
     () => storedVehicles.map(toVehicle),
     [storedVehicles]
   );
+  const editingMode: "create" | "edit" = isCreateVehicleOpen ? "create" : "edit";
   const editingVehicle =
-    vehicleList.find(vehicle => vehicle.id === editingVehicleId) ?? null;
+    isCreateVehicleOpen
+      ? emptyVehicle
+      : vehicleList.find(vehicle => vehicle.id === editingVehicleId) ?? null;
+  const isDialogOpen = editingMode === "create" || editingVehicleId !== null;
+
+  async function removeVehicle(vehicle: Vehicle) {
+    const confirmed = window.confirm(
+      `"${vehicle.model}" (${vehicle.plate}) wirklich löschen? Zugeordnete Schüler und Fahrlehrer werden auf „Nicht zugeteilt“ gesetzt.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteVehicle(vehicle.id);
+      await refresh();
+      toast.success("Fahrzeug gelöscht.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
+      );
+    } finally {
+      if (editingVehicleId === vehicle.id) {
+        setEditingVehicleId(null);
+      }
+    }
+  }
 
   // DB-backed roster — same source as /fahrlehrer and the calendar.
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
       <PageHeader
         end={
-          <Button type="button" size="sm">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => {
+              setEditingVehicleId(null);
+              setIsCreateVehicleOpen(true);
+            }}
+          >
             <Plus data-icon="inline-start" />
             Fahrzeug hinzufügen
           </Button>
@@ -426,6 +496,7 @@ export function Fahrzeuge() {
               key={vehicle.id}
               vehicle={vehicle}
               onEdit={() => setEditingVehicleId(vehicle.id)}
+              onDelete={() => void removeVehicle(vehicle)}
             />
           ))}
         </div>
@@ -434,19 +505,25 @@ export function Fahrzeuge() {
       <VehicleEditDialog
         vehicle={editingVehicle}
         instructorOptions={instructorOptions}
-        open={editingVehicle !== null}
+        mode={editingMode}
+        open={isDialogOpen && editingVehicle !== null}
         onOpenChange={open => {
           if (!open) {
             setEditingVehicleId(null);
+            setIsCreateVehicleOpen(false);
           }
         }}
         onSave={async updatedVehicle => {
-          if (!editingVehicleId) {
+          if (editingMode === "create") {
+            await createVehicle(toApiPayload(updatedVehicle));
+          } else if (editingVehicleId !== null) {
+            await updateVehicle(editingVehicleId, toApiPayload(updatedVehicle));
+          } else {
             return;
           }
-          await updateVehicle(editingVehicleId, toApiPayload(updatedVehicle));
           await refresh();
           setEditingVehicleId(null);
+          setIsCreateVehicleOpen(false);
         }}
       />
     </div>

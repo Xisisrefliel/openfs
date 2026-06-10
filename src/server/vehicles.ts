@@ -24,6 +24,8 @@ export type Vehicle = {
   details: VehicleDetail[];
 };
 
+const UNASSIGNED_VEHICLE = "Nicht zugeteilt";
+
 export type VehicleInput = Omit<Vehicle, "id">;
 
 type VehicleRow = {
@@ -268,4 +270,20 @@ export function updateVehicle(
       )
   );
   return getVehicle(db, id);
+}
+
+export function deleteVehicle(db: Database, id: number): void {
+  const vehicle = getVehicle(db, id);
+  const remove = db.transaction(() => {
+    db.prepare("UPDATE students SET vehicle = ? WHERE vehicle = ?").run(
+      UNASSIGNED_VEHICLE,
+      vehicle.model
+    );
+    db.prepare("UPDATE instructors SET vehicle = ? WHERE vehicle = ?").run(
+      UNASSIGNED_VEHICLE,
+      vehicle.model
+    );
+    db.prepare("DELETE FROM vehicles WHERE id = ?").run(id);
+  });
+  remove();
 }

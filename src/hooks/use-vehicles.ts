@@ -68,6 +68,12 @@ export async function updateVehicle(
   );
 }
 
+export async function deleteVehicle(id: number): Promise<void> {
+  await parseOrThrow<{ ok: true }>(
+    await fetch(`/api/vehicles/${id}`, { method: "DELETE" })
+  );
+}
+
 export function useVehicles() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);

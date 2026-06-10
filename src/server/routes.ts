@@ -29,6 +29,7 @@ import {
   listVehicleModels,
   listVehicles,
   updateVehicle,
+  deleteVehicle,
 } from "./vehicles";
 import {
   createTransaction,
@@ -187,6 +188,15 @@ export function vehicleRoutes(db: Database) {
             throw new ValidationError("Ungültige Fahrzeug-ID.");
           }
           return json(updateVehicle(db, id, await req.json()));
+        })(),
+      DELETE: (req: BunRequest<"/api/vehicles/:id">) =>
+        handle(() => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Fahrzeug-ID.");
+          }
+          deleteVehicle(db, id);
+          return json({ ok: true });
         })(),
     },
   };
