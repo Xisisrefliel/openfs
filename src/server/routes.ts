@@ -160,20 +160,21 @@ export function pricePlanRoutes(db: Database) {
 export function vehicleRoutes(db: Database) {
   return {
     "/api/vehicle-options": {
-      GET: () => {
-        const models = listVehicleModels(db);
-        const defaults = getVehicleOptions();
-        const unassigned = "Nicht zugeteilt";
-        const options = new Set<string>(defaults.filter(value => value !== unassigned));
-        for (const model of models) {
-          options.add(model);
-        }
-        return json({ vehicleOptions: [...options, unassigned] });
-      },
+      GET: () =>
+        handle(() => {
+          const models = listVehicleModels(db);
+          const defaults = getVehicleOptions();
+          const unassigned = "Nicht zugeteilt";
+          const options = new Set<string>(defaults.filter(value => value !== unassigned));
+          for (const model of models) {
+            options.add(model);
+          }
+          return json({ vehicleOptions: [...options, unassigned] });
+        })(),
     },
 
     "/api/vehicles": {
-      GET: () => json({ vehicles: listVehicles(db) }),
+      GET: () => handle(() => json({ vehicles: listVehicles(db) }))(),
       POST: (req: BunRequest) =>
         handle(async () => 
           json(createVehicle(db, (await req.json()) as Partial<VehicleInput>), 201)

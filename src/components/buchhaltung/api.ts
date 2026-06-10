@@ -25,6 +25,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
         : "Anfrage fehlgeschlagen.";
     throw new ApiError(message);
   }
+  if (body == null) {
+    throw new ApiError("Ungültige Antwort vom Server.");
+  }
   return body as T;
 }
 

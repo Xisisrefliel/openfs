@@ -12,6 +12,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { Printer, TriangleAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -454,7 +455,11 @@ export function VertragDialog({
       .then((profile: CompanyProfile) => {
         if (!cancelled) setIssuer(profile);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) {
+          toast.error("Firmenprofil konnte nicht geladen werden — Angaben im Dokument unvollständig.");
+        }
+      });
     return () => {
       cancelled = true;
     };
