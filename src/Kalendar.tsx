@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CSSProperties,
   Dispatch,
@@ -33,8 +33,9 @@ import {
   type EventType,
   eventPresets,
   eventTypeOptions,
+  groupEventsByDay,
   isSameDay,
-  parseISODate,
+  layoutDay,
   startOfWeek,
   toISODate,
   toMinutes,
@@ -278,18 +279,90 @@ function FilterGroup({
 
 type DragState = {
   id: string;
-  mode: "move";
-  duration: number;
-  pointerOffsetY: number;
-} | {
-  id: string;
-  mode: "resize-start" | "resize-end";
-  /* Minutes between the pointer and the grabbed edge at drag start. Compact
-     cards expand on hover, so the visible edge can sit well below the true
-     end time — without this anchor, grabbing would jump the time to the
-     cursor's line before the user even moves. */
-  grabOffsetMinutes: number;
-};
+  /* The event's position when the drag started — drag math is a pure
+     function of this + the pointer, so drag-end never depends on React
+     having committed the last move (see dragResultRef below). */
+  date: string;
+  start: string;
+  end: string;
+} & (
+  | { mode: "move"; duration: number; pointerOffsetY: number }
+  | {
+      mode: "resize-start" | "resize-end";
+      /* Minutes between the pointer and the grabbed edge at drag start. Compact
+         cards expand on hover, so the visible edge can sit well below the true
+         end time — without this anchor, grabbing would jump the time to the
+         cursor's line before the user even moves. */
+      grabOffsetMinutes: number;
+    }
+);
+
+/* Where the dragged event sits for a given pointer position. Pure: reads
+   the original position from DragState, so it can run outside React. */
+function computeDragPosition(
+  dragging: DragState,
+  clientX: number,
+  clientY: number,
+  rect: DOMRect,
+  weekStart: Date
+): { date: string; start: string; end: string } {
+  const rawPointerMinutes =
+    ((clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60;
+
+  if (dragging.mode === "move") {
+    const dayWidth = rect.width / DAY_COUNT;
+    const day = clamp(
+      Math.floor((clientX - rect.left) / dayWidth),
+      0,
+      DAY_COUNT - 1
+    );
+    const rawStartMinutes =
+      ((clientY - rect.top - dragging.pointerOffsetY) / HOUR_HEIGHT) * 60 +
+      START_HOUR * 60;
+    const startMinutes = clamp(
+      snapMinutes(rawStartMinutes),
+      START_HOUR * 60,
+      END_HOUR * 60 - dragging.duration
+    );
+    const endMinutes = startMinutes + dragging.duration;
+    return {
+      date: toISODate(addDays(weekStart, day)),
+      start: formatMinutes(startMinutes),
+      end: formatMinutes(endMinutes),
+    };
+  }
+
+  // Resize by pointer delta from where the edge was grabbed, not by
+  // absolute pointer position — see DragState.grabOffsetMinutes.
+  const pointerMinutes = snapMinutes(rawPointerMinutes - dragging.grabOffsetMinutes);
+
+  if (dragging.mode === "resize-start") {
+    const endMinutes = toMinutes(dragging.end);
+    const nextStartMinutes = clamp(
+      pointerMinutes,
+      START_HOUR * 60,
+      endMinutes - SNAP_MINUTES
+    );
+    return {
+      date: dragging.date,
+      start: formatMinutes(nextStartMinutes),
+      end: dragging.end,
+    };
+  }
+
+  // mode === "resize-end"
+  const startMinutes = toMinutes(dragging.start);
+  const nextEndMinutes = clamp(
+    pointerMinutes,
+    startMinutes + SNAP_MINUTES,
+    END_HOUR * 60
+  );
+  return {
+    date: dragging.date,
+    start: dragging.start,
+    end: formatMinutes(nextEndMinutes),
+  };
+}
 
 function EventBlock({
   event,
@@ -355,28 +428,6 @@ function EventBlock({
       }
     />
   );
-}
-
-/* Simple greedy column layout so overlapping events sit side by side. */
-function layoutDay(dayEvents: CalEvent[]) {
-  const sorted = [...dayEvents].sort(
-    (a, b) => toMinutes(a.start) - toMinutes(b.start)
-  );
-  const columnEnds: number[] = [];
-  const placed = sorted.map(event => {
-    const start = toMinutes(event.start);
-    const end = toMinutes(event.end);
-    let column = columnEnds.findIndex(columnEnd => columnEnd <= start);
-    if (column === -1) {
-      column = columnEnds.length;
-      columnEnds.push(end);
-    } else {
-      columnEnds[column] = end;
-    }
-    return { event, column };
-  });
-  const columns = Math.max(1, columnEnds.length);
-  return { placed, columns };
 }
 
 /* ------------------------------------------------------------------ */
@@ -498,6 +549,103 @@ function WeekScrollbar({
   );
 }
 
+/* Stable empty array so eventsByDay.get(iso) ?? NO_EVENTS never produces
+   a new array identity on days that have no events — DayColumn's memo
+   compares by reference and would otherwise always rerender empty columns. */
+const NO_EVENTS: CalEvent[] = [];
+
+/* ------------------------------------------------------------------ */
+/* Day column                                                         */
+/*                                                                    */
+/* Self-contained on purpose: memo'd so that during a drag only the  */
+/* column(s) containing the dragged event rerender — the grouping    */
+/* memo rebuilds the per-day arrays every frame, so array identity   */
+/* alone would defeat the memo. The element-wise events comparison   */
+/* is load-bearing: untouched events keep object identity through    */
+/* the drag's current.map(), so 6 of 7 columns bail out every frame. */
+/* ------------------------------------------------------------------ */
+
+const DayColumn = memo(
+  function DayColumn({
+    iso,
+    isToday,
+    events,
+    draggingId,
+    onDragStart,
+    onResizeStart,
+    onEdit,
+    onDelete,
+  }: {
+    iso: string;
+    isToday: boolean;
+    events: CalEvent[];
+    draggingId: string | null;
+    onDragStart: (event: CalEvent, pointerEvent: ReactPointerEvent<HTMLButtonElement>) => void;
+    onResizeStart: (event: CalEvent, edge: "start" | "end", pointerEvent: ReactPointerEvent<HTMLElement>) => void;
+    onEdit: (event: CalEvent) => void;
+    onDelete: (event: CalEvent) => void;
+  }) {
+    const { placed, columns } = useMemo(() => layoutDay(events), [events]);
+    return (
+      <div
+        className={cn(
+          "relative h-full border-l border-border/70",
+          isToday && "bg-primary/[0.02]"
+        )}
+      >
+        {/* Hour lines */}
+        {HOUR_INTERVALS.map(hour => (
+          <div
+            key={hour}
+            className="border-b border-border/60"
+            style={{ height: HOUR_HEIGHT }}
+          >
+            <div className="h-1/2 border-b border-dashed border-border/35" />
+          </div>
+        ))}
+
+        {/* Events */}
+        {placed.map(({ event, column }) => (
+          <EventBlock
+            key={event.id}
+            event={event}
+            column={column}
+            columns={columns}
+            isDragging={draggingId === event.id}
+            onDragStart={onDragStart}
+            onResizeStart={onResizeStart}
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        ))}
+
+        {/* Now indicator */}
+        {isToday && (
+          <div
+            className="pointer-events-none absolute right-0 left-0 z-10 flex items-center"
+            style={{
+              top: topForMinutes(NOW_MINUTES),
+            }}
+          >
+            <span className="-ml-1 size-2 shrink-0 rounded-full bg-red-500" />
+            <span className="h-px flex-1 bg-red-500" />
+          </div>
+        )}
+      </div>
+    );
+  },
+  (prev, next) =>
+    prev.iso === next.iso &&
+    prev.isToday === next.isToday &&
+    prev.draggingId === next.draggingId &&
+    prev.onDragStart === next.onDragStart &&
+    prev.onResizeStart === next.onResizeStart &&
+    prev.onEdit === next.onEdit &&
+    prev.onDelete === next.onDelete &&
+    prev.events.length === next.events.length &&
+    prev.events.every((event, i) => event === next.events[i])
+);
+
 /* ------------------------------------------------------------------ */
 /* Kalendar page                                                      */
 /* ------------------------------------------------------------------ */
@@ -516,12 +664,10 @@ export function Kalendar({
   useEffect(() => {
     setCalendarEvents(storedEvents);
   }, [storedEvents]);
-  // Lets the drag-end listener read the latest events without re-running
-  // the drag effect on every continuous move.
-  const calendarEventsRef = useRef<CalEvent[]>([]);
-  useEffect(() => {
-    calendarEventsRef.current = calendarEvents;
-  }, [calendarEvents]);
+  // dragResultRef holds the exact final position computed synchronously on
+  // every pointermove. Drag-end reads it instead of calendarEvents state, so
+  // the persisted value is never behind by one React commit cycle.
+  const dragResultRef = useRef<{ date: string; start: string; end: string } | null>(null);
   // Instructor names come from the DB (/api/instructors) so the filter and
   // the edit dialog always match the roster managed on /fahrlehrer.
   const { names: instructorOptions } = useInstructors();
@@ -590,98 +736,57 @@ export function Kalendar({
   useEffect(() => {
     if (!dragging) return;
 
+    // Each drag session starts with no committed result; the ref is
+    // populated synchronously on the first pointermove.
+    dragResultRef.current = null;
+
+    // The ref always holds the exact latest position; the React state —
+    // and with it the whole-page render — updates at most once per frame.
+    // pointermove can outpace frames on some browsers/devices.
+    let rafId: number | null = null;
+
+    const applyPendingDragResult = () => {
+      rafId = null;
+      const next = dragResultRef.current;
+      if (!next) return;
+      setCalendarEvents(current =>
+        current.map(event =>
+          event.id === dragging.id ? { ...event, ...next } : event
+        )
+      );
+    };
+
     const updateEventFromPointer = (clientX: number, clientY: number) => {
       const grid = dayGridRef.current;
       if (!grid) return;
 
       const rect = grid.getBoundingClientRect();
-      const rawPointerMinutes =
-        ((clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60;
-
-      setCalendarEvents(current =>
-        current.map(event => {
-          if (event.id !== dragging.id) return event;
-
-          if (dragging.mode === "move") {
-            const dayWidth = rect.width / DAY_COUNT;
-            const day = clamp(
-              Math.floor((clientX - rect.left) / dayWidth),
-              0,
-              DAY_COUNT - 1
-            );
-            const rawStartMinutes =
-              ((clientY - rect.top - dragging.pointerOffsetY) / HOUR_HEIGHT) * 60 +
-              START_HOUR * 60;
-            const startMinutes = clamp(
-              snapMinutes(rawStartMinutes),
-              START_HOUR * 60,
-              END_HOUR * 60 - dragging.duration
-            );
-            const endMinutes = startMinutes + dragging.duration;
-
-            return {
-              ...event,
-              date: toISODate(addDays(weekStart, day)),
-              start: formatMinutes(startMinutes),
-              end: formatMinutes(endMinutes),
-            };
-          }
-
-          const startMinutes = toMinutes(event.start);
-          const endMinutes = toMinutes(event.end);
-          // Resize by pointer delta from where the edge was grabbed, not by
-          // absolute pointer position — see DragState.grabOffsetMinutes.
-          const pointerMinutes = snapMinutes(
-            rawPointerMinutes - dragging.grabOffsetMinutes
-          );
-
-          if (dragging.mode === "resize-start") {
-            const nextStartMinutes = clamp(
-              pointerMinutes,
-              START_HOUR * 60,
-              endMinutes - SNAP_MINUTES
-            );
-
-            return {
-              ...event,
-              start: formatMinutes(nextStartMinutes),
-            };
-          }
-
-          const nextEndMinutes = clamp(
-            pointerMinutes,
-            startMinutes + SNAP_MINUTES,
-            END_HOUR * 60
-          );
-
-          return {
-            ...event,
-            end: formatMinutes(nextEndMinutes),
-          };
-        })
-      );
+      // Compute the new position purely from DragState + pointer — no
+      // dependency on live React state (fixes the stale-persist bug).
+      const next = computeDragPosition(dragging, clientX, clientY, rect, weekStart);
+      dragResultRef.current = next;
+      if (rafId === null) rafId = requestAnimationFrame(applyPendingDragResult);
     };
 
     const handlePointerMove = (event: PointerEvent) => {
       event.preventDefault();
       updateEventFromPointer(event.clientX, event.clientY);
     };
+
     const stopDragging = () => {
-      // Persist the dragged event's final position. Read from the ref so
-      // this listener sees the latest local state without re-subscribing
-      // on every move.
-      const moved = calendarEventsRef.current.find(
-        event => event.id === dragging.id
-      );
-      if (moved) {
-        void updateCalendarEvent(Number(moved.id), {
-          date: moved.date,
-          start: moved.start,
-          end: moved.end,
-        }).catch(() => {
-          toast.error("Termin konnte nicht gespeichert werden.");
-          void refreshEvents();
-        });
+      // Cancel any pending frame before applying the final result so the
+      // UI lands on exactly the position the user released at.
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      applyPendingDragResult();
+      // If dragResultRef is still null the user never moved (plain click) —
+      // skip the PATCH so a tap on an event doesn't dirty the DB.
+      if (dragResultRef.current !== null) {
+        void updateCalendarEvent(Number(dragging.id), dragResultRef.current).catch(
+          () => {
+            toast.error("Termin konnte nicht gespeichert werden.");
+            void refreshEvents();
+          }
+        );
       }
       setDragging(null);
     };
@@ -693,6 +798,7 @@ export function Kalendar({
     window.addEventListener("pointercancel", stopDragging, { once: true });
 
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", stopDragging);
       window.removeEventListener("pointercancel", stopDragging);
@@ -727,56 +833,73 @@ export function Kalendar({
     });
   }, [calendarEvents, instructors, niederlassungen, vehicles, types]);
 
-  const handleEventDragStart = (
-    event: CalEvent,
-    pointerEvent: ReactPointerEvent<HTMLButtonElement>
-  ) => {
-    const rect = pointerEvent.currentTarget.getBoundingClientRect();
-    setDragging({
-      id: event.id,
-      mode: "move",
-      duration: toMinutes(event.end) - toMinutes(event.start),
-      pointerOffsetY: pointerEvent.clientY - rect.top,
-    });
-  };
+  // One pass over visible events instead of one filter per day column +
+  // one per day header (14 passes total at 7 columns). During a drag the
+  // per-day arrays that don't contain the dragged event keep the same
+  // object identity, which lets DayColumn's memo bail out cheaply.
+  const eventsByDay = useMemo(
+    () => groupEventsByDay(visibleEvents),
+    [visibleEvents]
+  );
 
-  const handleEventResizeStart = (
-    event: CalEvent,
-    edge: "start" | "end",
-    pointerEvent: ReactPointerEvent<HTMLElement>
-  ) => {
-    pointerEvent.preventDefault();
-    pointerEvent.stopPropagation();
-    pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
-    const edgeMinutes = toMinutes(edge === "start" ? event.start : event.end);
-    const grid = dayGridRef.current;
-    const pointerMinutes = grid
-      ? ((pointerEvent.clientY - grid.getBoundingClientRect().top) /
-          HOUR_HEIGHT) *
-          60 +
-        START_HOUR * 60
-      : edgeMinutes;
-    setDragging({
-      id: event.id,
-      mode: edge === "start" ? "resize-start" : "resize-end",
-      grabOffsetMinutes: pointerMinutes - edgeMinutes,
-    });
-  };
+  const handleEventDragStart = useCallback(
+    (event: CalEvent, pointerEvent: ReactPointerEvent<HTMLButtonElement>) => {
+      const rect = pointerEvent.currentTarget.getBoundingClientRect();
+      setDragging({
+        id: event.id,
+        date: event.date,
+        start: event.start,
+        end: event.end,
+        mode: "move",
+        duration: toMinutes(event.end) - toMinutes(event.start),
+        pointerOffsetY: pointerEvent.clientY - rect.top,
+      });
+    },
+    []
+  );
 
-  const handleEventDelete = (event: CalEvent) => {
-    setCalendarEvents(current => current.filter(item => item.id !== event.id));
-    void deleteCalendarEvent(Number(event.id)).catch(() => {
-      toast.error("Termin konnte nicht gelöscht werden.");
-      void refreshEvents();
-    });
-  };
+  const handleEventResizeStart = useCallback(
+    (event: CalEvent, edge: "start" | "end", pointerEvent: ReactPointerEvent<HTMLElement>) => {
+      pointerEvent.preventDefault();
+      pointerEvent.stopPropagation();
+      pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
+      const edgeMinutes = toMinutes(edge === "start" ? event.start : event.end);
+      const grid = dayGridRef.current;
+      const pointerMinutes = grid
+        ? ((pointerEvent.clientY - grid.getBoundingClientRect().top) /
+            HOUR_HEIGHT) *
+            60 +
+          START_HOUR * 60
+        : edgeMinutes;
+      setDragging({
+        id: event.id,
+        date: event.date,
+        start: event.start,
+        end: event.end,
+        mode: edge === "start" ? "resize-start" : "resize-end",
+        grabOffsetMinutes: pointerMinutes - edgeMinutes,
+      });
+    },
+    []
+  );
 
-  const handleEventEdit = (event: CalEvent) => {
+  const handleEventDelete = useCallback(
+    (event: CalEvent) => {
+      setCalendarEvents(current => current.filter(item => item.id !== event.id));
+      void deleteCalendarEvent(Number(event.id)).catch(() => {
+        toast.error("Termin konnte nicht gelöscht werden.");
+        void refreshEvents();
+      });
+    },
+    [refreshEvents]
+  );
+
+  const handleEventEdit = useCallback((event: CalEvent) => {
     // Defer so the context menu finishes closing (and clears its
     // body `pointer-events: none`) before the dialog mounts — otherwise
     // the dialog can open non-interactive.
     setTimeout(() => setEditingEvent(event), 0);
-  };
+  }, []);
 
   // Opens the edit dialog for a not-yet-persisted event. Deferred so the
   // dropdown finishes closing (and clears its body `pointer-events: none`)
@@ -1138,9 +1261,7 @@ export function Kalendar({
               <div className="grid flex-1 grid-cols-7">
                 {days.map(day => {
                   const today = isSameDay(day, TODAY);
-                  const count = visibleEvents.filter(
-                    event => isSameDay(parseISODate(event.date), day)
-                  ).length;
+                  const count = (eventsByDay.get(toISODate(day)) ?? NO_EVENTS).length;
                   return (
                     <div
                       key={day.toISOString()}
@@ -1252,58 +1373,19 @@ export function Kalendar({
                   )}
 
                 {days.map(day => {
-                  const today = isSameDay(day, TODAY);
-                  const dayEvents = visibleEvents.filter(
-                    event => isSameDay(parseISODate(event.date), day)
-                  );
-                  const { placed, columns } = layoutDay(dayEvents);
+                  const iso = toISODate(day);
                   return (
-                    <div
-                      key={day.toISOString()}
-                      className={cn(
-                        "relative h-full border-l border-border/70",
-                        today && "bg-primary/[0.02]"
-                      )}
-                    >
-                      {/* Hour lines */}
-                      {HOUR_INTERVALS.map(hour => (
-                        <div
-                          key={hour}
-                          className="border-b border-border/60"
-                          style={{ height: HOUR_HEIGHT }}
-                        >
-                          <div className="h-1/2 border-b border-dashed border-border/35" />
-                        </div>
-                      ))}
-
-                      {/* Events */}
-                      {placed.map(({ event, column }, index) => (
-                        <EventBlock
-                          key={event.id}
-                          event={event}
-                          column={column}
-                          columns={columns}
-                          isDragging={dragging?.id === event.id}
-                          onDragStart={handleEventDragStart}
-                          onResizeStart={handleEventResizeStart}
-                          onEdit={handleEventEdit}
-                          onDelete={handleEventDelete}
-                        />
-                      ))}
-
-                      {/* Now indicator */}
-                      {today && (
-                        <div
-                          className="pointer-events-none absolute right-0 left-0 z-10 flex items-center"
-                          style={{
-                            top: topForMinutes(NOW_MINUTES),
-                          }}
-                        >
-                          <span className="-ml-1 size-2 shrink-0 rounded-full bg-red-500" />
-                          <span className="h-px flex-1 bg-red-500" />
-                        </div>
-                      )}
-                    </div>
+                    <DayColumn
+                      key={iso}
+                      iso={iso}
+                      isToday={isSameDay(day, TODAY)}
+                      events={eventsByDay.get(iso) ?? NO_EVENTS}
+                      draggingId={dragging?.id ?? null}
+                      onDragStart={handleEventDragStart}
+                      onResizeStart={handleEventResizeStart}
+                      onEdit={handleEventEdit}
+                      onDelete={handleEventDelete}
+                    />
                   );
                 })}
               </div>
