@@ -115,3 +115,41 @@ export const toMinutes = (value: string) => {
   const [h = 0, m = 0] = value.split(":").map(Number);
   return h * 60 + m;
 };
+
+/* ------------------------------------------------------------------ */
+/* Layout helpers                                                      */
+/* ------------------------------------------------------------------ */
+
+/* Simple greedy column layout so overlapping events sit side by side. */
+export function layoutDay(dayEvents: CalEvent[]) {
+  const sorted = [...dayEvents].sort(
+    (a, b) => toMinutes(a.start) - toMinutes(b.start)
+  );
+  const columnEnds: number[] = [];
+  const placed = sorted.map(event => {
+    const start = toMinutes(event.start);
+    const end = toMinutes(event.end);
+    let column = columnEnds.findIndex(columnEnd => columnEnd <= start);
+    if (column === -1) {
+      column = columnEnds.length;
+      columnEnds.push(end);
+    } else {
+      columnEnds[column] = end;
+    }
+    return { event, column };
+  });
+  const columns = Math.max(1, columnEnds.length);
+  return { placed, columns };
+}
+
+/* One pass over the (already filtered) events instead of one filter per
+   day column + one per day header. Keys are the events' own ISO dates. */
+export function groupEventsByDay(events: CalEvent[]): Map<string, CalEvent[]> {
+  const byDay = new Map<string, CalEvent[]>();
+  for (const event of events) {
+    const list = byDay.get(event.date);
+    if (list) list.push(event);
+    else byDay.set(event.date, [event]);
+  }
+  return byDay;
+}

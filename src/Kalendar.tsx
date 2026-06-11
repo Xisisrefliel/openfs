@@ -33,7 +33,9 @@ import {
   type EventType,
   eventPresets,
   eventTypeOptions,
+  groupEventsByDay,
   isSameDay,
+  layoutDay,
   parseISODate,
   startOfWeek,
   toISODate,
@@ -355,28 +357,6 @@ function EventBlock({
       }
     />
   );
-}
-
-/* Simple greedy column layout so overlapping events sit side by side. */
-function layoutDay(dayEvents: CalEvent[]) {
-  const sorted = [...dayEvents].sort(
-    (a, b) => toMinutes(a.start) - toMinutes(b.start)
-  );
-  const columnEnds: number[] = [];
-  const placed = sorted.map(event => {
-    const start = toMinutes(event.start);
-    const end = toMinutes(event.end);
-    let column = columnEnds.findIndex(columnEnd => columnEnd <= start);
-    if (column === -1) {
-      column = columnEnds.length;
-      columnEnds.push(end);
-    } else {
-      columnEnds[column] = end;
-    }
-    return { event, column };
-  });
-  const columns = Math.max(1, columnEnds.length);
-  return { placed, columns };
 }
 
 /* ------------------------------------------------------------------ */
