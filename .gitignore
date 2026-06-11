@@ -7,9 +7,6 @@ data/
 # output
 out
 dist
-dist-electron
-release
-.build
 *.tgz
 
 # code coverage

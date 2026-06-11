@@ -1,5 +1,4 @@
 import { useSidebar } from "@/components/ui/sidebar";
-import { isElectron, isElectronMac } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 
 type PageHeaderProps = {
@@ -20,13 +19,6 @@ export function PageHeader({ children, center, end, className }: PageHeaderProps
     <header
       className={cn(
         "sticky top-0 z-30 flex h-11 w-full shrink-0 items-center gap-3 rounded-t-lg rounded-b-sm border border-border/70 bg-background px-3 2xl:h-12 2xl:px-4",
-        // Frameless desktop window: the page header doubles as the
-        // draggable "title bar". Interactive children stay clickable via
-        // the no-drag carve-out in index.css; the floating ShellControls
-        // survive because they render after this header in the DOM
-        // (see App.tsx) — app-region rects apply in DOM order. Height is
-        // pinned to 44px so the row stays centered on the traffic lights.
-        isElectron && "app-region-drag 2xl:h-11",
         className
       )}
     >
@@ -37,9 +29,7 @@ export function PageHeader({ children, center, end, className }: PageHeaderProps
         aria-hidden
         className={cn(
           "-ml-3 h-px shrink-0 transition-[width] duration-300 ease-drawer motion-reduce:transition-none",
-          // The desktop app shifts the controls right of the macOS
-          // traffic lights, so leading content must clear both.
-          shellControlsOverlap ? (isElectronMac ? "w-44" : "w-28") : "w-0"
+          shellControlsOverlap ? "w-28" : "w-0"
         )}
       />
       {children}

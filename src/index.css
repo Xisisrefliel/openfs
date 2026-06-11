@@ -386,24 +386,3 @@ body {
     margin: 15mm;
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Electron window dragging                                            */
-/* The desktop app hides the native title bar; header strips become    */
-/* drag regions, while anything interactive inside them stays          */
-/* clickable via the no-drag carve-out.                                */
-/* ------------------------------------------------------------------ */
-
-.app-region-drag {
-  -webkit-app-region: drag;
-}
-
-.app-region-drag
-  :is(button, a, input, select, textarea, [role="button"], [role="combobox"],
-    [role="tab"], [role="menuitem"], [contenteditable]) {
-  -webkit-app-region: no-drag;
-}
-
-.app-region-no-drag {
-  -webkit-app-region: no-drag;
-}

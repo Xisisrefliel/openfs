@@ -1,7 +1,6 @@
 /* ------------------------------------------------------------------ */
 /* All API route factories merged into one routes object.              */
-/* Consumed by both entry points: Bun.serve() in src/index.ts and the  */
-/* app:// protocol router in electron/main.ts.                         */
+/* Consumed by the Bun.serve() entry point in src/index.ts.            */
 /* ------------------------------------------------------------------ */
 
 import type { Database } from "./sqlite";

@@ -1,7 +1,7 @@
 /* Renderer/SPA production build. The Tailwind plugin only auto-loads
    for the dev server ([serve.static] in bunfig.toml) — the `bun build`
    CLI ignores it, which yields unstyled output. Bun.build() lets us
-   pass the plugin explicitly. Used by web prod and the Electron app. */
+   pass the plugin explicitly. */
 
 import tailwind from "bun-plugin-tailwind";
 
