@@ -274,20 +274,28 @@ export function updateStudent(
 ): StudentRecord {
   const current = getStudent(db, id);
   const data = normalize(input, current);
-  guardUnique(() =>
-    db
-      .prepare(
-        `UPDATE students SET
-           first_name = ?, last_name = ?, birthday = ?, phone = ?, email = ?,
-           address = ?, classes = ?, driving_school = ?, registration_date = ?,
-           contract_number = ?, customer_number = ?, status = ?, instructor = ?,
-           vehicle = ?, balance = ?, last_lesson = ?, next_lesson = ?,
-           progress = ?, lessons = ?, documents = ?, theory = ?,
-           price_plan_id = ?
-         WHERE id = ?`
-      )
-      .run(...writeParams(data), id)
-  );
+  const write = db.transaction(() => {
+    db.prepare(
+      `UPDATE students SET
+         first_name = ?, last_name = ?, birthday = ?, phone = ?, email = ?,
+         address = ?, classes = ?, driving_school = ?, registration_date = ?,
+         contract_number = ?, customer_number = ?, status = ?, instructor = ?,
+         vehicle = ?, balance = ?, last_lesson = ?, next_lesson = ?,
+         progress = ?, lessons = ?, documents = ?, theory = ?,
+         price_plan_id = ?
+       WHERE id = ?`
+    ).run(...writeParams(data), id);
+    // Chat threads carry a denormalized student_name next to their
+    // student_id — keep it in sync on rename.
+    const oldName = `${current.firstName} ${current.lastName}`.trim();
+    const newName = `${data.firstName} ${data.lastName}`.trim();
+    if (newName !== oldName && tableExists(db, "conversations")) {
+      db.prepare(
+        "UPDATE conversations SET student_name = ? WHERE student_id = ?"
+      ).run(newName, id);
+    }
+  });
+  guardUnique(write);
   return getStudent(db, id);
 }
 

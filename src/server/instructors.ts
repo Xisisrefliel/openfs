@@ -149,21 +149,43 @@ export function updateInstructor(
 ): Instructor {
   const current = getInstructor(db, id);
   const data = normalize(input, current);
-  db.prepare(
-    `UPDATE instructors
-     SET first_name = ?, last_name = ?, phone = ?, email = ?, classes = ?, vehicle = ?, since = ?, status = ?
-     WHERE id = ?`
-  ).run(
-    data.firstName,
-    data.lastName,
-    data.phone,
-    data.email,
-    data.classes,
-    data.vehicle,
-    data.since,
-    data.status,
-    id
-  );
+  const oldName = `${current.firstName} ${current.lastName}`.trim();
+  const newName = `${data.firstName} ${data.lastName}`.trim();
+  const write = db.transaction(() => {
+    db.prepare(
+      `UPDATE instructors
+       SET first_name = ?, last_name = ?, phone = ?, email = ?, classes = ?, vehicle = ?, since = ?, status = ?
+       WHERE id = ?`
+    ).run(
+      data.firstName,
+      data.lastName,
+      data.phone,
+      data.email,
+      data.classes,
+      data.vehicle,
+      data.since,
+      data.status,
+      id
+    );
+    // Students, Termine and theory groups reference instructors by
+    // display name — a rename must follow, or they keep pointing at a
+    // name that no longer exists. (Namesakes would be carried along
+    // too; the name-keyed schema cannot tell them apart.)
+    if (newName !== oldName && oldName) {
+      db.prepare(
+        "UPDATE students SET instructor = ? WHERE instructor = ?"
+      ).run(newName, oldName);
+      db.prepare(
+        "UPDATE calendar_events SET instructor = ? WHERE instructor = ?"
+      ).run(newName, oldName);
+      if (tableExists(db, "theory_groups")) {
+        db.prepare(
+          "UPDATE theory_groups SET instructor = ? WHERE instructor = ?"
+        ).run(newName, oldName);
+      }
+    }
+  });
+  write();
   return getInstructor(db, id);
 }
 
@@ -187,9 +209,16 @@ export function deleteInstructor(db: Database, id: number): void {
           .all(name)
           .map(row => row.id)
       : [];
+    const calendarEvents = db
+      .query<{ id: number }, [string]>(
+        "SELECT id FROM calendar_events WHERE instructor = ?"
+      )
+      .all(name)
+      .map(row => row.id);
     archiveRow(db, "instructor", id, name || "Fahrlehrer/in", {
       students,
       theoryGroups,
+      calendarEvents,
     });
     db.prepare("UPDATE students SET instructor = ? WHERE instructor = ?").run(
       UNASSIGNED_INSTRUCTOR,
@@ -198,6 +227,11 @@ export function deleteInstructor(db: Database, id: number): void {
     if (theoryGroups.length > 0) {
       db.prepare(
         "UPDATE theory_groups SET instructor = ? WHERE instructor = ?"
+      ).run(UNASSIGNED_INSTRUCTOR, name);
+    }
+    if (calendarEvents.length > 0) {
+      db.prepare(
+        "UPDATE calendar_events SET instructor = ? WHERE instructor = ?"
       ).run(UNASSIGNED_INSTRUCTOR, name);
     }
     db.prepare("DELETE FROM instructors WHERE id = ?").run(id);

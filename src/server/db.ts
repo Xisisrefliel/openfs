@@ -294,7 +294,84 @@ export function openDb(path = "data/fahrschule.db"): Database {
   initStudents(db);
   initPricePlans(db);
   initCalendarEvents(db);
+  repairSoftReferences(db);
   return db;
+}
+
+/* Students, Termine and theory groups reference instructors/vehicles by
+   display name (no FK). Before the rename/delete code paths propagated
+   (instructors.ts/vehicles.ts), edits could leave references pointing
+   at names that no longer exist — invisible in pickers, phantom in
+   lists. Normalize any such orphan to the explicit "unassigned" marker.
+   Idempotent and cheap, so it runs on every open as a safety net. */
+export function repairSoftReferences(db: Database) {
+  const tableExists = (name: string) =>
+    db
+      .query<{ name: string }, [string]>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
+      )
+      .get(name) !== null;
+
+  db.exec(`
+    UPDATE students SET instructor = 'Nicht zugeteilt'
+      WHERE instructor != 'Nicht zugeteilt'
+        AND instructor NOT IN (SELECT first_name || ' ' || last_name FROM instructors);
+    UPDATE students SET vehicle = 'Nicht zugeteilt'
+      WHERE vehicle != 'Nicht zugeteilt'
+        AND vehicle NOT IN (SELECT model FROM vehicles);
+    UPDATE instructors SET vehicle = 'Nicht zugeteilt'
+      WHERE vehicle NOT IN ('Nicht zugeteilt', '')
+        AND vehicle NOT IN (SELECT model FROM vehicles);
+    UPDATE calendar_events SET instructor = 'Nicht zugeteilt'
+      WHERE instructor NOT IN ('Nicht zugeteilt', '')
+        AND instructor NOT IN (SELECT first_name || ' ' || last_name FROM instructors);
+    UPDATE calendar_events SET vehicle = ''
+      WHERE vehicle != ''
+        AND vehicle NOT IN (SELECT model FROM vehicles);
+  `);
+
+  if (tableExists("theory_groups")) {
+    db.exec(`
+      UPDATE theory_groups SET instructor = 'Nicht zugeteilt'
+        WHERE instructor != 'Nicht zugeteilt'
+          AND instructor NOT IN (SELECT first_name || ' ' || last_name FROM instructors);
+    `);
+    // Drop member ids whose student is gone — ghosts block group capacity.
+    const groups = db
+      .query<{ id: number; student_ids: string }, []>(
+        "SELECT id, student_ids FROM theory_groups"
+      )
+      .all();
+    const studentExists = db.query<{ n: number }, [number]>(
+      "SELECT count(*) AS n FROM students WHERE id = ?"
+    );
+    const updateGroup = db.prepare(
+      "UPDATE theory_groups SET student_ids = ? WHERE id = ?"
+    );
+    for (const group of groups) {
+      let members: number[];
+      try {
+        const parsed = JSON.parse(group.student_ids) as unknown;
+        members = Array.isArray(parsed)
+          ? parsed.map(Number).filter(n => Number.isInteger(n) && n > 0)
+          : [];
+      } catch {
+        members = [];
+      }
+      const alive = members.filter(sid => studentExists.get(sid)!.n > 0);
+      if (alive.length !== members.length) {
+        updateGroup.run(JSON.stringify(alive), group.id);
+      }
+    }
+  }
+
+  if (tableExists("conversations")) {
+    db.exec(`
+      UPDATE conversations SET student_id = NULL
+        WHERE student_id IS NOT NULL
+          AND student_id NOT IN (SELECT id FROM students);
+    `);
+  }
 }
 
 /* Databases created before price plans existed lack the column on

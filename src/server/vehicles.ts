@@ -256,23 +256,44 @@ export function updateVehicle(
 ): Vehicle {
   const current = getVehicle(db, id);
   const data = normalize(input, current);
-  guardUnique(() =>
-    db
-      .prepare(
-        `UPDATE vehicles
-         SET model = ?, plate = ?, klass = ?, status = ?, accent = ?, details = ?, updated_at = datetime('now')
-         WHERE id = ?`
-      )
-      .run(
-        data.model,
-        data.plate,
-        data.klass,
-        data.status,
-        data.accent,
-        toJson(data.details),
-        id
-      )
-  );
+  const write = db.transaction(() => {
+    db.prepare(
+      `UPDATE vehicles
+       SET model = ?, plate = ?, klass = ?, status = ?, accent = ?, details = ?, updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(
+      data.model,
+      data.plate,
+      data.klass,
+      data.status,
+      data.accent,
+      toJson(data.details),
+      id
+    );
+    // Students, instructors and Termine reference vehicles by model — a
+    // model rename must follow, but only when no fleet mate still
+    // carries the old model (their references stay valid).
+    if (data.model !== current.model && current.model) {
+      const sameModel = db
+        .query<{ n: number }, [string]>(
+          "SELECT count(*) AS n FROM vehicles WHERE model = ?"
+        )
+        .get(current.model)!.n;
+      if (sameModel === 0) {
+        db.prepare("UPDATE students SET vehicle = ? WHERE vehicle = ?").run(
+          data.model,
+          current.model
+        );
+        db.prepare(
+          "UPDATE instructors SET vehicle = ? WHERE vehicle = ?"
+        ).run(data.model, current.model);
+        db.prepare(
+          "UPDATE calendar_events SET vehicle = ? WHERE vehicle = ?"
+        ).run(data.model, current.model);
+      }
+    }
+  });
+  guardUnique(write);
   return getVehicle(db, id);
 }
 
@@ -287,18 +308,33 @@ export function deleteVehicle(db: Database, id: number): void {
         )
         .all(vehicle.model)
         .map(row => row.id);
+    // Only sever references when this is the LAST vehicle of its model —
+    // fleet mates with the same model keep the assignments valid.
+    const lastOfModel =
+      db
+        .query<{ n: number }, [string, number]>(
+          "SELECT count(*) AS n FROM vehicles WHERE model = ? AND id != ?"
+        )
+        .get(vehicle.model, id)!.n === 0;
     archiveRow(db, "vehicle", id, `${vehicle.model} · ${vehicle.plate}`, {
-      students: byModel("students"),
-      instructors: byModel("instructors"),
+      students: lastOfModel ? byModel("students") : [],
+      instructors: lastOfModel ? byModel("instructors") : [],
+      calendarEvents: lastOfModel ? byModel("calendar_events") : [],
     });
-    db.prepare("UPDATE students SET vehicle = ? WHERE vehicle = ?").run(
-      UNASSIGNED_VEHICLE,
-      vehicle.model
-    );
-    db.prepare("UPDATE instructors SET vehicle = ? WHERE vehicle = ?").run(
-      UNASSIGNED_VEHICLE,
-      vehicle.model
-    );
+    if (lastOfModel) {
+      db.prepare("UPDATE students SET vehicle = ? WHERE vehicle = ?").run(
+        UNASSIGNED_VEHICLE,
+        vehicle.model
+      );
+      db.prepare("UPDATE instructors SET vehicle = ? WHERE vehicle = ?").run(
+        UNASSIGNED_VEHICLE,
+        vehicle.model
+      );
+      // Events treat '' as "no vehicle" (optional field).
+      db.prepare(
+        "UPDATE calendar_events SET vehicle = '' WHERE vehicle = ?"
+      ).run(vehicle.model);
+    }
     db.prepare("DELETE FROM vehicles WHERE id = ?").run(id);
   });
   remove();

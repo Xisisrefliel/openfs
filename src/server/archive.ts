@@ -41,6 +41,7 @@ export type ArchiveLinks = {
   instructors?: number[];
   theoryGroups?: number[];
   conversations?: number[];
+  calendarEvents?: number[];
 };
 
 /* Tables created lazily by their route modules (theory_groups,
@@ -164,6 +165,23 @@ function relink(
       `UPDATE instructors SET vehicle = ?
        WHERE vehicle = '${UNASSIGNED}' AND id IN (${idList(ids)})`
     ).run(String(snapshot.model), ...ids);
+  }
+
+  if (links.calendarEvents?.length) {
+    const ids = links.calendarEvents;
+    if (entity === "instructor") {
+      const name = `${snapshot.first_name} ${snapshot.last_name}`.trim();
+      db.prepare(
+        `UPDATE calendar_events SET instructor = ?
+         WHERE instructor = '${UNASSIGNED}' AND id IN (${idList(ids)})`
+      ).run(name, ...ids);
+    } else if (entity === "vehicle") {
+      // Events store the bare model; their "deleted" marker is ''.
+      db.prepare(
+        `UPDATE calendar_events SET vehicle = ?
+         WHERE vehicle = '' AND id IN (${idList(ids)})`
+      ).run(String(snapshot.model), ...ids);
+    }
   }
 
   if (links.theoryGroups?.length && tableExists(db, "theory_groups")) {
