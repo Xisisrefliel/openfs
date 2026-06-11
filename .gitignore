@@ -8,6 +8,8 @@ data/
 out
 dist
 dist-electron
+release
+.build
 *.tgz
 
 # code coverage

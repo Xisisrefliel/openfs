@@ -12,7 +12,8 @@
     "electron:smoke": "bun run build && bun run build:electron && ELECTRON_SMOKE=1 electron .",
     "start": "NODE_ENV=production bun src/index.ts",
     "test": "bun test",
-    "typecheck": "bunx tsc --noEmit"
+    "typecheck": "bunx tsc --noEmit",
+    "app": "bun scripts/package-app.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -38,6 +39,7 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
+    "@electron/packager": "^20.0.1",
     "@types/bun": "latest",
     "@types/react": "^19",
     "@types/react-dom": "^19",

@@ -16,13 +16,14 @@ A single-user desktop application (Electron) for managing a German driving schoo
 bun install              # install dependencies
 bun run electron         # build and launch the desktop app
 bun run electron:smoke   # headless self-check of the desktop app (API + render)
+bun run app              # package release/OpenFS-darwin-<arch>/OpenFS.app
 bun dev                  # browser dev server with HMR at http://localhost:3000
 bun test                 # run the test suite
 bun run typecheck        # type-check without emitting
 bun run build            # renderer bundle → dist/
 ```
 
-`data/fahrschule.db` is created and seeded automatically on first start — no migration step needed.
+`data/fahrschule.db` is created and seeded automatically on first start — no migration step needed. The packaged OpenFS.app keeps its own database in `~/Library/Application Support/OpenFS/data/` instead.
 
 ## Security & deployment
 
