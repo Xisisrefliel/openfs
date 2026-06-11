@@ -281,7 +281,7 @@ export function NeueSchueler() {
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="stagger-in mx-auto grid w-full max-w-[1080px] gap-4 lg:grid-cols-6 2xl:gap-5">
           {/* Stammdaten */}
           <Section

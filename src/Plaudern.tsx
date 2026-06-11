@@ -358,7 +358,7 @@ export function Plaudern() {
         }
       />
 
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-t-lg rounded-b-2xl border border-border/70 bg-background">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-t-sm rounded-b-lg border border-border/70 bg-background">
         {/* Left pane — conversation list */}
         <aside className="flex w-64 shrink-0 flex-col border-r border-border/70 md:w-80">
           <div className="relative p-3">

@@ -201,7 +201,7 @@ export function Theorie() {
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader />
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="animate-enter flex flex-col gap-4 rounded-xl border bg-card p-4 2xl:p-5">
           <div className="flex flex-wrap items-center gap-2">
             <Input

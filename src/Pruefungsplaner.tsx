@@ -502,7 +502,7 @@ export function Pruefungsplaner() {
         <span className="text-sm font-medium">Prüfungsplaner</span>
       </PageHeader>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="flex flex-col gap-4 2xl:gap-5">
           <StatCards exams={exams} />
 

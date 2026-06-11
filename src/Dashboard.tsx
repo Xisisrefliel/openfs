@@ -473,7 +473,7 @@ export function Dashboard() {
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <Navigation />
-      <div className={cn("flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:gap-5 2xl:p-6")}>
+      <div className={cn("flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:gap-5 2xl:p-6")}>
         <Grid events={events} />
         <div className="stagger-in grid grid-cols-1 items-start gap-4 2xl:gap-5 lg:grid-cols-12">
           <div className="lg:col-span-5">

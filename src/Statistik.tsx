@@ -469,7 +469,7 @@ export function Statistik() {
         <span className="text-sm font-medium">Statistik</span>
       </PageHeader>
 
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         {loading ? (
           <LoadingSkeleton />
         ) : !statistics ? (

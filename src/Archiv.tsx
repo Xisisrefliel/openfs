@@ -170,7 +170,7 @@ export function Archiv() {
         <span className="text-sm font-medium">Archiv</span>
       </PageHeader>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
           <p className="pb-2 text-sm text-muted-foreground">
             Gelöschte Einträge bleiben hier erhalten und können

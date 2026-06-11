@@ -19,15 +19,14 @@ export function PageHeader({ children, center, end, className }: PageHeaderProps
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 flex h-11 w-full shrink-0 items-center gap-3 rounded-t-2xl rounded-b-lg border border-border/70 bg-background px-3 2xl:h-12 2xl:px-4",
+        "sticky top-0 z-30 flex h-11 w-full shrink-0 items-center gap-3 rounded-t-lg rounded-b-sm border border-border/70 bg-background px-3 2xl:h-12 2xl:px-4",
         // Frameless desktop window: the page header doubles as the
-        // draggable "title bar" (interactive children stay clickable
-        // via the no-drag carve-out in index.css). Only while the
-        // sidebar is expanded: when it collapses, the fixed shell
-        // controls float over this header, and Chromium drag regions
-        // swallow clicks of non-descendant elements — no carve-out
-        // (painted or not) reliably protects them.
-        isElectron && !shellControlsOverlap && "app-region-drag",
+        // draggable "title bar". Interactive children stay clickable via
+        // the no-drag carve-out in index.css; the floating ShellControls
+        // survive because they render after this header in the DOM
+        // (see App.tsx) — app-region rects apply in DOM order. Height is
+        // pinned to 44px so the row stays centered on the traffic lights.
+        isElectron && "app-region-drag 2xl:h-11",
         className
       )}
     >

@@ -142,6 +142,9 @@ app.on("will-quit", () => {
 function runClickProbe(win: BrowserWindow) {
   win.setPosition(0, 0);
   win.webContents.once("did-finish-load", () => {
+    void win.webContents.executeJavaScript(
+      `window.__clicks = []; document.addEventListener("mousedown", e => window.__clicks.push([e.clientX, e.clientY]), true);`
+    );
     const read = () =>
       win.webContents
         .executeJavaScript(
@@ -155,6 +158,7 @@ function runClickProbe(win: BrowserWindow) {
               path: location.pathname,
               trigger: mid(document.querySelector('[data-slot="sidebar-trigger"]')),
               headerButton: mid(document.querySelector("header button")),
+              received: window.__clicks ?? [],
             };
           })()`
         )

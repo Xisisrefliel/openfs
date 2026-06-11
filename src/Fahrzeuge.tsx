@@ -488,7 +488,7 @@ export function Fahrzeuge() {
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="stagger-in grid gap-4 md:grid-cols-2 2xl:gap-5">
           {loading && <div className="text-sm text-muted-foreground">Lade Fahrzeuge…</div>}
           {vehicleList.map(vehicle => (

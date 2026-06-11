@@ -431,7 +431,7 @@ export function Bewertungen() {
         </div>
       </PageHeader>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         {loading ? (
           <div className="flex flex-col gap-4 2xl:gap-5">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:gap-5">

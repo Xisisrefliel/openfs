@@ -319,8 +319,10 @@ function ShellControls() {
       className={cn(
         "pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2",
         // Center the 28px controls on the traffic lights (their center
-        // sits at 26px: trafficLightPosition y 20 + half of 12px).
-        isElectronMac ? "pt-1" : "pt-2.5"
+        // sits at 26px: trafficLightPosition y 20 + half of 12px), and
+        // make the whole strip part of the window-drag surface — the
+        // buttons stay clickable as carved-out descendants.
+        isElectronMac ? "app-region-drag pt-1" : "pt-2.5"
       )}
     >
       {/* The backdrop slides in lockstep with the sidebar — same distance
@@ -353,9 +355,7 @@ function ShellControls() {
           "pointer-events-auto relative flex items-center gap-1",
           // Clear the macOS traffic lights (group ends at x=72: 20px
           // inset + three 12px lights with 8px gaps) plus breathing room.
-          // Explicitly no-drag — a drag region here swallows the clicks
-          // of the very buttons it wraps.
-          isElectronMac && "app-region-no-drag pl-16"
+          isElectronMac && "pl-16"
         )}
       >
         <SidebarTrigger className="size-7 bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent" />
@@ -448,11 +448,24 @@ export function App() {
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider className="bg-sidebar">
-        <ShellControls />
         <AppSidebar path={path} navigate={navigate} />
-        <SidebarInset className="h-[calc(100svh-1rem)] min-h-0 !bg-transparent !shadow-none md:!m-2 md:!rounded-2xl">
+        <SidebarInset
+          className={cn(
+            "h-[calc(100svh-1rem)] min-h-0 !bg-transparent !shadow-none md:!m-2 md:!rounded-lg",
+            // One-line top bar: pull the page card up so the header's
+            // vertical center (4px + 44px/2 = 26px) matches the traffic
+            // lights and shell controls.
+            isElectronMac && "h-[calc(100svh-0.75rem)] md:!mt-1"
+          )}
+        >
           {page}
         </SidebarInset>
+        {/* Position-fixed, so DOM order is visually irrelevant — but it
+            MUST come after SidebarInset: Chromium applies app-region
+            rects in DOM order, and the controls' no-drag carve-out has
+            to land after the page header's drag rect to win where the
+            controls float over the header (collapsed sidebar). */}
+        <ShellControls />
       </SidebarProvider>
       <Toaster />
       {process.env.NODE_ENV === "development" && <DevAgentation />}
