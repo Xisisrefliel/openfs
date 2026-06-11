@@ -3,6 +3,14 @@ import { mkdirSync } from "node:fs";
 import index from "./index.html";
 
 import { openDb } from "./server/db";
+import { appointmentRequestRoutes } from "./server/appointment-requests";
+import { branchRoutes } from "./server/branches";
+import { campaignRoutes } from "./server/campaigns";
+import { chatRoutes } from "./server/chat";
+import { ensureTheoryGroupTables, theoryGroupRoutes } from "./server/theory-groups";
+import { reviewRoutes } from "./server/reviews";
+import { schoolProfileRoutes } from "./server/school-profile";
+import { statisticsRoutes } from "./server/statistics";
 import { seedTransactions } from "./server/seed";
 import {
   accountingRoutes,
@@ -18,6 +26,8 @@ import {
 mkdirSync("data", { recursive: true });
 const db = openDb();
 seedTransactions(db);
+// Runs after the students/instructors seeds so seed groups pick up real names.
+ensureTheoryGroupTables(db);
 
 const server = serve({
   routes: {
@@ -31,6 +41,14 @@ const server = serve({
     ...pricePlanRoutes(db),
     ...studentRoutes(db),
     ...vehicleRoutes(db),
+    ...appointmentRequestRoutes(db),
+    ...branchRoutes(db),
+    ...campaignRoutes(db),
+    ...chatRoutes(db),
+    ...reviewRoutes(db),
+    ...theoryGroupRoutes(db),
+    ...schoolProfileRoutes(db),
+    ...statisticsRoutes(db),
   },
 
   development: process.env.NODE_ENV !== "production" && {

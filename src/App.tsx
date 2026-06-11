@@ -30,19 +30,29 @@ import {
 } from "lucide-react";
 
 import { Archiv } from "./Archiv";
+import { Bewertungen } from "./Bewertungen";
 import { Dashboard } from "./Dashboard";
 import { Buchhaltung } from "./Buchhaltung";
 import { Kalendar } from "./Kalendar";
+import { Marketing } from "./Marketing";
+import { Pruefungsplaner } from "./Pruefungsplaner";
+import { TheorieGruppen } from "./TheorieGruppen";
 import { nonFahrstundeTypes } from "@/lib/calendar-data";
 import { cn } from "@/lib/utils";
 import { Fahrlehrer } from "./Fahrlehrer";
+import { Fahrschule } from "./Fahrschule";
 import { Fahrschueler } from "./Fahrschueler";
 import { FahrschuelerDetail } from "./FahrschuelerDetail";
 import { Fahrzeuge } from "./Fahrzeuge";
 import { NeueSchueler } from "./NeueSchueler";
+import { Plaudern } from "./Plaudern";
 import { Preisangebot } from "./Preisangebot";
 import { Profil } from "./Profil";
+import { Schulprofil } from "./Schulprofil";
+import { Statistik } from "./Statistik";
+import { Terminanfragen } from "./Terminanfragen";
 import { Theorie } from "./Theorie";
+import { Vertraege } from "./Vertraege";
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -95,10 +105,10 @@ const navGroups: {
     Icon: Megaphone,
     iconColor: "text-rose-500!",
     items: [
-      { label: "Marketing", Icon: Megaphone },
-      { label: "Schulprofil", Icon: Building2 },
+      { label: "Marketing", Icon: Megaphone, route: "/marketing" },
+      { label: "Schulprofil", Icon: Building2, route: "/schulprofil" },
       { label: "Preisangebot", Icon: Tag, route: "/preisangebot" },
-      { label: "Bewertungen", Icon: Heart },
+      { label: "Bewertungen", Icon: Heart, route: "/bewertungen" },
     ],
   },
   {
@@ -106,19 +116,19 @@ const navGroups: {
     Icon: CalendarClock,
     iconColor: "text-green-700!",
     items: [
-      { label: "Terminanfragen", Icon: CalendarClock },
-      { label: "Fahrschule", Icon: Building2 },
+      { label: "Terminanfragen", Icon: CalendarClock, route: "/terminanfragen" },
+      { label: "Fahrschule", Icon: Building2, route: "/fahrschule" },
       { label: "Kalender", Icon: CalendarDays, route: "/kalendar" },
       { label: "Fahrlehrer/in", Icon: Users, route: "/fahrlehrer" },
       { label: "Fahrzeuge", Icon: Car, route: "/fahrzeuge" },
       { label: "Fahrschüler", Icon: GraduationCap, route: "/fahrschueler" },
-      { label: "Theorie Gruppen", Icon: BookOpen },
+      { label: "Theorie Gruppen", Icon: BookOpen, route: "/theorie-gruppen" },
       { label: "Buchhaltung", Icon: Receipt, route: "/buchhaltung" },
-      { label: "Statistik", Icon: BarChart3 },
-      { label: "Plaudern", Icon: MessageCircle },
-      { label: "Bewertungen", Icon: Star },
-      { label: "Verträge", Icon: FileText },
-      { label: "Prüfungsplaner", Icon: CalendarCheck },
+      { label: "Statistik", Icon: BarChart3, route: "/statistik" },
+      { label: "Plaudern", Icon: MessageCircle, route: "/plaudern" },
+      { label: "Bewertungen", Icon: Star, route: "/bewertungen" },
+      { label: "Verträge", Icon: FileText, route: "/vertraege" },
+      { label: "Prüfungsplaner", Icon: CalendarCheck, route: "/pruefungsplaner" },
     ],
   },
 ];
@@ -392,6 +402,26 @@ export function App() {
       <NeueSchueler />
     ) : path === "/preisangebot" ? (
       <Preisangebot />
+    ) : path === "/plaudern" ? (
+      <Plaudern />
+    ) : path === "/marketing" ? (
+      <Marketing />
+    ) : path === "/theorie-gruppen" ? (
+      <TheorieGruppen />
+    ) : path === "/pruefungsplaner" ? (
+      <Pruefungsplaner />
+    ) : path === "/schulprofil" ? (
+      <Schulprofil />
+    ) : path === "/terminanfragen" ? (
+      <Terminanfragen />
+    ) : path === "/fahrschule" ? (
+      <Fahrschule />
+    ) : path === "/statistik" ? (
+      <Statistik />
+    ) : path === "/bewertungen" ? (
+      <Bewertungen />
+    ) : path === "/vertraege" ? (
+      <Vertraege navigate={navigate} />
     ) : path === "/archiv" ? (
       <Archiv />
     ) : (
