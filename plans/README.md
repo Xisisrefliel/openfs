@@ -24,7 +24,7 @@ plan excerpts reflect that working-tree state.
 | 008  | Student delete path (server, route, hook, UI) | P2 | M | 004 | DONE (advisor/008-student-delete @ 333ee20 + type-fix d14a3ca = advisor/integration) |
 | 009  | Calendar persistence: calendar_events table, API, wire all consumers | P1 | L | 004; 005 recommended | DONE (advisor/009-calendar-persistence @ 2448aec; browser smoke pending) |
 | 010  | Design spike: link Fahrstunden to accounting (doc only) | P3 | M | 009 | DONE (advisor/010-lessons-billing-design @ 1ed6e66; doc copied to plans/design/lessons-billing.md) |
-| 011  | Calendar drag/resize: smooth (per-frame, per-column rerenders) + exact final position persisted | P1 | M | — | DONE (advisor/011-calendar-drag-performance @ 78f1975 in agent worktree; reviewed+approved 2026-06-11; browser drag smoke pending — plan 011 Step 6) |
+| 011  | Calendar drag/resize: smooth (per-frame, per-column rerenders) + exact final position persisted | P1 | M | — | DONE (merged to main @ 5c5c8d5 on 2026-06-11; browser drag smoke pending — plan 011 Step 6) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
