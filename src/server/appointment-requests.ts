@@ -11,6 +11,7 @@ import type { BunRequest } from "bun";
 
 import {
   createCalendarEvent,
+  listCalendarEvents,
   type CalendarEvent,
   type CalendarEventType,
 } from "./calendar-events";
@@ -42,6 +43,20 @@ export type AppointmentRequest = {
 };
 
 export type AppointmentRequestInput = Omit<AppointmentRequest, "id" | "createdAt">;
+
+/* Calendar event overlapping a request's slot — shown as a warning on
+   the /terminanfragen page before the office accepts the request. */
+export type AppointmentRequestConflict = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  instructor: string;
+};
+
+export type AppointmentRequestWithConflicts = AppointmentRequest & {
+  conflicts: AppointmentRequestConflict[];
+};
 
 /* Optional adjustments applied when a request is accepted — lets the
    office move the slot or assign an instructor before confirming. */
@@ -179,6 +194,32 @@ const SEED: SeedRow[] = [
   ],
 ];
 
+/* ISO date of a weekday in the current week (0 = Monday … 6 = Sunday) —
+   same anchoring as the calendar event seed in db.ts. */
+function currentWeekDate(day: number): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const offset = (today.getDay() + 6) % 7;
+  const date = new Date(today);
+  date.setDate(today.getDate() - offset + day);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`;
+}
+
+/* One request deliberately overlapping the seeded Tuesday 09:00–09:45
+   calendar event (db.ts), so the conflict warning has demo data. */
+const CONFLICTING_SEED: SeedRow = [
+  "Ben Albers",
+  "0163 7788990",
+  "ben.albers@web.de",
+  "Geht Dienstagmorgen eine Fahrstunde? Ich habe erst ab Mittag Uni.",
+  currentWeekDate(1),
+  "09:15",
+  "Praktisch",
+  "offen",
+];
+
 export function ensureAppointmentRequestTables(db: Database): void {
   db.exec(TABLE_DDL);
 
@@ -193,7 +234,7 @@ export function ensureAppointmentRequestTables(db: Database): void {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   );
   const seed = db.transaction(() => {
-    for (const row of SEED) insert.run(...row);
+    for (const row of [...SEED, CONFLICTING_SEED]) insert.run(...row);
   });
   seed();
 }
@@ -216,13 +257,49 @@ const toRequest = (row: AppointmentRequestRow): AppointmentRequest => ({
 const SELECT =
   "SELECT id, name, phone, email, message, requested_date, requested_time, type, status, created_at FROM appointment_requests";
 
-export function listAppointmentRequests(db: Database): AppointmentRequest[] {
+/* Calendar events overlapping the requested slot, assuming the same
+   60min default duration the accept flow uses. */
+function findConflictingEvents(
+  db: Database,
+  date: string,
+  time: string
+): AppointmentRequestConflict[] {
+  if (!/^\d{2}:\d{2}$/.test(time)) return [];
+  const requestStart = toMinutes(time);
+  const requestEnd = requestStart + DEFAULT_DURATION_MINUTES;
+  return listCalendarEvents(db, { from: date, to: date })
+    .filter(
+      event =>
+        toMinutes(event.start) < requestEnd &&
+        toMinutes(event.end) > requestStart
+    )
+    .map(event => ({
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      instructor: event.instructor,
+    }));
+}
+
+/* Only open requests carry conflicts — accepted ones would always
+   collide with the calendar event their own acceptance created. */
+export function listAppointmentRequests(
+  db: Database
+): AppointmentRequestWithConflicts[] {
   return db
     .query<AppointmentRequestRow, []>(
       `${SELECT} ORDER BY requested_date, requested_time, id`
     )
     .all()
-    .map(toRequest);
+    .map(toRequest)
+    .map(request => ({
+      ...request,
+      conflicts:
+        request.status === "offen"
+          ? findConflictingEvents(db, request.requestedDate, request.requestedTime)
+          : [],
+    }));
 }
 
 export function getAppointmentRequest(
@@ -237,6 +314,10 @@ export function getAppointmentRequest(
 }
 
 /* --------------------------- validation --------------------------- */
+
+/* Duration assumed for a request without an explicit end — used by the
+   accept default and the conflict check. */
+const DEFAULT_DURATION_MINUTES = 60;
 
 const toMinutes = (value: string): number => {
   const [h = 0, m = 0] = value.split(":").map(Number);
@@ -398,7 +479,7 @@ export function acceptAppointmentRequest(
   const end =
     overrides.end ??
     (typeof start === "string" && /^\d{2}:\d{2}$/.test(start)
-      ? addMinutes(start, 60)
+      ? addMinutes(start, DEFAULT_DURATION_MINUTES)
       : "");
 
   const run = db.transaction(() => {

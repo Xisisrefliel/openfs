@@ -6,7 +6,7 @@
 import type { Database, SQLQueryBindings } from "bun:sqlite";
 
 import type { Student } from "../lib/student-data";
-import { archiveRow } from "./archive";
+import { archiveRow, tableExists } from "./archive";
 import { ValidationError } from "./engine";
 
 export type StudentRecord = Student & { id: number };
@@ -294,14 +294,68 @@ export function updateStudent(
 export function deleteStudent(db: Database, id: number): void {
   const student = getStudent(db, id); // throws ValidationError if unknown
   const remove = db.transaction(() => {
+    // Remember which theory groups and chats pointed here so a restore
+    // can re-link them (same pattern as instructor/vehicle deletes).
+    const theoryGroups = tableExists(db, "theory_groups")
+      ? db
+          .query<{ id: number; student_ids: string }, []>(
+            "SELECT id, student_ids FROM theory_groups"
+          )
+          .all()
+          .filter(group => parseIdList(group.student_ids).includes(id))
+      : [];
+    const conversations = tableExists(db, "conversations")
+      ? db
+          .query<{ id: number }, [number]>(
+            "SELECT id FROM conversations WHERE student_id = ?"
+          )
+          .all(id)
+          .map(row => row.id)
+      : [];
     archiveRow(
       db,
       "student",
       id,
       `${student.firstName} ${student.lastName}`.trim() ||
-        `Vertrag ${student.contractNumber}`
+        `Vertrag ${student.contractNumber}`,
+      { theoryGroups: theoryGroups.map(group => group.id), conversations }
     );
+    // Drop the id from member lists — a ghost id would keep counting
+    // toward the group capacity (theory-groups.ts validates against
+    // studentIds, not the resolved members).
+    if (theoryGroups.length > 0) {
+      const updateGroup = db.prepare(
+        "UPDATE theory_groups SET student_ids = ? WHERE id = ?"
+      );
+      for (const group of theoryGroups) {
+        updateGroup.run(
+          JSON.stringify(
+            parseIdList(group.student_ids).filter(sid => sid !== id)
+          ),
+          group.id
+        );
+      }
+    }
+    // Chat threads survive as history; only the live link is cut.
+    if (conversations.length > 0) {
+      db.prepare(
+        "UPDATE conversations SET student_id = NULL WHERE student_id = ?"
+      ).run(id);
+    }
     db.prepare("DELETE FROM students WHERE id = ?").run(id);
   });
   remove();
+}
+
+/* Same tolerant parse as theory-groups.ts uses for student_ids. */
+function parseIdList(raw: string): number[] {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(value => Number(value))
+      .filter(sid => Number.isInteger(sid) && sid > 0);
+  } catch {
+    return [];
+  }
 }

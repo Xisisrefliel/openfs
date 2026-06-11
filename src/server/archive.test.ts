@@ -13,6 +13,11 @@ import {
   getCalendarEvent,
   listCalendarEvents,
 } from "./calendar-events";
+import {
+  createConversation,
+  ensureChatTables,
+  getConversation,
+} from "./chat";
 import { openDb } from "./db";
 import { ValidationError } from "./engine";
 import {
@@ -31,6 +36,12 @@ import {
   listStudents,
   updateStudent,
 } from "./students";
+import {
+  createTheoryGroup,
+  ensureTheoryGroupTables,
+  getTheoryGroup,
+  updateTheoryGroup,
+} from "./theory-groups";
 import { createVehicle, deleteVehicle } from "./vehicles";
 
 let db: Database;
@@ -198,6 +209,88 @@ describe("archive", () => {
     restoreArchived(db, entry.id);
 
     expect(getStudent(db, student.id).pricePlanId).toBe(plan.id);
+  });
+
+  test("deleting a student removes it from theory groups and unlinks its chat; restore re-links", () => {
+    ensureTheoryGroupTables(db);
+    ensureChatTables(db);
+    const student = createStudent(db, makeStudent());
+    const group = createTheoryGroup(db, {
+      name: uniq("Gruppe-"),
+      klass: "B",
+      weekday: "Montag",
+      time: "18:00",
+      capacity: 5,
+      studentIds: [student.id],
+    });
+    const conversation = createConversation(db, {
+      student_id: student.id,
+      student_name: `${student.firstName} ${student.lastName}`,
+    });
+
+    deleteStudent(db, student.id);
+    // No ghost id left behind — it would keep counting toward capacity.
+    expect(getTheoryGroup(db, group.id).studentIds).not.toContain(student.id);
+    // The chat thread survives as history, only the live link is cut.
+    expect(getConversation(db, conversation.id).studentId).toBeNull();
+
+    const entry = listArchive(db).find(item => item.entity === "student")!;
+    restoreArchived(db, entry.id);
+
+    expect(getTheoryGroup(db, group.id).studentIds).toContain(student.id);
+    expect(getConversation(db, conversation.id).studentId).toBe(student.id);
+  });
+
+  test("restoring a student does not overfill a theory group that filled up meanwhile", () => {
+    ensureTheoryGroupTables(db);
+    const original = createStudent(db, makeStudent());
+    const replacement = createStudent(db, makeStudent());
+    const group = createTheoryGroup(db, {
+      name: uniq("Gruppe-"),
+      klass: "B",
+      weekday: "Dienstag",
+      time: "18:00",
+      capacity: 1,
+      studentIds: [original.id],
+    });
+
+    deleteStudent(db, original.id);
+    updateTheoryGroup(db, group.id, { studentIds: [replacement.id] });
+
+    const entry = listArchive(db).find(item => item.entity === "student")!;
+    restoreArchived(db, entry.id);
+
+    // The seat is taken — the restored student must not exceed capacity.
+    expect(getTheoryGroup(db, group.id).studentIds).toEqual([replacement.id]);
+  });
+
+  test("deleting an instructor unassigns their theory groups; restore re-links", () => {
+    ensureTheoryGroupTables(db);
+    const instructor = createInstructor(db, {
+      firstName: "Theo",
+      lastName: "Gruppenleiter",
+      phone: "",
+      email: "",
+      classes: "B",
+      vehicle: "",
+      since: "2024-01-01",
+      status: "aktiv",
+    });
+    const group = createTheoryGroup(db, {
+      name: uniq("Gruppe-"),
+      klass: "B",
+      weekday: "Mittwoch",
+      time: "19:00",
+      instructor: "Theo Gruppenleiter",
+    });
+
+    deleteInstructor(db, instructor.id);
+    expect(getTheoryGroup(db, group.id).instructor).toBe("Nicht zugeteilt");
+
+    const entry = listArchive(db).find(item => item.entity === "instructor")!;
+    restoreArchived(db, entry.id);
+
+    expect(getTheoryGroup(db, group.id).instructor).toBe("Theo Gruppenleiter");
   });
 
   test("purge removes the snapshot for good", () => {

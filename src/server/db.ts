@@ -439,7 +439,7 @@ const CALENDAR_EVENT_SEED: CalendarEventSeed[] = [
     title: "Fahrstunde · Stadt",
     subtitle: "Lena Braun",
     instructor: "Nadine Aksoy",
-    vehicle: "Golf",
+    vehicle: "VW Golf",
     type: "Praktisch",
   },
   {
@@ -459,7 +459,7 @@ const CALENDAR_EVENT_SEED: CalendarEventSeed[] = [
     title: "Überlandfahrt · Klasse B",
     subtitle: "Jonas Meyer",
     instructor: "Emre Gül",
-    vehicle: "BMW X1",
+    vehicle: "Audi A3",
     type: "Praktisch",
   },
   {
@@ -469,7 +469,7 @@ const CALENDAR_EVENT_SEED: CalendarEventSeed[] = [
     title: "Fahrübungsstunde · B197",
     subtitle: "Zahra Rezaie",
     instructor: "Köksal Gül",
-    vehicle: "Golf",
+    vehicle: "VW Golf",
     type: "Praktisch",
     tentative: true,
   },
@@ -480,7 +480,7 @@ const CALENDAR_EVENT_SEED: CalendarEventSeed[] = [
     title: "Vorstellung · Prüfungsvorbereitung",
     subtitle: "Aylin Demir",
     instructor: "Emre Gül",
-    vehicle: "BMW X1",
+    vehicle: "Audi A3",
     type: "Vorstellung zur prakt. Prüfung",
   },
   {
@@ -500,7 +500,7 @@ const CALENDAR_EVENT_SEED: CalendarEventSeed[] = [
     title: "Fahrstunde · Autobahn",
     subtitle: "Mara Köhler",
     instructor: "Nadine Aksoy",
-    vehicle: "Golf",
+    vehicle: "VW Golf",
     type: "Praktisch",
   },
   {

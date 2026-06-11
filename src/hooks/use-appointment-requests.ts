@@ -17,6 +17,16 @@ export type AppointmentRequestType =
 
 export type AppointmentRequestStatus = "offen" | "bestätigt" | "abgelehnt";
 
+/* Calendar event overlapping the requested slot (assuming the 60min
+   default duration) — the server only fills this for open requests. */
+export type AppointmentRequestConflict = {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  instructor: string;
+};
+
 export type AppointmentRequest = {
   id: number;
   name: string;
@@ -28,9 +38,14 @@ export type AppointmentRequest = {
   type: AppointmentRequestType;
   status: AppointmentRequestStatus;
   createdAt: string;
+  /* Present on list responses; create/update responses omit it. */
+  conflicts?: AppointmentRequestConflict[];
 };
 
-export type AppointmentRequestInput = Omit<AppointmentRequest, "id" | "createdAt">;
+export type AppointmentRequestInput = Omit<
+  AppointmentRequest,
+  "id" | "createdAt" | "conflicts"
+>;
 
 /* Slot/assignment adjustments sent along when accepting a request. */
 export type AcceptOverrides = {

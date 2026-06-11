@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   text TEXT NOT NULL,
   sent_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id);
 `;
 
 /* Demo threads — imported once into an empty table; afterwards the DB is

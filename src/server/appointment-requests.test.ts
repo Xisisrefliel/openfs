@@ -19,7 +19,7 @@ import {
   listAppointmentRequests,
   updateAppointmentRequest,
 } from "./appointment-requests";
-import { listCalendarEvents } from "./calendar-events";
+import { createCalendarEvent, listCalendarEvents } from "./calendar-events";
 import { ValidationError } from "./engine";
 
 /* Same DDL as in src/server/db.ts — keeps the test DB minimal. */
@@ -60,8 +60,8 @@ const VALID = {
 };
 
 describe("ensureAppointmentRequestTables", () => {
-  test("a fresh DB seeds 8 requests", () => {
-    expect(listAppointmentRequests(db)).toHaveLength(8);
+  test("a fresh DB seeds 9 requests", () => {
+    expect(listAppointmentRequests(db)).toHaveLength(9);
   });
 
   test("seed is mostly 'offen' with a mix of statuses", () => {
@@ -74,7 +74,7 @@ describe("ensureAppointmentRequestTables", () => {
 
   test("is idempotent — calling again does not reseed", () => {
     ensureAppointmentRequestTables(db);
-    expect(listAppointmentRequests(db)).toHaveLength(8);
+    expect(listAppointmentRequests(db)).toHaveLength(9);
   });
 
   test("does not reseed a non-empty table after deletes", () => {
@@ -229,6 +229,64 @@ describe("acceptAppointmentRequest", () => {
     expect(() => acceptAppointmentRequest(db, 999999)).toThrow(
       "Terminanfrage nicht gefunden."
     );
+  });
+});
+
+describe("conflict detection", () => {
+  /* The request slot is requestedTime + 60min (the accept default). */
+  const findRequest = (id: number) =>
+    listAppointmentRequests(db).find(r => r.id === id)!;
+
+  test("open request overlapping an event lists it as conflict", () => {
+    createCalendarEvent(db, {
+      date: VALID.requestedDate,
+      start: "10:30",
+      end: "11:30",
+      title: "Fahrstunde · Stadt",
+      instructor: "Nadine Aksoy",
+      type: "Praktisch",
+    });
+    const created = createAppointmentRequest(db, VALID); // 10:00 → 11:00
+    const conflicts = findRequest(created.id).conflicts;
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]).toMatchObject({
+      title: "Fahrstunde · Stadt",
+      start: "10:30",
+      end: "11:30",
+      instructor: "Nadine Aksoy",
+    });
+  });
+
+  test("events on the same day without overlap are not conflicts", () => {
+    createCalendarEvent(db, {
+      date: VALID.requestedDate,
+      start: "11:00", // request window ends 11:00 — touching, not overlapping
+      end: "12:00",
+      title: "Fahrstunde",
+      instructor: "Emre Gül",
+      type: "Praktisch",
+    });
+    const created = createAppointmentRequest(db, VALID);
+    expect(findRequest(created.id).conflicts).toHaveLength(0);
+  });
+
+  test("events on another date are not conflicts", () => {
+    createCalendarEvent(db, {
+      date: "2026-06-19",
+      start: "10:00",
+      end: "11:00",
+      title: "Fahrstunde",
+      instructor: "Emre Gül",
+      type: "Praktisch",
+    });
+    const created = createAppointmentRequest(db, VALID);
+    expect(findRequest(created.id).conflicts).toHaveLength(0);
+  });
+
+  test("accepted requests carry no conflicts (their own event overlaps)", () => {
+    const created = createAppointmentRequest(db, VALID);
+    acceptAppointmentRequest(db, created.id);
+    expect(findRequest(created.id).conflicts).toHaveLength(0);
   });
 });
 

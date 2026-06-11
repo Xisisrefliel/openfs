@@ -5,7 +5,7 @@
 
 import type { Database } from "bun:sqlite";
 
-import { archiveRow } from "./archive";
+import { archiveRow, tableExists } from "./archive";
 import { ValidationError } from "./engine";
 
 const UNASSIGNED_INSTRUCTOR = "Nicht zugeteilt";
@@ -179,11 +179,27 @@ export function deleteInstructor(db: Database, id: number): void {
       )
       .all(name)
       .map(row => row.id);
-    archiveRow(db, "instructor", id, name || "Fahrlehrer/in", { students });
+    const theoryGroups = tableExists(db, "theory_groups")
+      ? db
+          .query<{ id: number }, [string]>(
+            "SELECT id FROM theory_groups WHERE instructor = ?"
+          )
+          .all(name)
+          .map(row => row.id)
+      : [];
+    archiveRow(db, "instructor", id, name || "Fahrlehrer/in", {
+      students,
+      theoryGroups,
+    });
     db.prepare("UPDATE students SET instructor = ? WHERE instructor = ?").run(
       UNASSIGNED_INSTRUCTOR,
       name
     );
+    if (theoryGroups.length > 0) {
+      db.prepare(
+        "UPDATE theory_groups SET instructor = ? WHERE instructor = ?"
+      ).run(UNASSIGNED_INSTRUCTOR, name);
+    }
     db.prepare("DELETE FROM instructors WHERE id = ?").run(id);
   });
 

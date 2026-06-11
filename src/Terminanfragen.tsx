@@ -7,6 +7,7 @@ import {
   Mail,
   Phone,
   Trash2,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -301,6 +302,22 @@ function RequestCard({
       <CardContent className="flex flex-col gap-4">
         {request.message && (
           <p className="text-sm text-muted-foreground">{request.message}</p>
+        )}
+        {request.conflicts && request.conflicts.length > 0 && (
+          <div className="flex flex-col gap-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-400">
+            <span className="flex items-center gap-1.5 font-medium">
+              <TriangleAlert className="size-4 shrink-0" />
+              Terminkonflikt — zur Wunschzeit ist bereits belegt:
+            </span>
+            <ul className="flex flex-col gap-0.5 pl-[22px]">
+              {request.conflicts.map(conflict => (
+                <li key={conflict.id}>
+                  {conflict.start}–{conflict.end} Uhr · {conflict.title} (
+                  {conflict.instructor})
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         <Separator />
         <div className="flex flex-wrap items-center justify-between gap-3">

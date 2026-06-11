@@ -33,12 +33,27 @@ const TABLES: Record<ArchiveEntity, string> = {
 const UNASSIGNED = "Nicht zugeteilt";
 
 /* Records that pointed at the deleted row and were reset to UNASSIGNED
-   (or NULL for price plans). Restore re-links them — but only the ones
+   (or NULL for price plans / conversations, removed from the member
+   list for theory groups). Restore re-links them — but only the ones
    still unassigned, so reassignments made in the meantime survive. */
 export type ArchiveLinks = {
   students?: number[];
   instructors?: number[];
+  theoryGroups?: number[];
+  conversations?: number[];
 };
+
+/* Tables created lazily by their route modules (theory_groups,
+   conversations) may be absent in a bare openDb() database. */
+export function tableExists(db: Database, name: string): boolean {
+  return (
+    db
+      .query<{ name: string }, [string]>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
+      )
+      .get(name) !== null
+  );
+}
 
 type ArchivePayload = {
   row: Record<string, unknown>;
@@ -84,7 +99,7 @@ export function archiveRow(
     .get(id);
   if (!row) throw new ValidationError("Eintrag nicht gefunden.");
   const payload: ArchivePayload = { row };
-  if (links?.students?.length || links?.instructors?.length) {
+  if (links && Object.values(links).some(ids => ids?.length)) {
     payload.links = links;
   }
   db.prepare(
@@ -149,6 +164,63 @@ function relink(
       `UPDATE instructors SET vehicle = ?
        WHERE vehicle = '${UNASSIGNED}' AND id IN (${idList(ids)})`
     ).run(String(snapshot.model), ...ids);
+  }
+
+  if (links.theoryGroups?.length && tableExists(db, "theory_groups")) {
+    const ids = links.theoryGroups;
+    if (entity === "instructor") {
+      const name = `${snapshot.first_name} ${snapshot.last_name}`.trim();
+      db.prepare(
+        `UPDATE theory_groups SET instructor = ?
+         WHERE instructor = '${UNASSIGNED}' AND id IN (${idList(ids)})`
+      ).run(name, ...ids);
+    } else if (entity === "student") {
+      // Re-add the student to each group it was removed from — unless
+      // the seat has been filled or the student re-added in the meantime.
+      const studentId = Number(snapshot.id);
+      const lookup = db.query<
+        { student_ids: string; capacity: number },
+        [number]
+      >("SELECT student_ids, capacity FROM theory_groups WHERE id = ?");
+      const update = db.prepare(
+        "UPDATE theory_groups SET student_ids = ? WHERE id = ?"
+      );
+      for (const groupId of ids) {
+        const group = lookup.get(groupId);
+        if (!group) continue;
+        const members = parseIdList(group.student_ids);
+        if (members.includes(studentId) || members.length >= group.capacity) {
+          continue;
+        }
+        members.push(studentId);
+        update.run(JSON.stringify(members), groupId);
+      }
+    }
+  }
+
+  if (
+    links.conversations?.length &&
+    entity === "student" &&
+    tableExists(db, "conversations")
+  ) {
+    const ids = links.conversations;
+    db.prepare(
+      `UPDATE conversations SET student_id = ?
+       WHERE student_id IS NULL AND id IN (${idList(ids)})`
+    ).run(Number(snapshot.id), ...ids);
+  }
+}
+
+/* Same tolerant parse as theory-groups.ts uses for student_ids. */
+function parseIdList(raw: string): number[] {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(value => Number(value))
+      .filter(id => Number.isInteger(id) && id > 0);
+  } catch {
+    return [];
   }
 }
 
