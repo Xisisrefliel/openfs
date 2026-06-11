@@ -65,6 +65,17 @@ function createWindow(): BrowserWindow {
     width: 1440,
     height: 900,
     show: !process.env.ELECTRON_SMOKE,
+    // No native title bar — the renderer's own header strip is the top of
+    // the window. On macOS the traffic lights are inset to align with the
+    // shell controls (sidebar toggle + history arrows) next to them.
+    ...(process.platform === "darwin"
+      ? {
+          titleBarStyle: "hidden" as const,
+          // Vertically centers the lights on the shell controls row
+          // (8px strip offset + 10px padding + half of the 28px buttons).
+          trafficLightPosition: { x: 16, y: 26 },
+        }
+      : {}),
     webPreferences: {
       contextIsolation: true,
       sandbox: true,

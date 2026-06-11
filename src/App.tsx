@@ -38,6 +38,7 @@ import { Marketing } from "./Marketing";
 import { Pruefungsplaner } from "./Pruefungsplaner";
 import { TheorieGruppen } from "./TheorieGruppen";
 import { nonFahrstundeTypes } from "@/lib/calendar-data";
+import { isElectron, isElectronMac } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { Fahrlehrer } from "./Fahrlehrer";
 import { Fahrschule } from "./Fahrschule";
@@ -340,7 +341,14 @@ function ShellControls() {
           )}
         />
       </div>
-      <div className="pointer-events-auto relative flex items-center gap-1">
+      <div
+        className={cn(
+          "pointer-events-auto relative flex items-center gap-1",
+          // Clear the macOS traffic lights, which sit in this strip's
+          // top-left corner when the native title bar is hidden.
+          isElectronMac && "app-region-drag pl-14"
+        )}
+      >
         <SidebarTrigger className="size-7 bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent" />
         <Button
           type="button"
@@ -430,6 +438,11 @@ export function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
+      {/* Frameless desktop window: a thin invisible strip along the very
+          top stays grabbable everywhere, like a minimal title bar. */}
+      {isElectron && (
+        <div aria-hidden className="app-region-drag fixed inset-x-0 top-0 z-50 h-3" />
+      )}
       <SidebarProvider className="bg-sidebar">
         <ShellControls />
         <AppSidebar path={path} navigate={navigate} />
