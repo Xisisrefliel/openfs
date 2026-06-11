@@ -4,7 +4,7 @@
 /* ------------------------------------------------------------------ */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import { openSqlite, type Database } from "./sqlite";
 
 import {
   createCampaign,
@@ -19,7 +19,7 @@ import { ValidationError } from "./engine";
 let db: Database;
 
 beforeEach(() => {
-  db = new Database(":memory:");
+  db = openSqlite(":memory:");
   ensureCampaignTables(db);
 });
 

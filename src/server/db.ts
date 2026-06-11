@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------ */
-/* SQLite layer (bun:sqlite) — schema, sequences, account seed.        */
+/* SQLite layer (see ./sqlite) — schema, sequences, account seed.      */
 /*                                                                     */
 /* GoBD principles baked into the schema:                              */
 /*  - bookings are immutable (no UPDATE/DELETE code paths exist),      */
@@ -8,7 +8,7 @@
 /*  - corrections only via Storno (reversal transactions).             */
 /* ------------------------------------------------------------------ */
 
-import { Database } from "bun:sqlite";
+import { openSqlite, type Database } from "./sqlite";
 
 import type { AccountKind, CompanyProfile } from "../lib/accounting-types";
 import { PRICE_PLAN_SEED } from "../lib/price-plan";
@@ -280,7 +280,7 @@ export const DEFAULT_COMPANY: CompanyProfile = {
 };
 
 export function openDb(path = "data/fahrschule.db"): Database {
-  const db = new Database(path, { create: true });
+  const db = openSqlite(path);
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(DDL);

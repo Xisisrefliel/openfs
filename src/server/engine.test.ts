@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 
 import { openDb, setCompany, getCompany, DEFAULT_COMPANY } from "./db";
 import {

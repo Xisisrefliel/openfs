@@ -4,7 +4,7 @@
 /* campaignRoutes(db) mounts into the Bun.serve() routes object.       */
 /* ------------------------------------------------------------------ */
 
-import type { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import { ValidationError } from "./engine";

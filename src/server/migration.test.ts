@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 
 import { migrateSkr03ToSkr04, openDb } from "./db";
 import { listAccounts, listJournal, listLedger } from "./engine";

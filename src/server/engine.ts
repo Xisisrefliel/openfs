@@ -6,7 +6,7 @@
 /* Bookings are immutable; corrections happen via Storno reversals.    */
 /* ------------------------------------------------------------------ */
 
-import type { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 
 import type {
   Account,

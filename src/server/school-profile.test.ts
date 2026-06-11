@@ -4,7 +4,7 @@
 /* ------------------------------------------------------------------ */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import { openSqlite, type Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import { ValidationError } from "./engine";
@@ -21,7 +21,7 @@ import {
 let db: Database;
 
 beforeEach(() => {
-  db = new Database(":memory:");
+  db = openSqlite(":memory:");
   db.run("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
 });
 

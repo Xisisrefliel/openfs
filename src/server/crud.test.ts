@@ -4,7 +4,7 @@
 /* ------------------------------------------------------------------ */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 
 import { openDb } from "./db";
 import {

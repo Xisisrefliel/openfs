@@ -6,7 +6,7 @@
 /* ------------------------------------------------------------------ */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import { openSqlite, type Database } from "./sqlite";
 import { serve } from "bun";
 
 import {
@@ -24,7 +24,7 @@ import { ValidationError } from "./engine";
 let db: Database;
 
 beforeEach(() => {
-  db = new Database(":memory:");
+  db = openSqlite(":memory:");
   ensureBranchTables(db);
 });
 
@@ -233,7 +233,7 @@ describe("deleteBranch", () => {
 /* ================================================================== */
 
 describe("branchRoutes HTTP layer", () => {
-  const routesDb = new Database(":memory:");
+  const routesDb = openSqlite(":memory:");
   let server: ReturnType<typeof serve>;
 
   beforeAll(() => {

@@ -5,7 +5,7 @@
 /* ------------------------------------------------------------------ */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import { openSqlite, type Database } from "./sqlite";
 
 import { DDL } from "./db";
 import { ValidationError } from "./engine";
@@ -24,7 +24,7 @@ let db: Database;
 /* Schema only (students/instructors tables for the joins) — no app seed,
    so the dataset stays fully under test control. */
 function freshDb(): Database {
-  const fresh = new Database(":memory:");
+  const fresh = openSqlite(":memory:");
   fresh.exec("PRAGMA foreign_keys = ON;");
   fresh.exec(DDL);
   return fresh;

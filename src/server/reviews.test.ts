@@ -4,7 +4,7 @@
 /* ------------------------------------------------------------------ */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import { openSqlite, type Database } from "./sqlite";
 
 import {
   createReview,
@@ -19,7 +19,7 @@ import { ValidationError } from "./engine";
 let db: Database;
 
 beforeEach(() => {
-  db = new Database(":memory:");
+  db = openSqlite(":memory:");
   ensureReviewTables(db);
 });
 
@@ -42,7 +42,7 @@ describe("ensureReviewTables", () => {
   });
 
   test("does not seed when the table already has rows", () => {
-    const fresh = new Database(":memory:");
+    const fresh = openSqlite(":memory:");
     ensureReviewTables(fresh);
     fresh.exec("DELETE FROM reviews");
     createReview(fresh, VALID);

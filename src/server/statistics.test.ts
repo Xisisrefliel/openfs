@@ -5,7 +5,7 @@
 /* ------------------------------------------------------------------ */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import { openSqlite, type Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import {
@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 let db: Database;
 
 beforeEach(() => {
-  db = new Database(":memory:");
+  db = openSqlite(":memory:");
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(TEST_DDL);
 });

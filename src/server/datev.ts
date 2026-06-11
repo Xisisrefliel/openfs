@@ -22,7 +22,7 @@
 /*    (9 = 19 %, 8 = 7 %).                                             */
 /* ------------------------------------------------------------------ */
 
-import type { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 
 import type { Account } from "../lib/accounting-types";
 import { getCompany } from "./db";

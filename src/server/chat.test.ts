@@ -5,7 +5,7 @@
 /* ------------------------------------------------------------------ */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import { openSqlite, type Database } from "./sqlite";
 
 import {
   createConversation,
@@ -50,7 +50,7 @@ describe("ensureChatTables", () => {
   });
 
   test("works on a bare DB without a students table (plain names)", () => {
-    const bare = new Database(":memory:");
+    const bare = openSqlite(":memory:");
     ensureChatTables(bare);
     const conversations = listConversations(bare);
     expect(conversations).toHaveLength(4);

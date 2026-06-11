@@ -5,7 +5,7 @@
 /* the Bun.serve() routes object in src/index.ts.                      */
 /* ------------------------------------------------------------------ */
 
-import type { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import { ValidationError } from "./engine";

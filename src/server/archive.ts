@@ -7,7 +7,7 @@
 /* id keep working. The HTTP wrappers live in routes.ts.               */
 /* ------------------------------------------------------------------ */
 
-import type { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 
 import { ValidationError } from "./engine";
 

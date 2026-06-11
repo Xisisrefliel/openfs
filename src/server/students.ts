@@ -3,7 +3,7 @@
 /* The HTTP wrappers live in routes.ts (studentRoutes).                */
 /* ------------------------------------------------------------------ */
 
-import type { Database, SQLQueryBindings } from "bun:sqlite";
+import type { Database, SQLQueryBindings } from "./sqlite";
 
 import type { Student } from "../lib/student-data";
 import { archiveRow, tableExists } from "./archive";

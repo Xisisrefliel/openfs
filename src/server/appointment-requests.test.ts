@@ -6,7 +6,7 @@
 /* ------------------------------------------------------------------ */
 
 import { beforeEach, describe, expect, test } from "bun:test";
-import { Database } from "bun:sqlite";
+import { openSqlite, type Database } from "./sqlite";
 
 import {
   acceptAppointmentRequest,
@@ -44,7 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(date);
 let db: Database;
 
 beforeEach(() => {
-  db = new Database(":memory:");
+  db = openSqlite(":memory:");
   db.exec(CALENDAR_EVENTS_DDL);
   ensureAppointmentRequestTables(db);
 });

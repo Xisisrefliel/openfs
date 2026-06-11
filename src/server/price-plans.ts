@@ -3,7 +3,7 @@
 /* The HTTP wrappers live in routes.ts (pricePlanRoutes).              */
 /* ------------------------------------------------------------------ */
 
-import type { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 
 import type {
   PriceComponent,

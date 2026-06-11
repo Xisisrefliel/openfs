@@ -3,7 +3,7 @@
 /* The HTTP wrappers live in routes.ts (instructorRoutes).             */
 /* ------------------------------------------------------------------ */
 
-import type { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 
 import { archiveRow, tableExists } from "./archive";
 import { ValidationError } from "./engine";

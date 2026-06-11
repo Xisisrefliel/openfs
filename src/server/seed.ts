@@ -9,7 +9,7 @@
 /* so Quittungen can show recipient name + address.                    */
 /* ------------------------------------------------------------------ */
 
-import type { Database } from "bun:sqlite";
+import type { Database } from "./sqlite";
 
 import type { StudentRef } from "../lib/accounting-types";
 import { students, type Student } from "../lib/student-data";
