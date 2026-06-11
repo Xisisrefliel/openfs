@@ -280,18 +280,90 @@ function FilterGroup({
 
 type DragState = {
   id: string;
-  mode: "move";
-  duration: number;
-  pointerOffsetY: number;
-} | {
-  id: string;
-  mode: "resize-start" | "resize-end";
-  /* Minutes between the pointer and the grabbed edge at drag start. Compact
-     cards expand on hover, so the visible edge can sit well below the true
-     end time — without this anchor, grabbing would jump the time to the
-     cursor's line before the user even moves. */
-  grabOffsetMinutes: number;
-};
+  /* The event's position when the drag started — drag math is a pure
+     function of this + the pointer, so drag-end never depends on React
+     having committed the last move (see dragResultRef below). */
+  date: string;
+  start: string;
+  end: string;
+} & (
+  | { mode: "move"; duration: number; pointerOffsetY: number }
+  | {
+      mode: "resize-start" | "resize-end";
+      /* Minutes between the pointer and the grabbed edge at drag start. Compact
+         cards expand on hover, so the visible edge can sit well below the true
+         end time — without this anchor, grabbing would jump the time to the
+         cursor's line before the user even moves. */
+      grabOffsetMinutes: number;
+    }
+);
+
+/* Where the dragged event sits for a given pointer position. Pure: reads
+   the original position from DragState, so it can run outside React. */
+function computeDragPosition(
+  dragging: DragState,
+  clientX: number,
+  clientY: number,
+  rect: DOMRect,
+  weekStart: Date
+): { date: string; start: string; end: string } {
+  const rawPointerMinutes =
+    ((clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60;
+
+  if (dragging.mode === "move") {
+    const dayWidth = rect.width / DAY_COUNT;
+    const day = clamp(
+      Math.floor((clientX - rect.left) / dayWidth),
+      0,
+      DAY_COUNT - 1
+    );
+    const rawStartMinutes =
+      ((clientY - rect.top - dragging.pointerOffsetY) / HOUR_HEIGHT) * 60 +
+      START_HOUR * 60;
+    const startMinutes = clamp(
+      snapMinutes(rawStartMinutes),
+      START_HOUR * 60,
+      END_HOUR * 60 - dragging.duration
+    );
+    const endMinutes = startMinutes + dragging.duration;
+    return {
+      date: toISODate(addDays(weekStart, day)),
+      start: formatMinutes(startMinutes),
+      end: formatMinutes(endMinutes),
+    };
+  }
+
+  // Resize by pointer delta from where the edge was grabbed, not by
+  // absolute pointer position — see DragState.grabOffsetMinutes.
+  const pointerMinutes = snapMinutes(rawPointerMinutes - dragging.grabOffsetMinutes);
+
+  if (dragging.mode === "resize-start") {
+    const endMinutes = toMinutes(dragging.end);
+    const nextStartMinutes = clamp(
+      pointerMinutes,
+      START_HOUR * 60,
+      endMinutes - SNAP_MINUTES
+    );
+    return {
+      date: dragging.date,
+      start: formatMinutes(nextStartMinutes),
+      end: dragging.end,
+    };
+  }
+
+  // mode === "resize-end"
+  const startMinutes = toMinutes(dragging.start);
+  const nextEndMinutes = clamp(
+    pointerMinutes,
+    startMinutes + SNAP_MINUTES,
+    END_HOUR * 60
+  );
+  return {
+    date: dragging.date,
+    start: dragging.start,
+    end: formatMinutes(nextEndMinutes),
+  };
+}
 
 function EventBlock({
   event,
@@ -496,12 +568,10 @@ export function Kalendar({
   useEffect(() => {
     setCalendarEvents(storedEvents);
   }, [storedEvents]);
-  // Lets the drag-end listener read the latest events without re-running
-  // the drag effect on every continuous move.
-  const calendarEventsRef = useRef<CalEvent[]>([]);
-  useEffect(() => {
-    calendarEventsRef.current = calendarEvents;
-  }, [calendarEvents]);
+  // dragResultRef holds the exact final position computed synchronously on
+  // every pointermove. Drag-end reads it instead of calendarEvents state, so
+  // the persisted value is never behind by one React commit cycle.
+  const dragResultRef = useRef<{ date: string; start: string; end: string } | null>(null);
   // Instructor names come from the DB (/api/instructors) so the filter and
   // the edit dialog always match the roster managed on /fahrlehrer.
   const { names: instructorOptions } = useInstructors();
@@ -570,98 +640,57 @@ export function Kalendar({
   useEffect(() => {
     if (!dragging) return;
 
+    // Each drag session starts with no committed result; the ref is
+    // populated synchronously on the first pointermove.
+    dragResultRef.current = null;
+
+    // The ref always holds the exact latest position; the React state —
+    // and with it the whole-page render — updates at most once per frame.
+    // pointermove can outpace frames on some browsers/devices.
+    let rafId: number | null = null;
+
+    const applyPendingDragResult = () => {
+      rafId = null;
+      const next = dragResultRef.current;
+      if (!next) return;
+      setCalendarEvents(current =>
+        current.map(event =>
+          event.id === dragging.id ? { ...event, ...next } : event
+        )
+      );
+    };
+
     const updateEventFromPointer = (clientX: number, clientY: number) => {
       const grid = dayGridRef.current;
       if (!grid) return;
 
       const rect = grid.getBoundingClientRect();
-      const rawPointerMinutes =
-        ((clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60;
-
-      setCalendarEvents(current =>
-        current.map(event => {
-          if (event.id !== dragging.id) return event;
-
-          if (dragging.mode === "move") {
-            const dayWidth = rect.width / DAY_COUNT;
-            const day = clamp(
-              Math.floor((clientX - rect.left) / dayWidth),
-              0,
-              DAY_COUNT - 1
-            );
-            const rawStartMinutes =
-              ((clientY - rect.top - dragging.pointerOffsetY) / HOUR_HEIGHT) * 60 +
-              START_HOUR * 60;
-            const startMinutes = clamp(
-              snapMinutes(rawStartMinutes),
-              START_HOUR * 60,
-              END_HOUR * 60 - dragging.duration
-            );
-            const endMinutes = startMinutes + dragging.duration;
-
-            return {
-              ...event,
-              date: toISODate(addDays(weekStart, day)),
-              start: formatMinutes(startMinutes),
-              end: formatMinutes(endMinutes),
-            };
-          }
-
-          const startMinutes = toMinutes(event.start);
-          const endMinutes = toMinutes(event.end);
-          // Resize by pointer delta from where the edge was grabbed, not by
-          // absolute pointer position — see DragState.grabOffsetMinutes.
-          const pointerMinutes = snapMinutes(
-            rawPointerMinutes - dragging.grabOffsetMinutes
-          );
-
-          if (dragging.mode === "resize-start") {
-            const nextStartMinutes = clamp(
-              pointerMinutes,
-              START_HOUR * 60,
-              endMinutes - SNAP_MINUTES
-            );
-
-            return {
-              ...event,
-              start: formatMinutes(nextStartMinutes),
-            };
-          }
-
-          const nextEndMinutes = clamp(
-            pointerMinutes,
-            startMinutes + SNAP_MINUTES,
-            END_HOUR * 60
-          );
-
-          return {
-            ...event,
-            end: formatMinutes(nextEndMinutes),
-          };
-        })
-      );
+      // Compute the new position purely from DragState + pointer — no
+      // dependency on live React state (fixes the stale-persist bug).
+      const next = computeDragPosition(dragging, clientX, clientY, rect, weekStart);
+      dragResultRef.current = next;
+      if (rafId === null) rafId = requestAnimationFrame(applyPendingDragResult);
     };
 
     const handlePointerMove = (event: PointerEvent) => {
       event.preventDefault();
       updateEventFromPointer(event.clientX, event.clientY);
     };
+
     const stopDragging = () => {
-      // Persist the dragged event's final position. Read from the ref so
-      // this listener sees the latest local state without re-subscribing
-      // on every move.
-      const moved = calendarEventsRef.current.find(
-        event => event.id === dragging.id
-      );
-      if (moved) {
-        void updateCalendarEvent(Number(moved.id), {
-          date: moved.date,
-          start: moved.start,
-          end: moved.end,
-        }).catch(() => {
-          toast.error("Termin konnte nicht gespeichert werden.");
-          void refreshEvents();
-        });
+      // Cancel any pending frame before applying the final result so the
+      // UI lands on exactly the position the user released at.
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      applyPendingDragResult();
+      // If dragResultRef is still null the user never moved (plain click) —
+      // skip the PATCH so a tap on an event doesn't dirty the DB.
+      if (dragResultRef.current !== null) {
+        void updateCalendarEvent(Number(dragging.id), dragResultRef.current).catch(
+          () => {
+            toast.error("Termin konnte nicht gespeichert werden.");
+            void refreshEvents();
+          }
+        );
       }
       setDragging(null);
     };
@@ -673,6 +702,7 @@ export function Kalendar({
     window.addEventListener("pointercancel", stopDragging, { once: true });
 
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", stopDragging);
       window.removeEventListener("pointercancel", stopDragging);
@@ -714,6 +744,9 @@ export function Kalendar({
     const rect = pointerEvent.currentTarget.getBoundingClientRect();
     setDragging({
       id: event.id,
+      date: event.date,
+      start: event.start,
+      end: event.end,
       mode: "move",
       duration: toMinutes(event.end) - toMinutes(event.start),
       pointerOffsetY: pointerEvent.clientY - rect.top,
@@ -738,6 +771,9 @@ export function Kalendar({
       : edgeMinutes;
     setDragging({
       id: event.id,
+      date: event.date,
+      start: event.start,
+      end: event.end,
       mode: edge === "start" ? "resize-start" : "resize-end",
       grabOffsetMinutes: pointerMinutes - edgeMinutes,
     });
