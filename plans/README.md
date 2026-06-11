@@ -24,6 +24,7 @@ plan excerpts reflect that working-tree state.
 | 008  | Student delete path (server, route, hook, UI) | P2 | M | 004 | DONE (advisor/008-student-delete @ 333ee20 + type-fix d14a3ca = advisor/integration) |
 | 009  | Calendar persistence: calendar_events table, API, wire all consumers | P1 | L | 004; 005 recommended | DONE (advisor/009-calendar-persistence @ 2448aec; browser smoke pending) |
 | 010  | Design spike: link Fahrstunden to accounting (doc only) | P3 | M | 009 | DONE (advisor/010-lessons-billing-design @ 1ed6e66; doc copied to plans/design/lessons-billing.md) |
+| 011  | Calendar drag/resize: smooth (per-frame, per-column rerenders) + exact final position persisted | P1 | M | — | DONE (advisor/011-calendar-drag-performance @ 78f1975 in agent worktree; reviewed+approved 2026-06-11; browser drag smoke pending — plan 011 Step 6) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
@@ -39,6 +40,35 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 006 and 007 are independent — safe to run anytime, in parallel with
   anything.
 - 010 is a written design, not a build; it requires 009 to be DONE.
+
+## Focused audit 2026-06-11 (db / fps / rerendering)
+
+Audited at commit `65254af` (plus uncommitted working-tree changes). The DB
+layer came back clean — see rejections below. Vetted-real findings;
+findings 1+2 became plan 011 (same code, same refactor), 3–5 remain
+unplanned by user decision:
+
+1. **Calendar drag renders the whole page per pointer event** (HIGH, M —
+   → plan 011):
+   each `pointermove` maps the full event array into state
+   (`src/Kalendar.tsx:601-662`), invalidating `visibleEvents` (`:718-728`)
+   and re-running 14 passes over events with `parseISODate` (headers
+   `:1141-1143`, columns `:1256-1258`) plus `layoutDay()` for all 7 columns
+   (`:1259`) and every `EventBlock`, 60–120×/sec during drag. Fix shape:
+   separate drag-preview state, group+layout events per day in one memo,
+   memoized `DayColumn`.
+2. **Drag-end can persist a stale position** (MED, S — → plan 011):
+   `stopDragging` reads `calendarEventsRef.current` (`:673-687`), synced in
+   an after-commit effect (`:521-524`); a `pointerup` before the last
+   continuous-priority move commits persists the previous position.
+3. **Profil refetch lacks a staleness guard** (LOW, S): the
+   `formVersion`-keyed fetch (`src/Profil.tsx:306-314`) has no abort/ignore
+   flag; rapid resets can let an old response overwrite a newer one.
+4. **Fahrschueler search re-sorts + re-renders the table per keystroke**
+   (LOW–MED at scale, S): `src/Fahrschueler.tsx:138-173`; `useDeferredValue`
+   on `query` is the idiomatic fix.
+5. **`navigate` recreated every App render** (LOW, S):
+   `src/App.tsx:131-148`; harmless today, defeats future memoization.
 
 ## Findings considered and rejected
 
@@ -76,3 +106,34 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   expensive and risky relative to payoff while features are still moving
   fast; the calendar's seams get partially addressed by plan 009. Revisit
   after 009 lands.
+
+Rejected in the 2026-06-11 db/fps/rerendering audit (verified against the
+code — do not re-report):
+
+- **Quittung/insert race conditions in `engine.ts`**: impossible —
+  `engine.ts` has zero `await`s; `bun:sqlite` transactions are synchronous
+  on Bun's single thread, so requests cannot interleave inside
+  `getQuittung` (`engine.ts:711-732`).
+- **Archive entry lost on failed restore / non-atomic restore**: wrong —
+  snapshot INSERT, relink, and archive DELETE run in one transaction
+  (`archive.ts:170-177`); any failure rolls all of it back.
+- **Restore skips reassigned students**: intended and documented
+  (`archive.ts:35-37`) — reassignments made after the delete survive.
+- **`splitVat` rounding bug**: `vat = gross − net` makes
+  `net + vat === gross` hold by construction (`money.ts:69-70`).
+- **Missing FK enforcement**: `PRAGMA foreign_keys = ON` is set
+  (`db.ts:285`); the OFF/ON pair at `:239/:267` is the standard migration
+  idiom.
+- **SQL injection via `UNASSIGNED` interpolation (`archive.ts:131`)**:
+  module-level constant, not user input; cosmetic at most.
+- **Old-format archive snapshots don't relink**: graceful, documented
+  backward-compat (`archive.ts:163-167`); not worth a migration.
+- **`useFetchList` infinite refetch loop**: false — `refresh` is memoized
+  on stable deps and the stable-fetcher contract is documented
+  (`src/lib/api.ts:22-24, 32-44`).
+- **Non-lazy `new Set()` useState initializers in Kalendar
+  (`Kalendar.tsx:541-543`)**: discarded-per-render Sets, zero observable
+  cost.
+- **recharts Cell memoization, Dashboard Grid counts, StundenTab O(n)
+  scan, EventBlock flag recomputation**: unmeasurable at this app's data
+  scale; only revisit as part of the calendar-drag work if it happens.
