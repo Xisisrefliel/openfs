@@ -71,9 +71,10 @@ function createWindow(): BrowserWindow {
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hidden" as const,
-          // Vertically centers the lights on the shell controls row
-          // (8px strip offset + 10px padding + half of the 28px buttons).
-          trafficLightPosition: { x: 16, y: 26 },
+          // Standard macOS big-toolbar placement (Safari, Notes): equal
+          // 20px inset from the top-left corner; the shell controls row
+          // centers itself on the lights (App.tsx shifts to pt-1).
+          trafficLightPosition: { x: 20, y: 20 },
         }
       : {}),
     webPreferences: {
@@ -118,6 +119,7 @@ void app.whenReady().then(() => {
 
   const win = createWindow();
   if (process.env.ELECTRON_SMOKE) runSmokeTest(win);
+  if (process.env.ELECTRON_CLICK_PROBE) runClickProbe(win);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -132,6 +134,40 @@ app.on("will-quit", () => {
   db?.close();
   db = null;
 });
+
+/* ELECTRON_CLICK_PROBE=1: shows the window at (0,0) and reports the
+   sidebar state every second, so an external real mouse click (e.g. via
+   AppleScript) can prove that native drag regions don't swallow the
+   sidebar toggle. Exits after 12s. */
+function runClickProbe(win: BrowserWindow) {
+  win.setPosition(0, 0);
+  win.webContents.once("did-finish-load", () => {
+    const read = () =>
+      win.webContents
+        .executeJavaScript(
+          `(() => {
+            const mid = el => {
+              const r = el?.getBoundingClientRect();
+              return r ? { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) } : null;
+            };
+            return {
+              state: document.querySelector('[data-slot="sidebar"][data-state]')?.getAttribute("data-state") ?? "?",
+              path: location.pathname,
+              trigger: mid(document.querySelector('[data-slot="sidebar-trigger"]')),
+              headerButton: mid(document.querySelector("header button")),
+            };
+          })()`
+        )
+        .then(result => console.log("[probe]", JSON.stringify(result)))
+        .catch(error => console.log("[probe] ERR", error));
+    void read();
+    const timer = setInterval(read, 1000);
+    setTimeout(() => {
+      clearInterval(timer);
+      app.exit(0);
+    }, 12_000);
+  });
+}
 
 /* ELECTRON_SMOKE=1: headless self-check used by `bun run electron:smoke` —
    asserts the API answers through app:// and React actually rendered. */

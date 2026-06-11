@@ -403,3 +403,7 @@ body {
     [role="tab"], [role="menuitem"], [contenteditable]) {
   -webkit-app-region: no-drag;
 }
+
+.app-region-no-drag {
+  -webkit-app-region: no-drag;
+}

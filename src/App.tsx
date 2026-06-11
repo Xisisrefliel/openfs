@@ -38,7 +38,7 @@ import { Marketing } from "./Marketing";
 import { Pruefungsplaner } from "./Pruefungsplaner";
 import { TheorieGruppen } from "./TheorieGruppen";
 import { nonFahrstundeTypes } from "@/lib/calendar-data";
-import { isElectron, isElectronMac } from "@/lib/platform";
+import { isElectronMac } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { Fahrlehrer } from "./Fahrlehrer";
 import { Fahrschule } from "./Fahrschule";
@@ -315,7 +315,14 @@ function ShellControls() {
   }, []);
 
   return (
-    <div className="pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2 pt-2.5">
+    <div
+      className={cn(
+        "pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2",
+        // Center the 28px controls on the traffic lights (their center
+        // sits at 26px: trafficLightPosition y 20 + half of 12px).
+        isElectronMac ? "pt-1" : "pt-2.5"
+      )}
+    >
       {/* The backdrop slides in lockstep with the sidebar — same distance
           (its own width), duration and easing as sidebar-container — so it
           covers scrolled sidebar items on every animation frame instead of
@@ -344,9 +351,11 @@ function ShellControls() {
       <div
         className={cn(
           "pointer-events-auto relative flex items-center gap-1",
-          // Clear the macOS traffic lights, which sit in this strip's
-          // top-left corner when the native title bar is hidden.
-          isElectronMac && "app-region-drag pl-14"
+          // Clear the macOS traffic lights (group ends at x=72: 20px
+          // inset + three 12px lights with 8px gaps) plus breathing room.
+          // Explicitly no-drag — a drag region here swallows the clicks
+          // of the very buttons it wraps.
+          isElectronMac && "app-region-no-drag pl-16"
         )}
       >
         <SidebarTrigger className="size-7 bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent" />
@@ -438,11 +447,6 @@ export function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      {/* Frameless desktop window: a thin invisible strip along the very
-          top stays grabbable everywhere, like a minimal title bar. */}
-      {isElectron && (
-        <div aria-hidden className="app-region-drag fixed inset-x-0 top-0 z-50 h-3" />
-      )}
       <SidebarProvider className="bg-sidebar">
         <ShellControls />
         <AppSidebar path={path} navigate={navigate} />
