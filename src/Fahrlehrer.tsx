@@ -359,7 +359,7 @@ export function Fahrlehrer() {
   };
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
+    <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader
         end={
           <Button type="button" size="sm" onClick={startCreating}>
@@ -369,7 +369,7 @@ export function Fahrlehrer() {
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
         {loading ? (
           <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">
             <Skeleton className="h-64 rounded-xl" />

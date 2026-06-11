@@ -471,7 +471,7 @@ export function Fahrzeuge() {
 
   // DB-backed roster — same source as /fahrlehrer and the calendar.
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
+    <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader
         end={
           <Button
@@ -488,7 +488,7 @@ export function Fahrzeuge() {
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
         <div className="stagger-in grid gap-4 md:grid-cols-2 2xl:gap-5">
           {loading && <div className="text-sm text-muted-foreground">Lade Fahrzeuge…</div>}
           {vehicleList.map(vehicle => (

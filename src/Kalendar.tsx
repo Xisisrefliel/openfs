@@ -964,7 +964,7 @@ export function Kalendar({
   };
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
+    <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader>
         {/* No extra padding: PageHeader's animated spacer already makes
             room for the fixed shell controls when the sidebar collapses,
@@ -1056,7 +1056,7 @@ export function Kalendar({
         </div>
       </PageHeader>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 overflow-hidden rounded-t-lg rounded-b-2xl border border-border/70 bg-background">
         {/* Sidebar: date picker + filters */}
         <aside className="subtle-scrollbar hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-border/70 bg-card lg:flex">
           <div className="border-b border-border/70 p-3">

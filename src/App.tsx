@@ -403,7 +403,7 @@ export function App() {
       <SidebarProvider className="bg-sidebar">
         <ShellControls />
         <AppSidebar path={path} navigate={navigate} />
-        <SidebarInset className="h-[calc(100svh-1rem)] min-h-0 overflow-hidden border border-border/70 !shadow-[0_8px_32px_-24px_rgba(22,23,24,0.28)] md:!m-2 md:!rounded-2xl">
+        <SidebarInset className="h-[calc(100svh-1rem)] min-h-0 !bg-transparent !shadow-none md:!m-2 md:!rounded-2xl">
           {page}
         </SidebarInset>
       </SidebarProvider>

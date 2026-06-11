@@ -118,7 +118,7 @@ export function FahrschuelerDetail({
   };
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-background">
+    <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader
         center={
           <div className="max-w-[calc(100vw-26rem)] overflow-x-auto">
@@ -217,7 +217,7 @@ export function FahrschuelerDetail({
         </div>
       </PageHeader>
 
-      <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
         {loading && !student ? (
           <div className="flex min-h-64 items-center justify-center">
             <Spinner />

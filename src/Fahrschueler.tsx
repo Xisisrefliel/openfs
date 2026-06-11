@@ -191,43 +191,48 @@ export function Fahrschueler({
     navigate(`/fahrschueler/${student.id}`);
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
-      <PageHeader />
+    <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
+      <PageHeader className="h-auto min-h-11 flex-wrap py-2 2xl:min-h-12">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <Input
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder="Name, Telefon, Klasse oder Vertrag suchen"
+            className="h-8 w-80 max-w-full"
+          />
+          <ToggleGroup
+            type="single"
+            value={statusFilter}
+            onValueChange={value => {
+              if (value === "aktiv" || value === "inaktiv") {
+                setStatusFilter(value);
+              }
+            }}
+            variant="outline"
+            size="sm"
+            spacing={0}
+            aria-label="Fahrschueler Status"
+          >
+            <ToggleGroupItem value="aktiv" aria-label="Aktive Fahrschueler">
+              Aktiv
+            </ToggleGroupItem>
+            <ToggleGroupItem value="inaktiv" aria-label="Inaktive Fahrschueler">
+              Inaktiv
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={resetFilters}
+          >
+            Zurücksetzen
+          </Button>
+        </div>
+      </PageHeader>
 
-      <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-lg rounded-b-2xl border border-border/70 bg-background p-4 2xl:p-6">
         <div className="animate-enter flex flex-col gap-4 rounded-xl border bg-card p-4 2xl:p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              value={query}
-              onChange={event => setQuery(event.target.value)}
-              placeholder="Name, Telefon, Klasse oder Vertrag suchen"
-              className="max-w-96"
-            />
-            <ToggleGroup
-              type="single"
-              value={statusFilter}
-              onValueChange={value => {
-                if (value === "aktiv" || value === "inaktiv") {
-                  setStatusFilter(value);
-                }
-              }}
-              variant="outline"
-              size="sm"
-              spacing={0}
-              aria-label="Fahrschueler Status"
-            >
-              <ToggleGroupItem value="aktiv" aria-label="Aktive Fahrschueler">
-                Aktiv
-              </ToggleGroupItem>
-              <ToggleGroupItem value="inaktiv" aria-label="Inaktive Fahrschueler">
-                Inaktiv
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <Button type="button" variant="outline" onClick={resetFilters}>
-              Zurücksetzen
-            </Button>
-          </div>
-
           <div className="overflow-hidden rounded-lg border">
             <Table className="text-xs">
               <TableHeader>

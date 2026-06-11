@@ -890,7 +890,7 @@ export function Buchhaltung() {
   };
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-background">
+    <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader
         center={
           <div className="max-w-[calc(100vw-18rem)] overflow-x-auto">
@@ -922,7 +922,7 @@ export function Buchhaltung() {
       <Tabs
         value={tab}
         onValueChange={value => setTab(value as TabKey)}
-        className="min-h-0 flex-1 gap-0"
+        className="min-h-0 flex-1 gap-0 overflow-hidden rounded-t-lg rounded-b-2xl border border-border/70 bg-background"
       >
         <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
           <Card className="animate-enter min-h-full">
