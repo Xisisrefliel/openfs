@@ -5,7 +5,7 @@
 /* ------------------------------------------------------------------ */
 
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
-import { ClipboardCheck, ClipboardList, Receipt } from "lucide-react";
+import { ClipboardCheck, ClipboardList, Printer, Receipt } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -23,6 +23,7 @@ import { useStudents } from "@/hooks/use-students";
 import type { StudentRecord } from "@/hooks/use-students";
 import { accountingApi, useApi } from "@/components/buchhaltung/api";
 import { PaymentDialog } from "@/components/buchhaltung/PaymentDialog";
+import { AusbildungsnachweisPrintDialog } from "@/components/fahrschueler/AusbildungsnachweisPrintDialog";
 import { BatchBillDialog } from "@/components/fahrschueler/BatchBillDialog";
 import { SignaturePad } from "@/components/SignaturePad";
 import type { SignaturePadHandle } from "@/components/SignaturePad";
@@ -274,6 +275,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("alle");
   const [billTarget, setBillTarget] = useState<CalEvent | null>(null);
   const [batchBillOpen, setBatchBillOpen] = useState(false);
+  const [nachweisPrintOpen, setNachweisPrintOpen] = useState(false);
   const [nachweisTarget, setNachweisTarget] = useState<CalEvent | null>(null);
   const [viewAttestation, setViewAttestation] = useState<Attestation | null>(null);
   // Map of event id (string) → Attestation (or null = checked, none found)
@@ -431,6 +433,15 @@ export function StundenTab({ student }: { student: StudentRecord }) {
     }
   };
 
+  /* Attestations with data — gates the cumulative print action. */
+  const attestationCount = useMemo(() => {
+    let count = 0;
+    for (const att of attestationMap.values()) {
+      if (att != null) count += 1;
+    }
+    return count;
+  }, [attestationMap]);
+
   const handleNachweisCaptureDone = async (attestation: Attestation) => {
     setNachweisTarget(null);
     setAttestationMap(prev => new Map(prev).set(String(attestation.eventId), attestation));
@@ -459,17 +470,27 @@ export function StundenTab({ student }: { student: StudentRecord }) {
             </SelectContent>
           </Select>
 
-          {openLessons.length >= 2 && (
+          <div className="ml-auto flex items-center gap-2">
+            {openLessons.length >= 2 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBatchBillOpen(true)}
+              >
+                <Receipt className="mr-1 size-3.5" />
+                Alle offenen abrechnen ({openLessons.length})
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
-              className="ml-auto"
-              onClick={() => setBatchBillOpen(true)}
+              disabled={attestationCount === 0}
+              onClick={() => setNachweisPrintOpen(true)}
             >
-              <Receipt className="mr-1 size-3.5" />
-              Alle offenen abrechnen ({openLessons.length})
+              <Printer className="mr-1 size-3.5" />
+              Ausbildungsnachweis drucken
             </Button>
-          )}
+          </div>
         </div>
 
         {events.length === 0 ? (
@@ -652,6 +673,15 @@ export function StundenTab({ student }: { student: StudentRecord }) {
             student={student}
             onClose={() => setNachweisTarget(null)}
             onSaved={att => void handleNachweisCaptureDone(att)}
+          />
+        )}
+
+        {/* Cumulative Nachweis print dialog */}
+        {nachweisPrintOpen && (
+          <AusbildungsnachweisPrintDialog
+            open={true}
+            student={student}
+            onClose={() => setNachweisPrintOpen(false)}
           />
         )}
 
