@@ -286,6 +286,7 @@ export function openDb(path = "data/fahrschule.db"): Database {
   db.exec(DDL);
   migrateSkr03ToSkr04(db);
   migrateStudentPricePlan(db);
+  migrateCalendarEventBilling(db);
   initAccounts(db);
   initSequences(db);
   initSettings(db);
@@ -384,6 +385,45 @@ export function migrateStudentPricePlan(db: Database) {
   db.exec(
     "ALTER TABLE students ADD COLUMN price_plan_id INTEGER REFERENCES price_plans(id)"
   );
+}
+
+/* Databases created before lesson-billing existed lack the student_id
+   and billed_transaction_id columns on calendar_events. Adds them when
+   absent and runs a best-effort one-time back-fill: links events to a
+   student where the subtitle matches exactly one student's full name;
+   leaves NULL on 0 or >1 matches (safe for money). Idempotent. */
+export function migrateCalendarEventBilling(db: Database) {
+  const columns = db
+    .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+    .all();
+  const hasStudentId = columns.some(c => c.name === "student_id");
+  const hasBilledId = columns.some(c => c.name === "billed_transaction_id");
+
+  if (!hasStudentId) {
+    db.exec(
+      "ALTER TABLE calendar_events ADD COLUMN student_id INTEGER REFERENCES students(id)"
+    );
+    // Best-effort back-fill: set student_id where subtitle matches exactly
+    // one student's trimmed full name; leave NULL on 0 or >1 matches.
+    db.exec(`
+      UPDATE calendar_events
+      SET student_id = (
+        SELECT id FROM students
+        WHERE trim(first_name || ' ' || last_name) = trim(calendar_events.subtitle)
+      )
+      WHERE subtitle != ''
+        AND (
+          SELECT count(*) FROM students
+          WHERE trim(first_name || ' ' || last_name) = trim(calendar_events.subtitle)
+        ) = 1
+    `);
+  }
+
+  if (!hasBilledId) {
+    db.exec(
+      "ALTER TABLE calendar_events ADD COLUMN billed_transaction_id INTEGER REFERENCES transactions(id)"
+    );
+  }
 }
 
 /* Seed price plans — the demo tariffs from src/lib/price-plan.ts. After

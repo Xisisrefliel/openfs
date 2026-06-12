@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { Database } from "./sqlite";
 
-import { migrateSkr03ToSkr04, openDb } from "./db";
+import { migrateCalendarEventBilling, migrateSkr03ToSkr04, openDb } from "./db";
 import { listAccounts, listJournal, listLedger } from "./engine";
 import { seedTransactions } from "./seed";
+import { openSqlite } from "./sqlite";
 
 /* Simulates a database created before the SKR-04 switch: same chart,
    SKR-03 numbers. The migration must remap accounts AND bookings in
@@ -118,5 +119,165 @@ describe("SKR 03 → SKR 04 migration", () => {
     seedTransactions(fresh);
     migrateSkr03ToSkr04(fresh);
     expect(listAccounts(fresh).find(a => a.number === "1800")?.name).toBe("Bank");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* calendar_events billing migration                                   */
+/* ------------------------------------------------------------------ */
+
+/** Helper: build a bare-bones in-memory DB with calendar_events but
+    WITHOUT the new billing columns (simulates a pre-migration schema). */
+function openLegacyDb(): Database {
+  const legacy = openSqlite(":memory:");
+  legacy.exec("PRAGMA foreign_keys = ON;");
+  // Minimal DDL — only what migrateCalendarEventBilling needs to exist.
+  legacy.exec(`
+    CREATE TABLE IF NOT EXISTS students (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      first_name TEXT NOT NULL,
+      last_name TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      storniert_by INTEGER REFERENCES transactions(id)
+    );
+    CREATE TABLE IF NOT EXISTS calendar_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      start TEXT NOT NULL,
+      "end" TEXT NOT NULL,
+      title TEXT NOT NULL,
+      subtitle TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      instructor TEXT NOT NULL DEFAULT '',
+      vehicle TEXT NOT NULL DEFAULT '',
+      type TEXT NOT NULL,
+      tentative INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  return legacy;
+}
+
+describe("migrateCalendarEventBilling", () => {
+  test("adds student_id and billed_transaction_id columns to a legacy DB", () => {
+    const legacy = openLegacyDb();
+    const colsBefore = legacy
+      .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+      .all()
+      .map(c => c.name);
+    expect(colsBefore).not.toContain("student_id");
+    expect(colsBefore).not.toContain("billed_transaction_id");
+
+    migrateCalendarEventBilling(legacy);
+
+    const colsAfter = legacy
+      .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+      .all()
+      .map(c => c.name);
+    expect(colsAfter).toContain("student_id");
+    expect(colsAfter).toContain("billed_transaction_id");
+  });
+
+  test("running migration twice is a no-op (idempotent)", () => {
+    const legacy = openLegacyDb();
+    migrateCalendarEventBilling(legacy);
+    // Second run must not throw or add duplicate columns.
+    expect(() => migrateCalendarEventBilling(legacy)).not.toThrow();
+    const cols = legacy
+      .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+      .all()
+      .map(c => c.name);
+    expect(cols.filter(c => c === "student_id")).toHaveLength(1);
+    expect(cols.filter(c => c === "billed_transaction_id")).toHaveLength(1);
+  });
+
+  test("back-fill links event to student when subtitle matches exactly one student name", () => {
+    const legacy = openLegacyDb();
+    // Insert one student named "Lena Braun".
+    legacy.run("INSERT INTO students (first_name, last_name) VALUES (?, ?)", "Lena", "Braun");
+    const { lastInsertRowid: studentId } = legacy.run(
+      "SELECT last_insert_rowid() as id"
+    );
+    // Insert an event whose subtitle exactly matches.
+    legacy.run(
+      `INSERT INTO calendar_events (date, start, "end", title, subtitle, type)
+       VALUES ('2026-06-10', '09:00', '10:00', 'Fahrstunde', 'Lena Braun', 'Praktisch')`
+    );
+    const row = legacy
+      .query<{ id: number }, []>("SELECT id FROM calendar_events LIMIT 1")
+      .get()!;
+
+    migrateCalendarEventBilling(legacy);
+
+    const sid = legacy
+      .query<{ id: number }, []>(
+        "SELECT id FROM students WHERE first_name='Lena' AND last_name='Braun'"
+      )
+      .get()!.id;
+    const linked = legacy
+      .query<{ student_id: number | null }, [number]>(
+        "SELECT student_id FROM calendar_events WHERE id = ?"
+      )
+      .get(row.id)!;
+    expect(linked.student_id).toBe(sid);
+  });
+
+  test("back-fill leaves NULL when subtitle matches zero students", () => {
+    const legacy = openLegacyDb();
+    legacy.run(
+      `INSERT INTO calendar_events (date, start, "end", title, subtitle, type)
+       VALUES ('2026-06-10', '09:00', '10:00', 'Fahrstunde', 'Unbekannt Müller', 'Praktisch')`
+    );
+    const row = legacy
+      .query<{ id: number }, []>("SELECT id FROM calendar_events LIMIT 1")
+      .get()!;
+
+    migrateCalendarEventBilling(legacy);
+
+    const linked = legacy
+      .query<{ student_id: number | null }, [number]>(
+        "SELECT student_id FROM calendar_events WHERE id = ?"
+      )
+      .get(row.id)!;
+    expect(linked.student_id).toBeNull();
+  });
+
+  test("back-fill leaves NULL when subtitle matches multiple students (ambiguous)", () => {
+    const legacy = openLegacyDb();
+    // Two students with the same name.
+    legacy.run("INSERT INTO students (first_name, last_name) VALUES (?, ?)", "Ali", "Yilmaz");
+    legacy.run("INSERT INTO students (first_name, last_name) VALUES (?, ?)", "Ali", "Yilmaz");
+    legacy.run(
+      `INSERT INTO calendar_events (date, start, "end", title, subtitle, type)
+       VALUES ('2026-06-10', '09:00', '10:00', 'Fahrstunde', 'Ali Yilmaz', 'Praktisch')`
+    );
+    const row = legacy
+      .query<{ id: number }, []>("SELECT id FROM calendar_events LIMIT 1")
+      .get()!;
+
+    migrateCalendarEventBilling(legacy);
+
+    const linked = legacy
+      .query<{ student_id: number | null }, [number]>(
+        "SELECT student_id FROM calendar_events WHERE id = ?"
+      )
+      .get(row.id)!;
+    expect(linked.student_id).toBeNull();
+  });
+
+  test("openDb (fresh) already has the billing columns via DDL + migration", () => {
+    const fresh = openDb(":memory:");
+    const cols = fresh
+      .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+      .all()
+      .map(c => c.name);
+    // openDb calls migrateCalendarEventBilling; even a new DB that already
+    // has the columns from the DDL seed must pass the idempotency check.
+    // (Current DDL does NOT include these columns — they are only added via
+    // the migration. A fresh DB gains them from migrateCalendarEventBilling.)
+    expect(cols).toContain("student_id");
+    expect(cols).toContain("billed_transaction_id");
   });
 });
