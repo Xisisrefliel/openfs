@@ -24,7 +24,7 @@ const EVENT_TYPES: CalendarEventType[] = [
 ];
 
 /* The wire shape matches CalEvent in src/lib/calendar-data.ts: id is a
-   string, and the optional fields are omitted when empty/false. */
+   string, and the optional fields are omitted when empty/false/null. */
 export type CalendarEvent = {
   id: string;
   date: string;
@@ -37,9 +37,26 @@ export type CalendarEvent = {
   vehicle?: string;
   type: CalendarEventType;
   tentative?: boolean;
+  /** FK → students.id; set on creation or via the back-fill migration. */
+  studentId?: number;
+  /** FK → transactions.id; set after billing via markEventBilled(). */
+  billedTransactionId?: number;
+  /** Derived: true when billedTransactionId is set AND the linked
+      transaction has not been storniert. Populated by the SELECT query. */
+  billedActive?: boolean;
+  /** Exam result — only meaningful for the two exam event types. */
+  examResult?: "bestanden" | "nicht_bestanden";
 };
 
-export type CalendarEventInput = Omit<CalendarEvent, "id">;
+const EXAM_TYPES: CalendarEventType[] = [
+  "Theorieprüfung",
+  "Vorstellung zur prakt. Prüfung",
+];
+
+export type CalendarEventInput = Omit<
+  CalendarEvent,
+  "id" | "billedTransactionId" | "billedActive" | "examResult"
+>;
 
 type CalendarEventRow = {
   id: number;
@@ -53,6 +70,10 @@ type CalendarEventRow = {
   vehicle: string;
   type: CalendarEventType;
   tentative: number;
+  student_id: number | null;
+  billed_transaction_id: number | null;
+  tx_storniert_by: number | null;
+  exam_result: string | null;
 };
 
 const toEvent = (row: CalendarEventRow): CalendarEvent => {
@@ -69,11 +90,30 @@ const toEvent = (row: CalendarEventRow): CalendarEvent => {
   if (row.location) event.location = row.location;
   if (row.vehicle) event.vehicle = row.vehicle;
   if (row.tentative) event.tentative = true;
+  if (row.student_id != null) event.studentId = row.student_id;
+  if (row.billed_transaction_id != null) {
+    event.billedTransactionId = row.billed_transaction_id;
+    event.billedActive = row.tx_storniert_by == null;
+  }
+  if (row.exam_result === "bestanden" || row.exam_result === "nicht_bestanden") {
+    event.examResult = row.exam_result;
+  }
   return event;
 };
 
-const SELECT =
-  'SELECT id, date, start, "end", title, subtitle, location, instructor, vehicle, type, tentative FROM calendar_events';
+const SELECT = `
+  SELECT
+    ce.id, ce.date, ce.start, ce."end", ce.title, ce.subtitle,
+    ce.location, ce.instructor, ce.vehicle, ce.type, ce.tentative,
+    ce.student_id, ce.billed_transaction_id, ce.exam_result,
+    CASE
+      WHEN ce.billed_transaction_id IS NOT NULL THEN (
+        SELECT t.storniert_by FROM transactions t WHERE t.id = ce.billed_transaction_id
+      )
+      ELSE NULL
+    END AS tx_storniert_by
+  FROM calendar_events ce
+`;
 
 export function listCalendarEvents(
   db: Database,
@@ -82,17 +122,17 @@ export function listCalendarEvents(
   const clauses: string[] = [];
   const params: string[] = [];
   if (filter?.from) {
-    clauses.push("date >= ?");
+    clauses.push("ce.date >= ?");
     params.push(filter.from);
   }
   if (filter?.to) {
-    clauses.push("date <= ?");
+    clauses.push("ce.date <= ?");
     params.push(filter.to);
   }
   const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
   return db
     .query<CalendarEventRow, string[]>(
-      `${SELECT}${where} ORDER BY date, start`
+      `${SELECT}${where} ORDER BY ce.date, ce.start`
     )
     .all(...params)
     .map(toEvent);
@@ -100,7 +140,7 @@ export function listCalendarEvents(
 
 export function getCalendarEvent(db: Database, id: number): CalendarEvent {
   const row = db
-    .query<CalendarEventRow, [number]>(`${SELECT} WHERE id = ?`)
+    .query<CalendarEventRow, [number]>(`${SELECT} WHERE ce.id = ?`)
     .get(id);
   if (!row) throw new ValidationError("Termin nicht gefunden.");
   return toEvent(row);
@@ -122,15 +162,20 @@ const EMPTY: CalendarEventInput = {
   vehicle: "",
   type: "Praktisch",
   tentative: false,
+  studentId: undefined,
 };
 
 /* Merge a partial payload over current values, trimming strings and
    applying the validation rules shared by create and update. */
 function normalize(
+  db: Database,
   input: Partial<CalendarEventInput>,
   current: CalendarEventInput
 ): CalendarEventInput {
-  const str = (key: keyof CalendarEventInput, fallback: string): string => {
+  const str = (
+    key: keyof Omit<CalendarEventInput, "tentative" | "studentId">,
+    fallback: string
+  ): string => {
     const value = input[key];
     if (value === undefined) return fallback;
     if (typeof value !== "string") {
@@ -173,6 +218,28 @@ function normalize(
 
   const instructor = str("instructor", current.instructor) || "Nicht zugeteilt";
 
+  // studentId: validate that it references an existing student when provided.
+  let studentId: number | undefined = current.studentId;
+  if ("studentId" in input) {
+    const raw = input.studentId;
+    if (raw === undefined || raw === null) {
+      studentId = undefined;
+    } else {
+      if (typeof raw !== "number" || !Number.isInteger(raw) || raw <= 0) {
+        throw new ValidationError("Feld 'studentId' muss eine positive ganze Zahl sein.");
+      }
+      const exists = db
+        .query<{ n: number }, [number]>(
+          "SELECT count(*) AS n FROM students WHERE id = ?"
+        )
+        .get(raw)!.n > 0;
+      if (!exists) {
+        throw new ValidationError(`Fahrschüler mit ID ${raw} nicht gefunden.`);
+      }
+      studentId = raw;
+    }
+  }
+
   return {
     date,
     start,
@@ -184,6 +251,7 @@ function normalize(
     vehicle: str("vehicle", current.vehicle ?? ""),
     type: type as CalendarEventType,
     tentative,
+    studentId,
   };
 }
 
@@ -191,12 +259,12 @@ export function createCalendarEvent(
   db: Database,
   input: Partial<CalendarEventInput>
 ): CalendarEvent {
-  const data = normalize(input, EMPTY);
+  const data = normalize(db, input, EMPTY);
   const row = db
-    .query<{ id: number }, [string, string, string, string, string, string, string, string, string, number]>(
+    .query<{ id: number }, [string, string, string, string, string, string, string, string, string, number, number | null]>(
       `INSERT INTO calendar_events
-         (date, start, "end", title, subtitle, location, instructor, vehicle, type, tentative)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+         (date, start, "end", title, subtitle, location, instructor, vehicle, type, tentative, student_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
     )
     .get(
       data.date,
@@ -208,7 +276,8 @@ export function createCalendarEvent(
       data.instructor,
       data.vehicle ?? "",
       data.type,
-      data.tentative ? 1 : 0
+      data.tentative ? 1 : 0,
+      data.studentId ?? null
     )!;
   return getCalendarEvent(db, row.id);
 }
@@ -219,11 +288,11 @@ export function updateCalendarEvent(
   input: Partial<CalendarEventInput>
 ): CalendarEvent {
   const current = getCalendarEvent(db, id);
-  const data = normalize(input, current);
+  const data = normalize(db, input, current);
   db.prepare(
     `UPDATE calendar_events
      SET date = ?, start = ?, "end" = ?, title = ?, subtitle = ?, location = ?,
-         instructor = ?, vehicle = ?, type = ?, tentative = ?
+         instructor = ?, vehicle = ?, type = ?, tentative = ?, student_id = ?
      WHERE id = ?`
   ).run(
     data.date,
@@ -236,13 +305,39 @@ export function updateCalendarEvent(
     data.vehicle ?? "",
     data.type,
     data.tentative ? 1 : 0,
+    data.studentId ?? null,
     id
   );
   return getCalendarEvent(db, id);
 }
 
+/** Mark an event as billed by storing the transaction id. Call this
+    inside a db.transaction() wrapping the createTransaction() call so
+    both writes are atomic. NOT settable via the generic update path. */
+export function markEventBilled(
+  db: Database,
+  eventId: number,
+  transactionId: number
+): CalendarEvent {
+  const event = getCalendarEvent(db, eventId);
+  if (!event) throw new ValidationError("Termin nicht gefunden.");
+  db.prepare(
+    "UPDATE calendar_events SET billed_transaction_id = ? WHERE id = ?"
+  ).run(transactionId, eventId);
+  return getCalendarEvent(db, eventId);
+}
+
 export function deleteCalendarEvent(db: Database, id: number): void {
   const event = getCalendarEvent(db, id);
+
+  // Guard: block deletion of billed events unless the linked transaction
+  // has been storniert (billedActive = true means it is still active).
+  if (event.billedTransactionId != null && event.billedActive) {
+    throw new ValidationError(
+      "Termin ist abgerechnet — zuerst stornieren."
+    );
+  }
+
   const remove = db.transaction(() => {
     archiveRow(
       db,
@@ -253,4 +348,30 @@ export function deleteCalendarEvent(db: Database, id: number): void {
     db.prepare("DELETE FROM calendar_events WHERE id = ?").run(id);
   });
   remove();
+}
+
+/** Record (or clear) an exam result on an exam-type event.
+    - Allowed only on "Theorieprüfung" and "Vorstellung zur prakt. Prüfung".
+    - result: 'bestanden' | 'nicht_bestanden' | null (null clears).
+    NOT settable via the generic update/normalize path. */
+export function recordExamResult(
+  db: Database,
+  eventId: number,
+  result: "bestanden" | "nicht_bestanden" | null
+): CalendarEvent {
+  const event = getCalendarEvent(db, eventId);
+  if (!EXAM_TYPES.includes(event.type)) {
+    throw new ValidationError(
+      "Prüfungsergebnis kann nur für Prüfungs-Termine gespeichert werden."
+    );
+  }
+  if (result !== null && result !== "bestanden" && result !== "nicht_bestanden") {
+    throw new ValidationError(
+      "Ergebnis muss 'bestanden', 'nicht_bestanden' oder null sein."
+    );
+  }
+  db.prepare(
+    "UPDATE calendar_events SET exam_result = ? WHERE id = ?"
+  ).run(result, eventId);
+  return getCalendarEvent(db, eventId);
 }

@@ -35,38 +35,43 @@ type StudentRow = {
   documents: string;
   theory: string;
   price_plan_id: number | null;
+  license_date: string | null;
 };
 
-const toStudent = (row: StudentRow): StudentRecord => ({
-  id: row.id,
-  firstName: row.first_name,
-  lastName: row.last_name,
-  birthday: row.birthday,
-  phone: row.phone,
-  email: row.email,
-  address: row.address,
-  classes: row.classes,
-  drivingSchool: row.driving_school,
-  registrationDate: row.registration_date,
-  contractNumber: row.contract_number,
-  customerNumber: row.customer_number,
-  status: row.status,
-  instructor: row.instructor,
-  vehicle: row.vehicle,
-  balance: row.balance,
-  lastLesson: row.last_lesson,
-  nextLesson: row.next_lesson,
-  progress: row.progress,
-  lessons: JSON.parse(row.lessons),
-  documents: JSON.parse(row.documents),
-  theory: JSON.parse(row.theory),
-  pricePlanId: row.price_plan_id,
-});
+const toStudent = (row: StudentRow): StudentRecord => {
+  const record: StudentRecord = {
+    id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    birthday: row.birthday,
+    phone: row.phone,
+    email: row.email,
+    address: row.address,
+    classes: row.classes,
+    drivingSchool: row.driving_school,
+    registrationDate: row.registration_date,
+    contractNumber: row.contract_number,
+    customerNumber: row.customer_number,
+    status: row.status,
+    instructor: row.instructor,
+    vehicle: row.vehicle,
+    balance: row.balance,
+    lastLesson: row.last_lesson,
+    nextLesson: row.next_lesson,
+    progress: row.progress,
+    lessons: JSON.parse(row.lessons),
+    documents: JSON.parse(row.documents),
+    theory: JSON.parse(row.theory),
+    pricePlanId: row.price_plan_id,
+  };
+  if (row.license_date) record.licenseDate = row.license_date;
+  return record;
+};
 
 const SELECT = `SELECT id, first_name, last_name, birthday, phone, email, address,
   classes, driving_school, registration_date, contract_number, customer_number,
   status, instructor, vehicle, balance, last_lesson, next_lesson, progress,
-  lessons, documents, theory, price_plan_id FROM students`;
+  lessons, documents, theory, price_plan_id, license_date FROM students`;
 
 export function listStudents(db: Database): StudentRecord[] {
   return db
@@ -164,6 +169,20 @@ function normalize(input: Partial<Student>, current: Student): Student {
     next.pricePlanId = input.pricePlanId;
   }
 
+  if (input.licenseDate !== undefined) {
+    if (input.licenseDate !== null && input.licenseDate !== "") {
+      if (
+        typeof input.licenseDate !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(input.licenseDate)
+      ) {
+        throw new ValidationError(
+          "Feld 'licenseDate' muss ein ISO-Datum (YYYY-MM-DD) oder leer sein."
+        );
+      }
+    }
+    next.licenseDate = input.licenseDate ?? undefined;
+  }
+
   if (!next.firstName || !next.lastName) {
     throw new ValidationError("Vor- und Nachname sind Pflichtfelder.");
   }
@@ -243,6 +262,7 @@ function writeParams(data: Student) {
     JSON.stringify(data.documents),
     JSON.stringify(data.theory),
     data.pricePlanId ?? null,
+    data.licenseDate ?? null,
   ] as const;
 }
 
@@ -258,8 +278,8 @@ export function createStudent(
            first_name, last_name, birthday, phone, email, address, classes,
            driving_school, registration_date, contract_number, customer_number,
            status, instructor, vehicle, balance, last_lesson, next_lesson,
-           progress, lessons, documents, theory, price_plan_id
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           progress, lessons, documents, theory, price_plan_id, license_date
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING id`
       )
       .get(...writeParams(data))
@@ -282,7 +302,7 @@ export function updateStudent(
          contract_number = ?, customer_number = ?, status = ?, instructor = ?,
          vehicle = ?, balance = ?, last_lesson = ?, next_lesson = ?,
          progress = ?, lessons = ?, documents = ?, theory = ?,
-         price_plan_id = ?
+         price_plan_id = ?, license_date = ?
        WHERE id = ?`
     ).run(...writeParams(data), id);
     // Chat threads carry a denormalized student_name next to their

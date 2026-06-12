@@ -447,3 +447,282 @@ describe("GET /api/export/database", () => {
     expect(typeof row!.n).toBe("number");
   });
 });
+
+/* ================================================================== */
+/* POST /api/calendar-events/:id/bill                                  */
+/* ================================================================== */
+
+/** Create a student via the API, return the created student. */
+async function createTestStudent(): Promise<{ id: number; customerNumber: string; contractNumber: string }> {
+  const tag = uniq("bill");
+  const res = await fetch(url("/api/students"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      firstName: "Bill",
+      lastName: "Test",
+      contractNumber: `V-${tag}`,
+      customerNumber: `K-${tag}`,
+      classes: "B",
+      address: "Teststr. 1",
+    }),
+  });
+  expect(res.status).toBe(201);
+  return res.json() as Promise<{ id: number; customerNumber: string; contractNumber: string }>;
+}
+
+/** Create a Praktisch event linked to a student. */
+async function createPraktischEvent(studentId: number): Promise<{ id: string }> {
+  const res = await fetch(url("/api/calendar-events"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      date: "2026-06-15",
+      start: "09:00",
+      end: "09:45",
+      title: "Fahrstunde",
+      instructor: "Köksal Gül",
+      type: "Praktisch",
+      studentId,
+    }),
+  });
+  expect(res.status).toBe(201);
+  return res.json() as Promise<{ id: string }>;
+}
+
+describe("POST /api/calendar-events/:id/bill", () => {
+  test("happy path: bills event, returns transaction + updated event with billedActive=true", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const billBody = {
+      type: "guthaben_uebertragung",
+      date: "2026-06-15",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: {
+        customerNo: student.customerNumber,
+        name: "Bill Test",
+        address: "Teststr. 1",
+        contractNo: student.contractNumber,
+        classes: "B",
+      },
+      description: "FS Bill Test - B, Fahrübungsstunde (45)",
+    };
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json() as {
+      transaction: { id: number };
+      event: { billedTransactionId: number; billedActive: boolean };
+    };
+    expect(typeof body.transaction.id).toBe("number");
+    expect(body.event.billedTransactionId).toBe(body.transaction.id);
+    expect(body.event.billedActive).toBe(true);
+  });
+
+  test("billing an already-billed event → 400 'bereits abgerechnet'", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const billBody = {
+      type: "guthaben_uebertragung",
+      date: "2026-06-15",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: {
+        customerNo: student.customerNumber,
+        name: "Bill Test",
+        address: "Teststr. 1",
+        contractNo: student.contractNumber,
+        classes: "B",
+      },
+      description: "FS Bill Test - B, Fahrübungsstunde (45)",
+    };
+
+    const first = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(first.status).toBe(201);
+
+    // Second billing attempt must fail.
+    const second = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(second.status).toBe(400);
+    const errBody = await second.json() as { error: string };
+    expect(errBody.error).toContain("abgerechnet");
+  });
+
+  test("billing a Theorie event → 400 'praktische Fahrstunden'", async () => {
+    const res1 = await fetch(url("/api/calendar-events"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-06-15",
+        start: "10:00",
+        end: "11:30",
+        title: "Theorieunterricht",
+        instructor: "Köksal Gül",
+        type: "Theorie",
+      }),
+    });
+    expect(res1.status).toBe(201);
+    const theoryEvent = await res1.json() as { id: string };
+
+    const res = await fetch(url(`/api/calendar-events/${theoryEvent.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "guthaben_uebertragung",
+        date: "2026-06-15",
+        amountCents: 5000,
+        habenKonto: "4400",
+        student: { customerNo: "X", name: "X", address: "", contractNo: "X", classes: "B" },
+        description: "Test",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("praktische");
+  });
+
+  test("billing event without studentId → 400 'Kein Fahrschüler'", async () => {
+    const res1 = await fetch(url("/api/calendar-events"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-06-15",
+        start: "11:00",
+        end: "11:45",
+        title: "Fahrstunde ohne Student",
+        instructor: "Köksal Gül",
+        type: "Praktisch",
+        // No studentId
+      }),
+    });
+    expect(res1.status).toBe(201);
+    const evt = await res1.json() as { id: string };
+
+    const res = await fetch(url(`/api/calendar-events/${evt.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "guthaben_uebertragung",
+        date: "2026-06-15",
+        amountCents: 5000,
+        habenKonto: "4400",
+        student: { customerNo: "X", name: "X", address: "", contractNo: "X", classes: "B" },
+        description: "Test",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Fahrschüler");
+  });
+
+  test("body with wrong type 'zahlung_guthaben' → 400, no transaction linked to event", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "zahlung_guthaben",
+        date: "2026-06-15",
+        amountCents: 6500,
+        habenKonto: "4400",
+        student: {
+          customerNo: student.customerNumber,
+          name: "Bill Test",
+          address: "Teststr. 1",
+          contractNo: student.contractNumber,
+          classes: "B",
+        },
+        description: "FS Bill Test - B, Fahrübungsstunde (45)",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("guthaben_uebertragung");
+
+    // Verify no transaction was linked: the event is still not billed.
+    const eventRes = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "guthaben_uebertragung",
+        date: "2026-06-15",
+        amountCents: 6500,
+        habenKonto: "4400",
+        student: {
+          customerNo: student.customerNumber,
+          name: "Bill Test",
+          address: "Teststr. 1",
+          contractNo: student.contractNumber,
+          classes: "B",
+        },
+        description: "FS Bill Test - B, Fahrübungsstunde (45)",
+      }),
+    });
+    // A successful re-bill (201) confirms the event was never marked billed.
+    expect(eventRes.status).toBe(201);
+  });
+
+  test("storno the transaction, then re-bill succeeds with a new transaction id", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const billBody = {
+      type: "guthaben_uebertragung",
+      date: "2026-06-15",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: {
+        customerNo: student.customerNumber,
+        name: "Bill Test",
+        address: "Teststr. 1",
+        contractNo: student.contractNumber,
+        classes: "B",
+      },
+      description: "FS Bill Test - B, Fahrübungsstunde (45)",
+    };
+
+    const billRes = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(billRes.status).toBe(201);
+    const billData = await billRes.json() as { transaction: { id: number }; event: { billedTransactionId: number } };
+    const txId = billData.transaction.id;
+
+    // Storno the transaction.
+    const stornoRes = await fetch(url(`/api/accounting/transactions/${txId}/storno`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "Test-Storno" }),
+    });
+    expect(stornoRes.status).toBe(201);
+
+    // Now re-bill should succeed.
+    const rebillRes = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(rebillRes.status).toBe(201);
+    const rebillData = await rebillRes.json() as { transaction: { id: number }; event: { billedTransactionId: number } };
+    expect(rebillData.transaction.id).not.toBe(txId);
+    expect(rebillData.event.billedTransactionId).toBe(rebillData.transaction.id);
+  });
+});

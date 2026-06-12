@@ -196,6 +196,29 @@ describe("students", () => {
     expect(student.pricePlanId).toBeNull();
   });
 
+  test("licenseDate roundtrip: set and read back on create", () => {
+    const student = createStudent(db, makeStudent({ licenseDate: "2026-06-01" }));
+    expect(student.licenseDate).toBe("2026-06-01");
+  });
+
+  test("licenseDate roundtrip: update and read back", () => {
+    const created = createStudent(db, makeStudent());
+    expect(created.licenseDate).toBeUndefined();
+    const updated = updateStudent(db, created.id, { licenseDate: "2026-06-15" });
+    expect(updated.licenseDate).toBe("2026-06-15");
+  });
+
+  test("licenseDate: not set → undefined on wire", () => {
+    const student = createStudent(db, makeStudent());
+    expect(student.licenseDate).toBeUndefined();
+  });
+
+  test("licenseDate: invalid format → ValidationError", () => {
+    expect(() =>
+      createStudent(db, makeStudent({ licenseDate: "15.06.2026" }))
+    ).toThrow(ValidationError);
+  });
+
   test("updateStudent: merges partial input — changing phone leaves name unchanged", () => {
     const created = createStudent(db, makeStudent({ firstName: "Anna", lastName: "Schmidt" }));
     const updated = updateStudent(db, created.id, { phone: "0123456789" });

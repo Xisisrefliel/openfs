@@ -9,6 +9,7 @@ import { openSqlite, type Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import {
+  examStatistics,
   getStatistics,
   instructorStatistics,
   lessonStatistics,
@@ -127,7 +128,10 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   vehicle TEXT NOT NULL DEFAULT '',
   type TEXT NOT NULL CHECK (type IN ('Praktisch','Theorie','Vorstellung zur prakt. Prüfung','Theorieprüfung','Andere')),
   tentative INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  student_id INTEGER,
+  billed_transaction_id INTEGER,
+  exam_result TEXT
 );
 `;
 
@@ -380,5 +384,105 @@ describe("statisticsRoutes", () => {
     });
     expect(stats.revenue).toEqual({ totalCents: 0, perMonth: [] });
     expect(stats.instructors.utilization).toEqual([]);
+  });
+
+  test("getStatistics includes exams section", () => {
+    const stats = getStatistics(db);
+    expect(stats.exams).toBeDefined();
+    expect(Array.isArray(stats.exams.byType)).toBe(true);
+    expect(stats.exams.byType).toHaveLength(2);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* examStatistics                                                       */
+/* ------------------------------------------------------------------ */
+
+function insertStudent2(seq: number): number {
+  return db
+    .query<{ id: number }, [string, string, string, string]>(
+      `INSERT INTO students (first_name, last_name, contract_number, customer_number)
+       VALUES (?, ?, ?, ?) RETURNING id`
+    )
+    .get("Test", `Schüler${seq}`, `V-ES-${seq}`, `K-ES-${seq}`)!.id;
+}
+
+function insertExamEvent(
+  type: "Theorieprüfung" | "Vorstellung zur prakt. Prüfung",
+  date: string,
+  examResult: string | null,
+  studentId: number | null
+): void {
+  db.prepare(
+    `INSERT INTO calendar_events (date, start, "end", title, type, exam_result, student_id)
+     VALUES (?, '09:00', '11:00', 'Prüfung', ?, ?, ?)`
+  ).run(date, type, examResult, studentId);
+}
+
+describe("examStatistics", () => {
+  test("empty DB: totals zero, firstAttemptPassRate null for each exam type", () => {
+    const result = examStatistics(db);
+    expect(result.byType).toHaveLength(2);
+    for (const row of result.byType) {
+      expect(row.total).toBe(0);
+      expect(row.bestanden).toBe(0);
+      expect(row.nicht_bestanden).toBe(0);
+      expect(row.offen).toBe(0);
+      expect(row.firstAttemptPassRate).toBeNull();
+    }
+  });
+
+  test("counts bestanden / nicht_bestanden / offen correctly", () => {
+    const s1 = insertStudent2(100);
+    const s2 = insertStudent2(101);
+    insertExamEvent("Theorieprüfung", "2026-01-01", "bestanden", s1);
+    insertExamEvent("Theorieprüfung", "2026-01-10", "nicht_bestanden", s2);
+    insertExamEvent("Theorieprüfung", "2026-01-20", null, null); // offen, no student
+    const result = examStatistics(db);
+    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    expect(theorie.total).toBe(3);
+    expect(theorie.bestanden).toBe(1);
+    expect(theorie.nicht_bestanden).toBe(1);
+    expect(theorie.offen).toBe(1);
+  });
+
+  test("first-attempt pass rate: single pass = 100%", () => {
+    const s1 = insertStudent2(200);
+    insertExamEvent("Theorieprüfung", "2026-02-01", "bestanden", s1);
+    const result = examStatistics(db);
+    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    expect(theorie.firstAttemptPassRate).toBeCloseTo(1.0);
+  });
+
+  test("first-attempt pass rate: fail-then-pass counts as NOT first-attempt passed", () => {
+    const s1 = insertStudent2(300);
+    insertExamEvent("Theorieprüfung", "2026-03-01", "nicht_bestanden", s1); // first
+    insertExamEvent("Theorieprüfung", "2026-03-15", "bestanden", s1); // second — ignored for rate
+    const result = examStatistics(db);
+    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    // first attempt = nicht_bestanden → rate 0
+    expect(theorie.firstAttemptPassRate).toBeCloseTo(0.0);
+  });
+
+  test("events with NULL student_id excluded from first-attempt rate but counted in totals", () => {
+    insertExamEvent("Theorieprüfung", "2026-04-01", "bestanden", null); // no student_id
+    const result = examStatistics(db);
+    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    expect(theorie.total).toBe(1);
+    expect(theorie.bestanden).toBe(1);
+    expect(theorie.firstAttemptPassRate).toBeNull(); // excluded
+  });
+
+  test("Vorstellung zur prakt. Prüfung tracked separately from Theorieprüfung", () => {
+    const s1 = insertStudent2(400);
+    insertExamEvent("Theorieprüfung", "2026-05-01", "bestanden", s1);
+    insertExamEvent("Vorstellung zur prakt. Prüfung", "2026-05-10", "nicht_bestanden", s1);
+    const result = examStatistics(db);
+    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    const praktisch = result.byType.find(r => r.type === "Vorstellung zur prakt. Prüfung")!;
+    expect(theorie.total).toBe(1);
+    expect(theorie.bestanden).toBe(1);
+    expect(praktisch.total).toBe(1);
+    expect(praktisch.nicht_bestanden).toBe(1);
   });
 });
