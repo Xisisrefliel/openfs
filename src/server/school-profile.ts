@@ -8,6 +8,7 @@ import type { Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import { ValidationError } from "./engine";
+import { handle, json } from "./http";
 
 export type OpeningHoursEntry = {
   day: string;
@@ -218,24 +219,6 @@ export function sanitizeSchoolProfile(
 /* HTTP routes — same factory shape as src/server/routes.ts.            */
 /* (json/handle are module-private there, so they are mirrored here.)   */
 /* ------------------------------------------------------------------ */
-
-function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status });
-}
-
-function handle(fn: () => Response | Promise<Response>) {
-  return async () => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        return json({ error: error.message }, 400);
-      }
-      console.error(error);
-      return json({ error: "Interner Fehler." }, 500);
-    }
-  };
-}
 
 export function schoolProfileRoutes(db: Database) {
   return {
