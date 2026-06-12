@@ -146,6 +146,52 @@ describe("createAppointmentRequest", () => {
       createAppointmentRequest(db, { ...VALID, status: "wartend" as never })
     ).toThrow(ValidationError);
   });
+
+  test("message at the 2000-char cap passes", () => {
+    const request = createAppointmentRequest(db, {
+      ...VALID,
+      message: "m".repeat(2000),
+    });
+    expect(request.message).toHaveLength(2000);
+  });
+
+  test("message over 2000 chars → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, { ...VALID, message: "m".repeat(2001) })
+    ).toThrow("Feld 'message' darf maximal 2000 Zeichen lang sein.");
+  });
+
+  test("name over 200 chars → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, { ...VALID, name: "n".repeat(201) })
+    ).toThrow("Feld 'name' darf maximal 200 Zeichen lang sein.");
+  });
+
+  test("phone over 50 chars → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, { ...VALID, phone: "0".repeat(51) })
+    ).toThrow("Feld 'phone' darf maximal 50 Zeichen lang sein.");
+  });
+
+  test("email over 254 chars → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, {
+        ...VALID,
+        email: `${"a".repeat(250)}@b.de`,
+      })
+    ).toThrow("Feld 'email' darf maximal 254 Zeichen lang sein.");
+  });
+
+  test("malformed email → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, { ...VALID, email: "not-an-email" })
+    ).toThrow("Feld 'email' muss eine gültige E-Mail-Adresse sein.");
+  });
+
+  test("empty email stays allowed (optional field)", () => {
+    const request = createAppointmentRequest(db, { ...VALID, email: "" });
+    expect(request.email).toBe("");
+  });
 });
 
 describe("updateAppointmentRequest", () => {
@@ -418,6 +464,63 @@ describe("appointmentRequestRoutes", () => {
         method: "DELETE",
       });
       expect(badRes.status).toBe(400);
+    } finally {
+      server.stop(true);
+    }
+  });
+});
+
+describe("rate limiting on public create", () => {
+  const serve = (rateLimit: { max: number; windowMs: number } | false) =>
+    Bun.serve({
+      port: 0,
+      routes: appointmentRequestRoutes(db, { rateLimit }),
+      fetch() {
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+  const post = (base: URL) =>
+    fetch(new URL("/api/appointment-requests", base).href, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(VALID),
+    });
+
+  test("third POST from the same IP returns 429 (max 2)", async () => {
+    const server = serve({ max: 2, windowMs: 60_000 });
+    try {
+      expect((await post(server.url)).status).toBe(201);
+      expect((await post(server.url)).status).toBe(201);
+      const third = await post(server.url);
+      expect(third.status).toBe(429);
+      expect(((await third.json()) as { error: string }).error).toBe(
+        "Zu viele Anfragen. Bitte später erneut versuchen."
+      );
+
+      // Admin/status routes stay unlimited — decline still works.
+      const url = (path: string) => new URL(path, server.url).href;
+      const listRes = await fetch(url("/api/appointment-requests"));
+      const { requests } = (await listRes.json()) as {
+        requests: { id: number; status: string }[];
+      };
+      const open = requests.find(r => r.status === "offen")!;
+      const declineRes = await fetch(
+        url(`/api/appointment-requests/${open.id}/decline`),
+        { method: "POST" }
+      );
+      expect(declineRes.status).toBe(200);
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("rateLimit: false disables the limiter", async () => {
+    const server = serve(false);
+    try {
+      for (let i = 0; i < 3; i++) {
+        expect((await post(server.url)).status).toBe(201);
+      }
     } finally {
       server.stop(true);
     }
