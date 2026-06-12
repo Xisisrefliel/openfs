@@ -9,6 +9,7 @@ import type { Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import { ValidationError } from "./engine";
+import { handle, json } from "./http";
 
 export type TheoryGroupStatus = "aktiv" | "abgeschlossen";
 
@@ -543,24 +544,6 @@ export function attendanceCounts(db: Database, groupId: number): Record<number, 
 /* ------------------------------------------------------------------ */
 /* HTTP layer — same thin JSON wrapper shape as src/server/routes.ts.  */
 /* ------------------------------------------------------------------ */
-
-function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status });
-}
-
-function handle(fn: () => Response | Promise<Response>) {
-  return async () => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        return json({ error: error.message }, 400);
-      }
-      console.error(error);
-      return json({ error: "Interner Fehler." }, 500);
-    }
-  };
-}
 
 export function theoryGroupRoutes(db: Database) {
   const parseId = (raw: string): number => {
