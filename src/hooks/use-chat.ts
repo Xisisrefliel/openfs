@@ -7,7 +7,7 @@
 /* sendChatMessage + refresh, so everything persists across reloads.   */
 /* ------------------------------------------------------------------ */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { parseOrThrow, useFetchList } from "@/lib/api";
 
@@ -96,11 +96,32 @@ export async function deleteConversation(
 }
 
 export function useConversations() {
-  const { items: conversations, loading, refresh } = useFetchList(
+  const { items: fetched, loading, refresh: fetchRefresh } = useFetchList(
     fetchConversations,
     "Unterhaltungen konnten nicht geladen werden"
   );
-  return { conversations, loading, refresh };
+  const [overrides, setOverrides] = useState<Record<number, number>>({});
+
+  /** Full refetch — also clears any optimistic overrides. */
+  const refresh = useCallback(async () => {
+    await fetchRefresh();
+    setOverrides({});
+  }, [fetchRefresh]);
+
+  /** Optimistically clear the unread badge for one conversation. */
+  const clearUnread = useCallback((id: number) => {
+    setOverrides(prev => ({ ...prev, [id]: 0 }));
+  }, []);
+
+  const conversations = useMemo(
+    () =>
+      fetched.map(c =>
+        c.id in overrides ? { ...c, unread: overrides[c.id] ?? c.unread } : c
+      ),
+    [fetched, overrides]
+  );
+
+  return { conversations, loading, refresh, clearUnread };
 }
 
 /** Messages of the active thread — refetches whenever the id changes.
