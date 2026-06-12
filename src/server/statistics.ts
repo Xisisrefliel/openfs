@@ -310,19 +310,14 @@ export function examStatistics(db: Database): ExamStatistics {
         { student_id: number; exam_result: string },
         [string]
       >(
-        `SELECT student_id, exam_result
-         FROM calendar_events
-         WHERE type = ?
-           AND student_id IS NOT NULL
-           AND exam_result IS NOT NULL
-           AND id = (
-             SELECT id FROM calendar_events AS ce2
-             WHERE ce2.type = calendar_events.type
-               AND ce2.student_id = calendar_events.student_id
-               AND ce2.exam_result IS NOT NULL
-             ORDER BY ce2.date, ce2.id
-             LIMIT 1
-           )`
+        `SELECT student_id, exam_result FROM (
+           SELECT student_id, exam_result,
+                  ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY date, id) AS rn
+           FROM calendar_events
+           WHERE type = ?
+             AND student_id IS NOT NULL
+             AND exam_result IS NOT NULL
+         ) WHERE rn = 1`
       )
       .all(type);
 

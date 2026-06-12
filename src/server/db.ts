@@ -287,6 +287,11 @@ export function openDb(path = "data/fahrschule.db"): Database {
   migrateSkr03ToSkr04(db);
   migrateStudentPricePlan(db);
   migrateCalendarEventBilling(db);
+  // student_id is added by migrateCalendarEventBilling, so this index can
+  // only be created after that migration — not in the base DDL string.
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_calendar_events_student ON calendar_events(student_id);"
+  );
   migrateExamResults(db);
   initAccounts(db);
   initSequences(db);

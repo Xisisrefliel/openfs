@@ -464,6 +464,19 @@ describe("examStatistics", () => {
     expect(theorie.firstAttemptPassRate).toBeCloseTo(0.0);
   });
 
+  test("first attempt is the earliest DATE, not the earliest id (insert order reversed)", () => {
+    const s1 = insertStudent2(350);
+    const s2 = insertStudent2(351);
+    // s1: later date inserted FIRST (lower id), earlier date inserted second.
+    insertExamEvent("Theorieprüfung", "2026-03-20", "bestanden", s1); // lower id, later date
+    insertExamEvent("Theorieprüfung", "2026-03-05", "nicht_bestanden", s1); // higher id, earlier date → first attempt
+    insertExamEvent("Theorieprüfung", "2026-03-10", "bestanden", s2);
+    const result = examStatistics(db);
+    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    // s1 first attempt = nicht_bestanden (earlier date), s2 = bestanden → 1/2
+    expect(theorie.firstAttemptPassRate).toBeCloseTo(0.5);
+  });
+
   test("events with NULL student_id excluded from first-attempt rate but counted in totals", () => {
     insertExamEvent("Theorieprüfung", "2026-04-01", "bestanden", null); // no student_id
     const result = examStatistics(db);
