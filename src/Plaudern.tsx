@@ -256,7 +256,7 @@ function NewConversationDialog({
 const POLL_INTERVAL_MS = 10_000;
 
 export function Plaudern() {
-  const { conversations, loading, refresh } = useConversations();
+  const { conversations, loading, refresh, clearUnread } = useConversations();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const { messages, refresh: refreshMessages } = useMessages(selectedId);
   const [query, setQuery] = useState("");
@@ -281,11 +281,11 @@ export function Plaudern() {
   useEffect(() => {
     if (!selected || selected.unread === 0) return;
     void markConversationRead(selected.id)
-      .then(() => refresh())
+      .then(() => clearUnread(selected.id))
       .catch(error =>
         console.error("Unterhaltung konnte nicht als gelesen markiert werden:", error)
       );
-  }, [selected, refresh]);
+  }, [selected, clearUnread]);
 
   // No WebSockets — a slow poll keeps list and thread reasonably fresh.
   useEffect(() => {
