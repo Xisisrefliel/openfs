@@ -10,6 +10,7 @@ import type { Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import { ValidationError } from "./engine";
+import { handle, json } from "./http";
 
 export type BranchStatus = "offen" | "geschlossen";
 
@@ -280,24 +281,6 @@ export function deleteBranch(db: Database, id: number): void {
 /* ------------------------------------------------------------------ */
 /* HTTP layer — same thin-wrapper shape as routes.ts factories.        */
 /* ------------------------------------------------------------------ */
-
-function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status });
-}
-
-function handle(fn: () => Response | Promise<Response>) {
-  return async () => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        return json({ error: error.message }, 400);
-      }
-      console.error(error);
-      return json({ error: "Interner Fehler." }, 500);
-    }
-  };
-}
 
 function parseId(raw: string): number {
   const id = Number(raw);
