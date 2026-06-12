@@ -124,15 +124,13 @@ function ArchiveRow({
             <AlertDialogHeader>
               <AlertDialogTitle>Endgültig löschen?</AlertDialogTitle>
               <AlertDialogDescription>
-                „{item.label}" ({label}) wird unwiderruflich aus dem Archiv
-                entfernt und kann danach nicht mehr wiederhergestellt werden.
+                „{item.label}" ({label}) wird unwiderruflich aus dem Archiv entfernt und
+                kann danach nicht mehr wiederhergestellt werden.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-              <AlertDialogAction onClick={onPurge}>
-                Endgültig löschen
-              </AlertDialogAction>
+              <AlertDialogAction onClick={onPurge}>Endgültig löschen</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -145,20 +143,14 @@ export function Archiv() {
   const { items, loading, refresh } = useArchive();
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  const run = async (
-    id: number,
-    action: () => Promise<unknown>,
-    success: string
-  ) => {
+  const run = async (id: number, action: () => Promise<unknown>, success: string) => {
     setBusyId(id);
     try {
       await action();
       await refresh();
       toast.success(success);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Aktion fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Aktion fehlgeschlagen.");
     } finally {
       setBusyId(null);
     }
@@ -173,8 +165,7 @@ export function Archiv() {
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
           <p className="pb-2 text-sm text-muted-foreground">
-            Gelöschte Einträge bleiben hier erhalten und können
-            wiederhergestellt werden.
+            Gelöschte Einträge bleiben hier erhalten und können wiederhergestellt werden.
           </p>
 
           {loading ? (
@@ -191,14 +182,14 @@ export function Archiv() {
                 </EmptyMedia>
                 <EmptyTitle>Das Archiv ist leer</EmptyTitle>
                 <EmptyDescription>
-                  Gelöschte Fahrschüler, Termine, Fahrlehrer, Fahrzeuge und
-                  Preispläne erscheinen hier.
+                  Gelöschte Fahrschüler, Termine, Fahrlehrer, Fahrzeuge und Preispläne
+                  erscheinen hier.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
             <div className="stagger-in flex flex-col gap-2">
-              {items.map(item => (
+              {items.map((item) => (
                 <ArchiveRow
                   key={item.id}
                   item={item}
@@ -207,14 +198,14 @@ export function Archiv() {
                     run(
                       item.id,
                       () => restoreArchived(item.id),
-                      `„${item.label}" wiederhergestellt.`
+                      `„${item.label}" wiederhergestellt.`,
                     )
                   }
                   onPurge={() =>
                     run(
                       item.id,
                       () => purgeArchived(item.id),
-                      `„${item.label}" endgültig gelöscht.`
+                      `„${item.label}" endgültig gelöscht.`,
                     )
                   }
                 />

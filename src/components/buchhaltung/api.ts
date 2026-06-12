@@ -20,9 +20,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const body = await res.json().catch(() => null);
   if (!res.ok) {
     const message =
-      body && typeof body.error === "string"
-        ? body.error
-        : "Anfrage fehlgeschlagen.";
+      body && typeof body.error === "string" ? body.error : "Anfrage fehlgeschlagen.";
     throw new ApiError(message);
   }
   if (body == null) {
@@ -60,7 +58,7 @@ export type StatusFilter = "all" | "active" | "storniert";
 export function buildFilterQuery(
   range: DateRange | undefined,
   search: string,
-  status: StatusFilter
+  status: StatusFilter,
 ): string {
   const params = new URLSearchParams();
   if (range?.from) params.set("from", toIsoDate(range.from));
@@ -85,10 +83,8 @@ export const accountingApi = {
     request<LedgerResponse>(`/api/accounting/transactions${query}`),
   journal: (query: string) =>
     request<{ rows: JournalRow[] }>(`/api/accounting/journal${query}`),
-  accounts: () =>
-    request<{ accounts: Account[] }>("/api/accounting/accounts"),
-  studentBalances: () =>
-    request<{ balances: StudentBalance[] }>("/api/student-balances"),
+  accounts: () => request<{ accounts: Account[] }>("/api/accounting/accounts"),
+  studentBalances: () => request<{ balances: StudentBalance[] }>("/api/student-balances"),
   setAccountActive: (number: string, active: boolean) =>
     request<{ ok: true }>(`/api/accounting/accounts/${number}`, {
       method: "PATCH",
@@ -96,23 +92,19 @@ export const accountingApi = {
       body: JSON.stringify({ active }),
     }),
   createTransaction: (input: CreateTransactionInput) =>
-    post<{ id: number; belegNr: string | null }>(
-      "/api/accounting/transactions",
-      input
-    ),
+    post<{ id: number; belegNr: string | null }>("/api/accounting/transactions", input),
   storno: (id: number, reason: string) =>
     post<{ id: number }>(`/api/accounting/transactions/${id}/storno`, {
       reason,
     }),
-  quittung: (id: number) =>
-    request<QuittungData>(`/api/accounting/quittung/${id}`),
+  quittung: (id: number) => request<QuittungData>(`/api/accounting/quittung/${id}`),
 };
 
 /* ------------------------------- hook ------------------------------ */
 
 export function useApi<T>(
   load: () => Promise<T>,
-  deps: unknown[]
+  deps: unknown[],
 ): { data: T | null; loading: boolean; error: string | null } {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,7 +114,7 @@ export function useApi<T>(
     let cancelled = false;
     setLoading(true);
     load()
-      .then(result => {
+      .then((result) => {
         if (cancelled) return;
         setData(result);
         setError(null);

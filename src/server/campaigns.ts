@@ -31,11 +31,7 @@ export const CAMPAIGN_CHANNELS: CampaignChannel[] = [
 
 export type CampaignStatus = "aktiv" | "pausiert" | "beendet";
 
-export const CAMPAIGN_STATUSES: CampaignStatus[] = [
-  "aktiv",
-  "pausiert",
-  "beendet",
-];
+export const CAMPAIGN_STATUSES: CampaignStatus[] = ["aktiv", "pausiert", "beendet"];
 
 export type Campaign = {
   id: number;
@@ -192,7 +188,7 @@ export function ensureCampaignTables(db: Database): void {
   const insert = db.prepare(
     `INSERT INTO campaigns
        (name, channel, budget_cents, spent_cents, leads, signups, start_date, end_date, status, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const seedAll = db.transaction(() => {
     for (const c of SEED_CAMPAIGNS) {
@@ -206,7 +202,7 @@ export function ensureCampaignTables(db: Database): void {
         c.startDate,
         c.endDate,
         c.status,
-        c.notes
+        c.notes,
       );
     }
   });
@@ -250,10 +246,7 @@ const EMPTY: CampaignInput = {
 
 /* Merge a partial payload over current values, trimming strings and
    applying the validation rules shared by create and update. */
-function normalize(
-  input: Partial<CampaignInput>,
-  current: CampaignInput
-): CampaignInput {
+function normalize(input: Partial<CampaignInput>, current: CampaignInput): CampaignInput {
   const str = (key: "name" | "startDate" | "endDate" | "notes"): string => {
     const value = input[key];
     if (value === undefined) return current[key];
@@ -263,15 +256,11 @@ function normalize(
     return value.trim();
   };
 
-  const int = (
-    key: "budgetCents" | "spentCents" | "leads" | "signups"
-  ): number => {
+  const int = (key: "budgetCents" | "spentCents" | "leads" | "signups"): number => {
     const value = input[key];
     if (value === undefined) return current[key];
     if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
-      throw new ValidationError(
-        `Feld '${key}' muss eine nicht-negative Ganzzahl sein.`
-      );
+      throw new ValidationError(`Feld '${key}' muss eine nicht-negative Ganzzahl sein.`);
     }
     return value;
   };
@@ -288,9 +277,7 @@ function normalize(
 
   const status = input.status === undefined ? current.status : input.status;
   if (!CAMPAIGN_STATUSES.includes(status as CampaignStatus)) {
-    throw new ValidationError(
-      "Status muss 'aktiv', 'pausiert' oder 'beendet' sein."
-    );
+    throw new ValidationError("Status muss 'aktiv', 'pausiert' oder 'beendet' sein.");
   }
 
   const startDate = str("startDate");
@@ -320,10 +307,7 @@ function normalize(
   };
 }
 
-export function createCampaign(
-  db: Database,
-  input: Partial<CampaignInput>
-): Campaign {
+export function createCampaign(db: Database, input: Partial<CampaignInput>): Campaign {
   const data = normalize(input, EMPTY);
   const row = db
     .query<
@@ -332,7 +316,7 @@ export function createCampaign(
     >(
       `INSERT INTO campaigns
          (name, channel, budget_cents, spent_cents, leads, signups, start_date, end_date, status, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     .get(
       data.name,
@@ -344,7 +328,7 @@ export function createCampaign(
       data.startDate,
       data.endDate,
       data.status,
-      data.notes
+      data.notes,
     )!;
   return getCampaign(db, row.id);
 }
@@ -352,7 +336,7 @@ export function createCampaign(
 export function updateCampaign(
   db: Database,
   id: number,
-  input: Partial<CampaignInput>
+  input: Partial<CampaignInput>,
 ): Campaign {
   const current = getCampaign(db, id);
   const data = normalize(input, current);
@@ -360,7 +344,7 @@ export function updateCampaign(
     `UPDATE campaigns
      SET name = ?, channel = ?, budget_cents = ?, spent_cents = ?, leads = ?,
          signups = ?, start_date = ?, end_date = ?, status = ?, notes = ?
-     WHERE id = ?`
+     WHERE id = ?`,
   ).run(
     data.name,
     data.channel,
@@ -372,7 +356,7 @@ export function updateCampaign(
     data.endDate,
     data.status,
     data.notes,
-    id
+    id,
   );
   return getCampaign(db, id);
 }
@@ -394,7 +378,7 @@ export function campaignRoutes(db: Database) {
       GET: () => handle(() => json({ campaigns: listCampaigns(db) }))(),
       POST: (req: BunRequest) =>
         handle(async () =>
-          json(createCampaign(db, (await req.json()) as Partial<CampaignInput>), 201)
+          json(createCampaign(db, (await req.json()) as Partial<CampaignInput>), 201),
         )(),
     },
 
@@ -406,7 +390,7 @@ export function campaignRoutes(db: Database) {
             throw new ValidationError("Ungültige Kampagnen-ID.");
           }
           return json(
-            updateCampaign(db, id, (await req.json()) as Partial<CampaignInput>)
+            updateCampaign(db, id, (await req.json()) as Partial<CampaignInput>),
           );
         })(),
       DELETE: (req: BunRequest<"/api/campaigns/:id">) =>

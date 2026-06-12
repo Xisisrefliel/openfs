@@ -60,7 +60,12 @@ export function BatchBillDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={o => { if (!o && !submitting) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o && !submitting) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Offene Fahrstunden abrechnen</DialogTitle>
@@ -72,7 +77,7 @@ export function BatchBillDialog({
         <div className="flex flex-col gap-3">
           <div className="overflow-hidden rounded-lg border">
             <div className="max-h-72 overflow-y-auto">
-              {lessons.map(lesson => {
+              {lessons.map((lesson) => {
                 const durationMin = toMinutes(lesson.end) - toMinutes(lesson.start);
                 return (
                   <div
@@ -102,8 +107,8 @@ export function BatchBillDialog({
 
           {priceCents == null && (
             <p className="text-xs text-muted-foreground">
-              Im Tarif ist kein Preis für „Fahrübungsstunde“ hinterlegt — bitte
-              die Stunden einzeln abrechnen.
+              Im Tarif ist kein Preis für „Fahrübungsstunde“ hinterlegt — bitte die
+              Stunden einzeln abrechnen.
             </p>
           )}
         </div>
@@ -114,9 +119,7 @@ export function BatchBillDialog({
           </Button>
           <Button onClick={() => void handleConfirm()} disabled={!canConfirm}>
             <Receipt className="mr-1 size-3.5" />
-            {submitting
-              ? "Wird abgerechnet…"
-              : `${lessons.length} Fahrstunden abrechnen`}
+            {submitting ? "Wird abgerechnet…" : `${lessons.length} Fahrstunden abrechnen`}
           </Button>
         </DialogFooter>
       </DialogContent>

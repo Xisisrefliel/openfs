@@ -87,7 +87,7 @@ function initials(name: string): string {
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map(part => part[0]!.toUpperCase())
+    .map((part) => part[0]!.toUpperCase())
     .join("");
 }
 
@@ -106,7 +106,7 @@ function ConversationListItem({
       onClick={onSelect}
       className={cn(
         "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted/60",
-        selected && "bg-muted"
+        selected && "bg-muted",
       )}
     >
       <Avatar size="lg">
@@ -114,9 +114,7 @@ function ConversationListItem({
       </Avatar>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-sm font-medium">
-            {conversation.studentName}
-          </span>
+          <span className="truncate text-sm font-medium">{conversation.studentName}</span>
           <span className="shrink-0 text-xs text-muted-foreground">
             {formatListTime(conversation.lastMessageAt)}
           </span>
@@ -145,14 +143,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           "flex max-w-[75%] flex-col gap-0.5 rounded-2xl px-3.5 py-2",
           fromSchool
             ? "rounded-br-sm bg-primary text-primary-foreground"
-            : "rounded-bl-sm bg-muted"
+            : "rounded-bl-sm bg-muted",
         )}
       >
         <p className="text-sm break-words whitespace-pre-wrap">{message.text}</p>
         <span
           className={cn(
             "self-end text-[10px] tabular-nums",
-            fromSchool ? "text-primary-foreground/70" : "text-muted-foreground"
+            fromSchool ? "text-primary-foreground/70" : "text-muted-foreground",
           )}
         >
           {formatTime(parseSentAt(message.sentAt))}
@@ -189,7 +187,7 @@ function NewConversationDialog({
   }, [open]);
 
   async function handleCreate() {
-    const student = students.find(item => String(item.id) === studentId);
+    const student = students.find((item) => String(item.id) === studentId);
     if (!student) return;
     try {
       const conversation = await createConversation({
@@ -202,7 +200,7 @@ function NewConversationDialog({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Unterhaltung konnte nicht erstellt werden."
+          : "Unterhaltung konnte nicht erstellt werden.",
       );
     }
   }
@@ -213,8 +211,8 @@ function NewConversationDialog({
         <DialogHeader>
           <DialogTitle>Neue Unterhaltung</DialogTitle>
           <DialogDescription>
-            Fahrschüler/in auswählen, um eine Unterhaltung zu beginnen.
-            Bestehende Unterhaltungen werden wiederverwendet.
+            Fahrschüler/in auswählen, um eine Unterhaltung zu beginnen. Bestehende
+            Unterhaltungen werden wiederverwendet.
           </DialogDescription>
         </DialogHeader>
 
@@ -227,7 +225,7 @@ function NewConversationDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {students.map(student => (
+                  {students.map((student) => (
                     <SelectItem key={student.id} value={String(student.id)}>
                       {student.firstName} {student.lastName}
                     </SelectItem>
@@ -265,15 +263,15 @@ export function Plaudern() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const selected =
-    conversations.find(conversation => conversation.id === selectedId) ?? null;
+    conversations.find((conversation) => conversation.id === selectedId) ?? null;
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return conversations;
     return conversations.filter(
-      conversation =>
+      (conversation) =>
         conversation.studentName.toLowerCase().includes(needle) ||
-        conversation.lastMessage.toLowerCase().includes(needle)
+        conversation.lastMessage.toLowerCase().includes(needle),
     );
   }, [conversations, query]);
 
@@ -282,8 +280,8 @@ export function Plaudern() {
     if (!selected || selected.unread === 0) return;
     void markConversationRead(selected.id)
       .then(() => clearUnread(selected.id))
-      .catch(error =>
-        console.error("Unterhaltung konnte nicht als gelesen markiert werden:", error)
+      .catch((error) =>
+        console.error("Unterhaltung konnte nicht als gelesen markiert werden:", error),
       );
   }, [selected, clearUnread]);
 
@@ -324,15 +322,13 @@ export function Plaudern() {
       setDraft("");
       await Promise.all([refreshMessages(), refresh()]);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Senden fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Senden fehlgeschlagen.");
     }
   }
 
   async function handleDelete(conversation: Conversation) {
     const confirmed = window.confirm(
-      `Unterhaltung mit "${conversation.studentName}" wirklich löschen? Alle Nachrichten werden entfernt.`
+      `Unterhaltung mit "${conversation.studentName}" wirklich löschen? Alle Nachrichten werden entfernt.`,
     );
     if (!confirmed) return;
     try {
@@ -341,9 +337,7 @@ export function Plaudern() {
       await refresh();
       toast.success("Unterhaltung gelöscht.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     }
   }
 
@@ -365,7 +359,7 @@ export function Plaudern() {
             <Search className="pointer-events-none absolute top-1/2 left-5.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
-              onChange={event => setQuery(event.target.value)}
+              onChange={(event) => setQuery(event.target.value)}
               placeholder="Unterhaltungen durchsuchen"
               className="pl-8"
               aria-label="Unterhaltungen durchsuchen"
@@ -384,7 +378,7 @@ export function Plaudern() {
                   Keine Unterhaltungen gefunden.
                 </div>
               )}
-              {filtered.map(conversation => (
+              {filtered.map((conversation) => (
                 <ConversationListItem
                   key={conversation.id}
                   conversation={conversation}
@@ -409,9 +403,7 @@ export function Plaudern() {
                     {selected.studentName}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {selected.studentId !== null
-                      ? "Fahrschüler/in"
-                      : "Kontakt ohne Akte"}
+                    {selected.studentId !== null ? "Fahrschüler/in" : "Kontakt ohne Akte"}
                   </span>
                 </div>
                 <Button
@@ -428,10 +420,10 @@ export function Plaudern() {
 
               <ScrollArea className="min-h-0 flex-1">
                 <div className="flex flex-col gap-2 p-4">
-                  {sections.map(section => (
+                  {sections.map((section) => (
                     <div key={section.key} className="flex flex-col gap-2">
                       <DateSeparator label={section.label} />
-                      {section.messages.map(message => (
+                      {section.messages.map((message) => (
                         <MessageBubble key={message.id} message={message} />
                       ))}
                     </div>
@@ -446,12 +438,12 @@ export function Plaudern() {
               </ScrollArea>
 
               <form
-                onSubmit={event => void handleSend(event)}
+                onSubmit={(event) => void handleSend(event)}
                 className="sticky bottom-0 flex shrink-0 items-center gap-2 border-t border-border/70 bg-background p-3"
               >
                 <Input
                   value={draft}
-                  onChange={event => setDraft(event.target.value)}
+                  onChange={(event) => setDraft(event.target.value)}
                   placeholder="Nachricht schreiben…"
                   aria-label="Nachricht schreiben"
                   autoComplete="off"
@@ -474,8 +466,8 @@ export function Plaudern() {
                 </EmptyMedia>
                 <EmptyTitle>Keine Unterhaltung ausgewählt</EmptyTitle>
                 <EmptyDescription>
-                  Wähle links eine Unterhaltung aus oder starte eine neue, um
-                  mit deinen Fahrschülern zu plaudern.
+                  Wähle links eine Unterhaltung aus oder starte eine neue, um mit deinen
+                  Fahrschülern zu plaudern.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -486,7 +478,7 @@ export function Plaudern() {
       <NewConversationDialog
         open={isNewOpen}
         onOpenChange={setIsNewOpen}
-        onCreated={async conversation => {
+        onCreated={async (conversation) => {
           await refresh();
           setSelectedId(conversation.id);
         }}

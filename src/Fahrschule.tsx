@@ -86,7 +86,7 @@ function SchoolSummaryCard({ profile }: { profile: CompanyProfile | null }) {
         { Icon: Phone, label: "Telefon", value: profile.phone },
         { Icon: Mail, label: "E-Mail", value: profile.email },
         { Icon: Globe, label: "Webseite", value: profile.website },
-      ].filter(detail => detail.value)
+      ].filter((detail) => detail.value)
     : [];
 
   return (
@@ -97,9 +97,7 @@ function SchoolSummaryCard({ profile }: { profile: CompanyProfile | null }) {
             <Building2 className="size-6" />
           </div>
           <div className="flex flex-col gap-0.5">
-            <CardTitle className="text-base">
-              {profile?.name || "Fahrschule"}
-            </CardTitle>
+            <CardTitle className="text-base">{profile?.name || "Fahrschule"}</CardTitle>
             <CardDescription>Stammdaten der Fahrschule</CardDescription>
           </div>
         </div>
@@ -148,7 +146,7 @@ function StatCard({
         <div
           className={cn(
             "flex size-10 shrink-0 items-center justify-center rounded-lg",
-            accent
+            accent,
           )}
         >
           <Icon className="size-5" />
@@ -204,10 +202,7 @@ function BranchDialog({
   onChange: (draft: BranchInput) => void;
   onSave: () => void;
 }) {
-  function update<Key extends keyof BranchInput>(
-    key: Key,
-    value: BranchInput[Key]
-  ) {
+  function update<Key extends keyof BranchInput>(key: Key, value: BranchInput[Key]) {
     onChange({ ...draft, [key]: value });
   }
 
@@ -226,7 +221,7 @@ function BranchDialog({
               id="branch-name"
               placeholder="z. B. Hauptstelle Mitte"
               value={draft.name}
-              onChange={event => update("name", event.target.value)}
+              onChange={(event) => update("name", event.target.value)}
             />
           </Field>
           <Field>
@@ -235,7 +230,7 @@ function BranchDialog({
               id="branch-address"
               placeholder="Straße Nr., PLZ Ort"
               value={draft.address}
-              onChange={event => update("address", event.target.value)}
+              onChange={(event) => update("address", event.target.value)}
             />
           </Field>
           <Field>
@@ -244,7 +239,7 @@ function BranchDialog({
               id="branch-phone"
               type="tel"
               value={draft.phone}
-              onChange={event => update("phone", event.target.value)}
+              onChange={(event) => update("phone", event.target.value)}
             />
           </Field>
           <Field>
@@ -253,7 +248,7 @@ function BranchDialog({
               id="branch-email"
               type="email"
               value={draft.email}
-              onChange={event => update("email", event.target.value)}
+              onChange={(event) => update("email", event.target.value)}
             />
           </Field>
           <Field>
@@ -262,16 +257,14 @@ function BranchDialog({
               id="branch-hours"
               placeholder="z. B. Mo–Fr 14–18 Uhr"
               value={draft.openingHours}
-              onChange={event => update("openingHours", event.target.value)}
+              onChange={(event) => update("openingHours", event.target.value)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="branch-status">Status</FieldLabel>
             <Select
               value={draft.status}
-              onValueChange={value =>
-                update("status", value as BranchInput["status"])
-              }
+              onValueChange={(value) => update("status", value as BranchInput["status"])}
             >
               <SelectTrigger id="branch-status" className="w-full">
                 <SelectValue />
@@ -325,7 +318,7 @@ function BranchCard({
     { Icon: Phone, label: "Telefon", value: branch.phone },
     { Icon: Mail, label: "E-Mail", value: branch.email },
     { Icon: Clock, label: "Öffnungszeiten", value: branch.openingHours },
-  ].filter(detail => detail.value);
+  ].filter((detail) => detail.value);
 
   return (
     <Card>
@@ -336,7 +329,7 @@ function BranchCard({
               "flex size-11 shrink-0 items-center justify-center rounded-lg",
               branch.isMain
                 ? "bg-amber-500/10 text-amber-600"
-                : "bg-sky-500/10 text-sky-600"
+                : "bg-sky-500/10 text-sky-600",
             )}
           >
             <Building2 className="size-6" />
@@ -433,7 +426,7 @@ export function Fahrschule() {
 
   useEffect(() => {
     fetch("/api/profile")
-      .then(res => {
+      .then((res) => {
         if (!res.ok) throw new Error("Profil-Request fehlgeschlagen.");
         return res.json();
       })
@@ -460,9 +453,7 @@ export function Fahrschule() {
       setEditingId(null);
       toast.success(success);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Speichern fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Speichern fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
@@ -474,9 +465,7 @@ export function Fahrschule() {
       await refresh();
       toast.success(`„${branch.name}" ist jetzt der Hauptstandort.`);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Aktion fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Aktion fehlgeschlagen.");
     }
   };
 
@@ -487,9 +476,7 @@ export function Fahrschule() {
       await refresh();
       toast.success("Standort gelöscht.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     } finally {
       setDeleting(null);
     }
@@ -558,7 +545,7 @@ export function Fahrschule() {
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">
-              {branches.map(branch => (
+              {branches.map((branch) => (
                 <BranchCard
                   key={branch.id}
                   branch={branch}
@@ -578,7 +565,7 @@ export function Fahrschule() {
         draft={draft}
         open={creating}
         saving={saving}
-        onOpenChange={open => !open && setCreating(false)}
+        onOpenChange={(open) => !open && setCreating(false)}
         onChange={setDraft}
         onSave={() => save(() => createBranch(draft), "Standort angelegt.")}
       />
@@ -589,7 +576,7 @@ export function Fahrschule() {
         draft={draft}
         open={editingId !== null}
         saving={saving}
-        onOpenChange={open => !open && setEditingId(null)}
+        onOpenChange={(open) => !open && setEditingId(null)}
         onChange={setDraft}
         onSave={() =>
           save(() => updateBranch(editingId!, draft), "Änderungen gespeichert.")
@@ -598,7 +585,7 @@ export function Fahrschule() {
 
       <AlertDialog
         open={deleting !== null}
-        onOpenChange={open => !open && setDeleting(null)}
+        onOpenChange={(open) => !open && setDeleting(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -611,10 +598,7 @@ export function Fahrschule() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => void removeBranch()}
-            >
+            <AlertDialogAction variant="destructive" onClick={() => void removeBranch()}>
               Löschen
             </AlertDialogAction>
           </AlertDialogFooter>

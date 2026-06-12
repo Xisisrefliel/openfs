@@ -217,29 +217,27 @@ function AppSidebar({
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {items.map(
-                        ({ label: subLabel, Icon: SubIcon, route }) => (
-                          <SidebarMenuSubItem key={subLabel}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={route ? path === route : false}
+                      {items.map(({ label: subLabel, Icon: SubIcon, route }) => (
+                        <SidebarMenuSubItem key={subLabel}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={route ? path === route : false}
+                          >
+                            <a
+                              href={route ?? "#"}
+                              aria-disabled={!route}
+                              tabIndex={route ? undefined : -1}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                if (route) navigate(route);
+                              }}
                             >
-                              <a
-                                href={route ?? "#"}
-                                aria-disabled={!route}
-                                tabIndex={route ? undefined : -1}
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  if (route) navigate(route);
-                                }}
-                              >
-                                <SubIcon />
-                                <span>{subLabel}</span>
-                              </a>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ),
-                      )}
+                              <SubIcon />
+                              <span>{subLabel}</span>
+                            </a>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -315,9 +313,7 @@ function ShellControls() {
   }, []);
 
   return (
-    <div
-      className="pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2 pt-2.5"
-    >
+    <div className="pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2 pt-2.5">
       {/* The backdrop slides in lockstep with the sidebar — same distance
           (its own width), duration and easing as sidebar-container — so it
           covers scrolled sidebar items on every animation frame instead of
@@ -325,7 +321,7 @@ function ShellControls() {
       <div
         className={cn(
           "absolute inset-0 bg-sidebar transition-transform duration-300 ease-drawer motion-reduce:transition-none",
-          state === "expanded" ? "translate-x-0" : "-translate-x-full"
+          state === "expanded" ? "translate-x-0" : "-translate-x-full",
         )}
       >
         {/* Scroll fade on the bottom edge — not a shadow (gray on the
@@ -339,7 +335,7 @@ function ShellControls() {
             "absolute inset-x-0 top-full h-10 bg-gradient-to-b from-sidebar via-sidebar/70 to-transparent transition-opacity duration-300",
             !isMobile && state === "expanded" && sidebarScrolled
               ? "opacity-100"
-              : "opacity-0"
+              : "opacity-0",
           )}
         />
       </div>

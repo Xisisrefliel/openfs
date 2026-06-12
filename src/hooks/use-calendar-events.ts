@@ -23,72 +23,73 @@ export type CalendarEventInput = Omit<
 
 export async function fetchCalendarEvents(): Promise<CalEvent[]> {
   const data = await parseOrThrow<{ events: CalEvent[] }>(
-    await fetch("/api/calendar-events")
+    await fetch("/api/calendar-events"),
   );
   return data.events;
 }
 
 export async function createCalendarEvent(
-  input: Partial<CalendarEventInput>
+  input: Partial<CalendarEventInput>,
 ): Promise<CalEvent> {
   return parseOrThrow<CalEvent>(
     await fetch("/api/calendar-events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function updateCalendarEvent(
   id: number,
-  input: Partial<CalendarEventInput>
+  input: Partial<CalendarEventInput>,
 ): Promise<CalEvent> {
   return parseOrThrow<CalEvent>(
     await fetch(`/api/calendar-events/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function deleteCalendarEvent(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/calendar-events/${id}`, { method: "DELETE" })
+    await fetch(`/api/calendar-events/${id}`, { method: "DELETE" }),
   );
 }
 
 export async function billCalendarEvent(
   id: string,
-  input: CreateTransactionInput
+  input: CreateTransactionInput,
 ): Promise<{ transaction: { id: number }; event: CalEvent }> {
   return parseOrThrow<{ transaction: { id: number }; event: CalEvent }>(
     await fetch(`/api/calendar-events/${id}/bill`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function recordExamResult(
   id: string,
-  result: "bestanden" | "nicht_bestanden" | null
+  result: "bestanden" | "nicht_bestanden" | null,
 ): Promise<CalEvent> {
   return parseOrThrow<CalEvent>(
     await fetch(`/api/calendar-events/${id}/exam-result`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ result }),
-    })
+    }),
   );
 }
 
 export function useCalendarEvents() {
-  const { items: events, loading, refresh } = useFetchList(
-    fetchCalendarEvents,
-    "Termine konnten nicht geladen werden"
-  );
+  const {
+    items: events,
+    loading,
+    refresh,
+  } = useFetchList(fetchCalendarEvents, "Termine konnten nicht geladen werden");
   return { events, loading, refresh };
 }

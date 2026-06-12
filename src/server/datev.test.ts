@@ -202,7 +202,7 @@ describe("booking rows", () => {
   test("rows are chronological and fields contain no raw separators", () => {
     seedTransactions(db);
     const lines = exportLines();
-    const dates = lines.slice(2).map(line => line.split(";")[9]);
+    const dates = lines.slice(2).map((line) => line.split(";")[9]);
     expect(dates).toEqual([...dates].sort((a, b) => a!.localeCompare(b!)));
     for (const line of lines.slice(2)) {
       // naive split must equal the column count — i.e. no field value
@@ -216,7 +216,7 @@ describe("validation", () => {
   test("rejects year-spanning ranges (Belegdatum is TTMM)", () => {
     seedTransactions(db);
     expect(() =>
-      generateDatevExport(db, { from: "2025-12-01", to: "2026-01-31" })
+      generateDatevExport(db, { from: "2025-12-01", to: "2026-01-31" }),
     ).toThrow(ValidationError);
   });
 
@@ -224,7 +224,7 @@ describe("validation", () => {
     seedTransactions(db);
     expect(() => generateDatevExport(db, {})).toThrow(ValidationError);
     expect(() =>
-      generateDatevExport(db, { from: "2026-07-01", to: "2026-06-01" })
+      generateDatevExport(db, { from: "2026-07-01", to: "2026-06-01" }),
     ).toThrow(ValidationError);
   });
 
@@ -232,23 +232,23 @@ describe("validation", () => {
     seedTransactions(db);
     setCompany(db, { ...DEFAULT_COMPANY, beraterNr: "", mandantNr: "" });
     expect(() =>
-      generateDatevExport(db, { from: "2026-06-01", to: "2026-06-30" })
+      generateDatevExport(db, { from: "2026-06-01", to: "2026-06-30" }),
     ).toThrow(/Beraternummer/);
     setCompany(db, { ...DEFAULT_COMPANY, beraterNr: "29098", mandantNr: "" });
     expect(() =>
-      generateDatevExport(db, { from: "2026-06-01", to: "2026-06-30" })
+      generateDatevExport(db, { from: "2026-06-01", to: "2026-06-30" }),
     ).toThrow(/Mandantennummer/);
     // Beraternummer below 1001 is invalid
     setCompany(db, { ...DEFAULT_COMPANY, beraterNr: "999", mandantNr: "1" });
     expect(() =>
-      generateDatevExport(db, { from: "2026-06-01", to: "2026-06-30" })
+      generateDatevExport(db, { from: "2026-06-01", to: "2026-06-30" }),
     ).toThrow(/Beraternummer/);
   });
 
   test("rejects empty period", () => {
     seedTransactions(db);
     expect(() =>
-      generateDatevExport(db, { from: "2026-01-01", to: "2026-01-31" })
+      generateDatevExport(db, { from: "2026-01-01", to: "2026-01-31" }),
     ).toThrow(/keine Buchungen/);
   });
 });

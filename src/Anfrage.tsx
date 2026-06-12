@@ -120,9 +120,7 @@ export function Anfrage() {
     }
   }
 
-  const schoolName = profile.description
-    ? undefined
-    : undefined; // only using slogan/name below
+  const schoolName = profile.description ? undefined : undefined; // only using slogan/name below
 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background px-4 py-12">
@@ -214,10 +212,7 @@ export function Anfrage() {
                 {/* Terminart */}
                 <div className="space-y-1.5">
                   <Label htmlFor="type">Terminart</Label>
-                  <Select
-                    value={form.type}
-                    onValueChange={(v) => set("type", v)}
-                  >
+                  <Select value={form.type} onValueChange={(v) => set("type", v)}>
                     <SelectTrigger id="type">
                       <SelectValue placeholder="Terminart wählen" />
                     </SelectTrigger>

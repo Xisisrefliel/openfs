@@ -33,9 +33,7 @@ function makePlan(overrides: Record<string, unknown> = {}) {
   return {
     name: "Basispaket",
     guaranteedMonths: 6,
-    components: [
-      { label: "Fahrstunde", durationMin: 45, priceCents: 7500 },
-    ],
+    components: [{ label: "Fahrstunde", durationMin: 45, priceCents: 7500 }],
     ...overrides,
   };
 }
@@ -57,66 +55,87 @@ function makeStudent(overrides: Record<string, unknown> = {}) {
 
 describe("normalizeComponents (via createPricePlan)", () => {
   test("components not an array → ValidationError", () => {
-    expect(() =>
-      createPricePlan(db, makePlan({ components: "not-an-array" }))
-    ).toThrow(ValidationError);
+    expect(() => createPricePlan(db, makePlan({ components: "not-an-array" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("empty components array → ValidationError", () => {
-    expect(() =>
-      createPricePlan(db, makePlan({ components: [] }))
-    ).toThrow(ValidationError);
+    expect(() => createPricePlan(db, makePlan({ components: [] }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("component without label → ValidationError", () => {
     expect(() =>
-      createPricePlan(db, makePlan({ components: [{ label: "", durationMin: 45, priceCents: 7500 }] }))
+      createPricePlan(
+        db,
+        makePlan({ components: [{ label: "", durationMin: 45, priceCents: 7500 }] }),
+      ),
     ).toThrow(ValidationError);
   });
 
   test("component with non-object entry → ValidationError", () => {
-    expect(() =>
-      createPricePlan(db, makePlan({ components: ["string-entry"] }))
-    ).toThrow(ValidationError);
+    expect(() => createPricePlan(db, makePlan({ components: ["string-entry"] }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("component with durationMin = 0 → ValidationError (must be positive)", () => {
     expect(() =>
-      createPricePlan(db, makePlan({ components: [{ label: "Test", durationMin: 0, priceCents: 500 }] }))
+      createPricePlan(
+        db,
+        makePlan({ components: [{ label: "Test", durationMin: 0, priceCents: 500 }] }),
+      ),
     ).toThrow(ValidationError);
   });
 
   test("component with negative durationMin → ValidationError", () => {
     expect(() =>
-      createPricePlan(db, makePlan({ components: [{ label: "Test", durationMin: -5, priceCents: 500 }] }))
+      createPricePlan(
+        db,
+        makePlan({ components: [{ label: "Test", durationMin: -5, priceCents: 500 }] }),
+      ),
     ).toThrow(ValidationError);
   });
 
   test("component with negative priceCents → ValidationError", () => {
     expect(() =>
-      createPricePlan(db, makePlan({ components: [{ label: "Test", durationMin: 45, priceCents: -100 }] }))
+      createPricePlan(
+        db,
+        makePlan({ components: [{ label: "Test", durationMin: 45, priceCents: -100 }] }),
+      ),
     ).toThrow(ValidationError);
   });
 
   test("component with durationMin = null → allowed (optional)", () => {
-    const plan = createPricePlan(db, makePlan({
-      components: [{ label: "Einschreibgebühr", durationMin: null, priceCents: 5000 }],
-    }));
+    const plan = createPricePlan(
+      db,
+      makePlan({
+        components: [{ label: "Einschreibgebühr", durationMin: null, priceCents: 5000 }],
+      }),
+    );
     expect(plan.components[0]!.durationMin).toBeNull();
     expect(plan.components[0]!.priceCents).toBe(5000);
   });
 
   test("component with priceCents = 0 → allowed (free component)", () => {
-    const plan = createPricePlan(db, makePlan({
-      components: [{ label: "Gratisstunde", durationMin: 45, priceCents: 0 }],
-    }));
+    const plan = createPricePlan(
+      db,
+      makePlan({
+        components: [{ label: "Gratisstunde", durationMin: 45, priceCents: 0 }],
+      }),
+    );
     expect(plan.components[0]!.priceCents).toBe(0);
   });
 
   test("label gets trimmed by normalizeComponents", () => {
-    const plan = createPricePlan(db, makePlan({
-      components: [{ label: "  Sonderstunde  ", durationMin: 60, priceCents: 9000 }],
-    }));
+    const plan = createPricePlan(
+      db,
+      makePlan({
+        components: [{ label: "  Sonderstunde  ", durationMin: 60, priceCents: 9000 }],
+      }),
+    );
     expect(plan.components[0]!.label).toBe("Sonderstunde");
   });
 });
@@ -145,12 +164,15 @@ describe("createPricePlan", () => {
   });
 
   test("multiple components are persisted and roundtripped correctly", () => {
-    const plan = createPricePlan(db, makePlan({
-      components: [
-        { label: "Fahrstunde", durationMin: 45, priceCents: 7500 },
-        { label: "Überlandfahrt", durationMin: 90, priceCents: 14000 },
-      ],
-    }));
+    const plan = createPricePlan(
+      db,
+      makePlan({
+        components: [
+          { label: "Fahrstunde", durationMin: 45, priceCents: 7500 },
+          { label: "Überlandfahrt", durationMin: 90, priceCents: 14000 },
+        ],
+      }),
+    );
     expect(plan.components.length).toBe(2);
     expect(plan.components[1]!.label).toBe("Überlandfahrt");
     expect(plan.components[1]!.durationMin).toBe(90);

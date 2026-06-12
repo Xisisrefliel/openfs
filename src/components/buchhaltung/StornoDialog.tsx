@@ -56,7 +56,7 @@ export function StornoDialog({
   return (
     <Dialog
       open={target != null}
-      onOpenChange={value => {
+      onOpenChange={(value) => {
         if (!value) onClose();
       }}
     >
@@ -76,7 +76,7 @@ export function StornoDialog({
             rows={3}
             placeholder="z. B. Falscher Betrag erfasst"
             value={reason}
-            onChange={e => setReason(e.target.value)}
+            onChange={(e) => setReason(e.target.value)}
           />
         </div>
 

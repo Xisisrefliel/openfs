@@ -54,9 +54,7 @@ describe("ensureReviewTables", () => {
     for (const review of listReviews(db)) {
       expect(review.rating).toBeGreaterThanOrEqual(1);
       expect(review.rating).toBeLessThanOrEqual(5);
-      expect(["Google", "Facebook", "Webseite", "Intern"]).toContain(
-        review.source
-      );
+      expect(["Google", "Facebook", "Webseite", "Intern"]).toContain(review.source);
       expect(["neu", "beantwortet", "ausgeblendet"]).toContain(review.status);
     }
   });
@@ -94,49 +92,49 @@ describe("createReview", () => {
 
   test("empty author → ValidationError 'Name ist ein Pflichtfeld.'", () => {
     expect(() => createReview(db, { ...VALID, author: "   " })).toThrow(
-      "Name ist ein Pflichtfeld."
+      "Name ist ein Pflichtfeld.",
     );
   });
 
   test("missing rating → ValidationError", () => {
     expect(() => createReview(db, { ...VALID, rating: undefined })).toThrow(
-      ValidationError
+      ValidationError,
     );
   });
 
-  test.each([0, 6, 4.5])("rating %p → ValidationError", rating => {
+  test.each([0, 6, 4.5])("rating %p → ValidationError", (rating) => {
     expect(() => createReview(db, { ...VALID, rating })).toThrow(
-      "Bewertung muss eine ganze Zahl zwischen 1 und 5 sein."
+      "Bewertung muss eine ganze Zahl zwischen 1 und 5 sein.",
     );
   });
 
   test("non-numeric rating → ValidationError", () => {
-    expect(() =>
-      createReview(db, { ...VALID, rating: "5" as never })
-    ).toThrow(ValidationError);
+    expect(() => createReview(db, { ...VALID, rating: "5" as never })).toThrow(
+      ValidationError,
+    );
   });
 
   test("invalid source → ValidationError", () => {
-    expect(() =>
-      createReview(db, { ...VALID, source: "Yelp" as never })
-    ).toThrow("Quelle muss 'Google', 'Facebook', 'Webseite' oder 'Intern' sein.");
+    expect(() => createReview(db, { ...VALID, source: "Yelp" as never })).toThrow(
+      "Quelle muss 'Google', 'Facebook', 'Webseite' oder 'Intern' sein.",
+    );
   });
 
   test("invalid status → ValidationError", () => {
-    expect(() =>
-      createReview(db, { ...VALID, status: "offen" as never })
-    ).toThrow("Status muss 'neu', 'beantwortet' oder 'ausgeblendet' sein.");
+    expect(() => createReview(db, { ...VALID, status: "offen" as never })).toThrow(
+      "Status muss 'neu', 'beantwortet' oder 'ausgeblendet' sein.",
+    );
   });
 
   test("malformed date → ValidationError", () => {
     expect(() => createReview(db, { ...VALID, date: "01.06.2026" })).toThrow(
-      "Datum muss im Format JJJJ-MM-TT vorliegen."
+      "Datum muss im Format JJJJ-MM-TT vorliegen.",
     );
   });
 
   test("non-string text → ValidationError", () => {
     expect(() => createReview(db, { ...VALID, text: 42 as never })).toThrow(
-      "Feld 'text' muss ein Text sein."
+      "Feld 'text' muss ein Text sein.",
     );
   });
 });
@@ -163,22 +161,20 @@ describe("updateReview", () => {
   test("can hide and unhide via status", () => {
     const created = createReview(db, VALID);
     expect(updateReview(db, created.id, { status: "ausgeblendet" }).status).toBe(
-      "ausgeblendet"
+      "ausgeblendet",
     );
     expect(updateReview(db, created.id, { status: "neu" }).status).toBe("neu");
   });
 
   test("invalid update is rejected and leaves the row unchanged", () => {
     const created = createReview(db, VALID);
-    expect(() => updateReview(db, created.id, { rating: 99 })).toThrow(
-      ValidationError
-    );
+    expect(() => updateReview(db, created.id, { rating: 99 })).toThrow(ValidationError);
     expect(getReview(db, created.id).rating).toBe(5);
   });
 
   test("update on missing id → ValidationError", () => {
     expect(() => updateReview(db, 999999, { status: "neu" })).toThrow(
-      "Bewertung nicht gefunden."
+      "Bewertung nicht gefunden.",
     );
   });
 });
@@ -189,9 +185,7 @@ describe("deleteReview", () => {
     const before = listReviews(db).length;
     deleteReview(db, created.id);
     expect(listReviews(db).length).toBe(before - 1);
-    expect(() => getReview(db, created.id)).toThrow(
-      "Bewertung nicht gefunden."
-    );
+    expect(() => getReview(db, created.id)).toThrow("Bewertung nicht gefunden.");
   });
 
   test("delete on missing id → ValidationError", () => {

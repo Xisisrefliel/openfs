@@ -17,10 +17,7 @@ import type { CompanyProfile } from "@/lib/accounting-types";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  FormSection as Section,
-  FormSectionIndex,
-} from "./components/FormSection.tsx";
+import { FormSection as Section, FormSectionIndex } from "./components/FormSection.tsx";
 import { PageHeader } from "./components/PageHeader.tsx";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,7 +57,7 @@ function YesNo({ value, onChange }: { value: boolean; onChange: (v: boolean) => 
       type="single"
       variant="outline"
       value={value ? "ja" : "nein"}
-      onValueChange={v => v && onChange(v === "ja")}
+      onValueChange={(v) => v && onChange(v === "ja")}
       className="shrink-0"
     >
       <ToggleGroupItem value="ja" className="px-3">
@@ -91,7 +88,7 @@ function ChipGroup({
       onValueChange={onChange}
       className="w-full flex-wrap justify-start gap-2"
     >
-      {options.map(o => (
+      {options.map((o) => (
         <ToggleGroupItem
           key={o}
           value={o}
@@ -104,7 +101,13 @@ function ChipGroup({
   );
 }
 
-function TagInput({ placeholder, initial = [] }: { placeholder: string; initial?: string[] }) {
+function TagInput({
+  placeholder,
+  initial = [],
+}: {
+  placeholder: string;
+  initial?: string[];
+}) {
   const [tags, setTags] = useState<string[]>(initial);
   const [val, setVal] = useState("");
   const add = () => {
@@ -114,12 +117,12 @@ function TagInput({ placeholder, initial = [] }: { placeholder: string; initial?
   };
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-lg border bg-background p-1.5 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
-      {tags.map(t => (
+      {tags.map((t) => (
         <Badge key={t} variant="secondary" className="gap-1 pr-1">
           {t}
           <button
             type="button"
-            onClick={() => setTags(tags.filter(x => x !== t))}
+            onClick={() => setTags(tags.filter((x) => x !== t))}
             className="rounded-full p-0.5 transition-colors hover:bg-foreground/10"
           >
             <X className="size-3" />
@@ -128,8 +131,8 @@ function TagInput({ placeholder, initial = [] }: { placeholder: string; initial?
       ))}
       <input
         value={val}
-        onChange={e => setVal(e.target.value)}
-        onKeyDown={e => {
+        onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
             add();
@@ -149,9 +152,17 @@ function TagInput({ placeholder, initial = [] }: { placeholder: string; initial?
 
 type Hours = { day: string; open: string; close: string; note: string; closed: boolean };
 
-const days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+const days = [
+  "Montag",
+  "Dienstag",
+  "Mittwoch",
+  "Donnerstag",
+  "Freitag",
+  "Samstag",
+  "Sonntag",
+];
 
-const officeDefaults: Hours[] = days.map(day => ({
+const officeDefaults: Hours[] = days.map((day) => ({
   day,
   open: day === "Sonntag" ? "" : "10:00",
   close: day === "Sonntag" ? "" : "17:00",
@@ -159,7 +170,7 @@ const officeDefaults: Hours[] = days.map(day => ({
   closed: day === "Sonntag",
 }));
 
-const theoryDefaults: Hours[] = days.map(day => ({
+const theoryDefaults: Hours[] = days.map((day) => ({
   day,
   open: "",
   close: "",
@@ -168,20 +179,64 @@ const theoryDefaults: Hours[] = days.map(day => ({
 }));
 
 const licenseClasses = [
-  "A", "A1", "A2", "A80", "AM", "ASF", "Andere", "Auff-BA", "Auff-BS", "B",
-  "B Auto + B197", "B Automatik", "B17", "B196", "B197", "B96", "BE", "C",
-  "C+CE", "C1", "C1+C1E", "C1E", "CE", "D", "D1", "D1E", "DE", "FES", "IAS-A",
-  "IAS-S", "L", "MPU", "Mofa", "T",
+  "A",
+  "A1",
+  "A2",
+  "A80",
+  "AM",
+  "ASF",
+  "Andere",
+  "Auff-BA",
+  "Auff-BS",
+  "B",
+  "B Auto + B197",
+  "B Automatik",
+  "B17",
+  "B196",
+  "B197",
+  "B96",
+  "BE",
+  "C",
+  "C+CE",
+  "C1",
+  "C1+C1E",
+  "C1E",
+  "CE",
+  "D",
+  "D1",
+  "D1E",
+  "DE",
+  "FES",
+  "IAS-A",
+  "IAS-S",
+  "L",
+  "MPU",
+  "Mofa",
+  "T",
 ];
 
 const bkfClasses = ["C (BKF)", "C+CE (BKF)", "D (BKF)", "GC", "GD", "WC", "WD"];
 
 const merkmaleList = [
-  "Eignungstest", "ASF", "Sehtest", "Weibliche Fahrlehrer", "FES", "Finanzierung",
-  "Erste Hilfe", "Amtliche Anmeldung", "Intensivkurs", "Online lernen", "Fahrsimulator",
+  "Eignungstest",
+  "ASF",
+  "Sehtest",
+  "Weibliche Fahrlehrer",
+  "FES",
+  "Finanzierung",
+  "Erste Hilfe",
+  "Amtliche Anmeldung",
+  "Intensivkurs",
+  "Online lernen",
+  "Fahrsimulator",
 ];
 
-const paymentMethods = ["Banküberweisung", "Kredit- / Debitkarte", "Bar", "Giro / EC-Karten"];
+const paymentMethods = [
+  "Banküberweisung",
+  "Kredit- / Debitkarte",
+  "Bar",
+  "Giro / EC-Karten",
+];
 
 const sections = [
   { id: "stammdaten", label: "Stammdaten" },
@@ -210,7 +265,10 @@ function HoursEditor({ initial }: { initial: Hours[] }) {
           className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-3"
         >
           <div className="flex w-32 shrink-0 items-center gap-2">
-            <Switch checked={!r.closed} onCheckedChange={v => update(i, { closed: !v })} />
+            <Switch
+              checked={!r.closed}
+              onCheckedChange={(v) => update(i, { closed: !v })}
+            />
             <span className="text-sm font-medium">{r.day}</span>
           </div>
 
@@ -222,20 +280,20 @@ function HoursEditor({ initial }: { initial: Hours[] }) {
                 <Input
                   type="time"
                   value={r.open}
-                  onChange={e => update(i, { open: e.target.value })}
+                  onChange={(e) => update(i, { open: e.target.value })}
                   className="w-[120px] tabular-nums"
                 />
                 <span className="text-sm text-muted-foreground">bis</span>
                 <Input
                   type="time"
                   value={r.close}
-                  onChange={e => update(i, { close: e.target.value })}
+                  onChange={(e) => update(i, { close: e.target.value })}
                   className="w-[120px] tabular-nums"
                 />
               </div>
               <Input
                 value={r.note}
-                onChange={e => update(i, { note: e.target.value })}
+                onChange={(e) => update(i, { note: e.target.value })}
                 placeholder="Weitere Anmerkungen"
                 className="flex-1"
               />
@@ -273,7 +331,7 @@ export function Profil() {
 
   useEffect(() => {
     fetch("/api/profile")
-      .then(res => {
+      .then((res) => {
         if (!res.ok) throw new Error("Profil-Request fehlgeschlagen.");
         return res.json();
       })
@@ -282,7 +340,7 @@ export function Profil() {
   }, [formVersion]);
 
   const updateCompany = (patch: Partial<CompanyProfile>) =>
-    setCompany(current => ({ ...current, ...patch }));
+    setCompany((current) => ({ ...current, ...patch }));
 
   const save = async () => {
     try {
@@ -301,11 +359,11 @@ export function Profil() {
   };
   const [merkmale, setMerkmale] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
-      merkmaleList.map(m => [
+      merkmaleList.map((m) => [
         m,
         ["Sehtest", "Erste Hilfe", "Finanzierung", "Online lernen"].includes(m),
-      ])
-    )
+      ]),
+    ),
   );
   const [payments, setPayments] = useState<string[]>(["Banküberweisung", "Bar"]);
   const markDirty = () => setDirty(true);
@@ -316,22 +374,22 @@ export function Profil() {
       <PageHeader
         end={
           <>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!dirty}
-            className="hidden sm:inline-flex"
-            onClick={() => {
-              setDirty(false);
-              setFormVersion(v => v + 1);
-            }}
-          >
-            Verwerfen
-          </Button>
-          <Button type="button" disabled={!dirty} onClick={save}>
-            <Check />
-            Speichern
-          </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!dirty}
+              className="hidden sm:inline-flex"
+              onClick={() => {
+                setDirty(false);
+                setFormVersion((v) => v + 1);
+              }}
+            >
+              Verwerfen
+            </Button>
+            <Button type="button" disabled={!dirty} onClick={save}>
+              <Check />
+              Speichern
+            </Button>
           </>
         }
       />
@@ -341,7 +399,7 @@ export function Profil() {
         key={formVersion}
         className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6"
         onInputCapture={markDirty}
-        onClickCapture={event => {
+        onClickCapture={(event) => {
           if ((event.target as HTMLElement).closest("button")) markDirty();
         }}
       >
@@ -360,7 +418,7 @@ export function Profil() {
                   <Input
                     id="name"
                     value={company.name}
-                    onChange={e => updateCompany({ name: e.target.value })}
+                    onChange={(e) => updateCompany({ name: e.target.value })}
                   />
                 </Field>
                 <Field label="Anschrift" htmlFor="address">
@@ -370,7 +428,7 @@ export function Profil() {
                       id="address"
                       className="pl-9"
                       value={company.address}
-                      onChange={e => updateCompany({ address: e.target.value })}
+                      onChange={(e) => updateCompany({ address: e.target.value })}
                     />
                   </div>
                 </Field>
@@ -386,7 +444,7 @@ export function Profil() {
                       type="email"
                       className="pl-9"
                       value={company.email}
-                      onChange={e => updateCompany({ email: e.target.value })}
+                      onChange={(e) => updateCompany({ email: e.target.value })}
                     />
                   </div>
                 </Field>
@@ -398,7 +456,7 @@ export function Profil() {
                       type="tel"
                       className="pl-9"
                       value={company.phone}
-                      onChange={e => updateCompany({ phone: e.target.value })}
+                      onChange={(e) => updateCompany({ phone: e.target.value })}
                     />
                   </div>
                 </Field>
@@ -410,7 +468,7 @@ export function Profil() {
                       type="url"
                       className="pl-9"
                       value={company.website}
-                      onChange={e => updateCompany({ website: e.target.value })}
+                      onChange={(e) => updateCompany({ website: e.target.value })}
                     />
                   </div>
                 </Field>
@@ -433,7 +491,7 @@ export function Profil() {
                       className="pl-9 font-mono text-[13px]"
                       placeholder="z. B. 045 123 45678"
                       value={company.steuernummer}
-                      onChange={e => updateCompany({ steuernummer: e.target.value })}
+                      onChange={(e) => updateCompany({ steuernummer: e.target.value })}
                     />
                   </div>
                 </Field>
@@ -449,7 +507,7 @@ export function Profil() {
                       className="pl-9 font-mono text-[13px]"
                       placeholder="z. B. DE123456789"
                       value={company.ustIdNr}
-                      onChange={e => updateCompany({ ustIdNr: e.target.value })}
+                      onChange={(e) => updateCompany({ ustIdNr: e.target.value })}
                     />
                   </div>
                 </Field>
@@ -466,7 +524,7 @@ export function Profil() {
                       inputMode="numeric"
                       placeholder="z. B. 29098"
                       value={company.beraterNr}
-                      onChange={e => updateCompany({ beraterNr: e.target.value })}
+                      onChange={(e) => updateCompany({ beraterNr: e.target.value })}
                     />
                   </div>
                 </Field>
@@ -483,7 +541,7 @@ export function Profil() {
                       inputMode="numeric"
                       placeholder="z. B. 55003"
                       value={company.mandantNr}
-                      onChange={e => updateCompany({ mandantNr: e.target.value })}
+                      onChange={(e) => updateCompany({ mandantNr: e.target.value })}
                     />
                   </div>
                 </Field>
@@ -501,7 +559,9 @@ export function Profil() {
                       wählen Sie die Datei
                     </span>
                   </p>
-                  <span className="text-xs text-muted-foreground">PNG, JPG bis 10 MB</span>
+                  <span className="text-xs text-muted-foreground">
+                    PNG, JPG bis 10 MB
+                  </span>
                   <input type="file" accept="image/*" multiple className="hidden" />
                 </label>
               </div>
@@ -539,7 +599,11 @@ export function Profil() {
                       {classes.length} ausgewählt
                     </span>
                   </div>
-                  <ChipGroup options={licenseClasses} value={classes} onChange={setClasses} />
+                  <ChipGroup
+                    options={licenseClasses}
+                    value={classes}
+                    onChange={setClasses}
+                  />
                 </div>
 
                 <Separator />
@@ -563,17 +627,26 @@ export function Profil() {
               description="Welche Leistungen bietet Ihre Fahrschule?"
             >
               <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
-                {merkmaleList.map(m => (
-                  <div key={m} className="flex items-center justify-between border-b py-3 last:border-0">
+                {merkmaleList.map((m) => (
+                  <div
+                    key={m}
+                    className="flex items-center justify-between border-b py-3 last:border-0"
+                  >
                     <span className="text-sm">{m}</span>
-                    <YesNo value={merkmale[m] ?? false} onChange={v => setMerkmale({ ...merkmale, [m]: v })} />
+                    <YesNo
+                      value={merkmale[m] ?? false}
+                      onChange={(v) => setMerkmale({ ...merkmale, [m]: v })}
+                    />
                   </div>
                 ))}
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <Field label="Sprachen" hint="Enter drücken zum Hinzufügen">
-                  <TagInput placeholder="Sprache hinzufügen…" initial={["Deutsch", "Türkisch"]} />
+                  <TagInput
+                    placeholder="Sprache hinzufügen…"
+                    initial={["Deutsch", "Türkisch"]}
+                  />
                 </Field>
                 <Field label="Zertifikate" hint="Enter drücken zum Hinzufügen">
                   <TagInput placeholder="Zertifikat hinzufügen…" />
@@ -610,18 +683,20 @@ export function Profil() {
               description="Welche Zahlungsarten akzeptieren Sie?"
             >
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {paymentMethods.map(p => {
+                {paymentMethods.map((p) => {
                   const active = payments.includes(p);
                   return (
                     <button
                       key={p}
                       type="button"
                       onClick={() =>
-                        setPayments(active ? payments.filter(x => x !== p) : [...payments, p])
+                        setPayments(
+                          active ? payments.filter((x) => x !== p) : [...payments, p],
+                        )
                       }
                       className={cn(
                         "flex items-center justify-between rounded-lg border px-4 py-3 text-left transition-all active:scale-[0.99]",
-                        active ? "border-primary bg-secondary" : "hover:border-ring"
+                        active ? "border-primary bg-secondary" : "hover:border-ring",
                       )}
                     >
                       <span className="text-sm font-medium">{p}</span>
@@ -630,7 +705,7 @@ export function Profil() {
                           "flex size-5 items-center justify-center rounded-full border transition-colors",
                           active
                             ? "border-primary bg-primary text-primary-foreground"
-                            : "text-transparent"
+                            : "text-transparent",
                         )}
                       >
                         <Check className="size-3" />

@@ -61,7 +61,12 @@ function Section({
     <Card>
       <CardHeader className="border-b">
         <div className="flex items-start gap-2.5">
-          <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", accent)}>
+          <div
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-lg",
+              accent,
+            )}
+          >
             <Icon className="size-[18px]" />
           </div>
           <div className="flex flex-col gap-0.5">
@@ -125,13 +130,13 @@ function TagEditor({
   };
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-lg border bg-background p-1.5 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
-      {value.map(tag => (
+      {value.map((tag) => (
         <Badge key={tag} variant="secondary" className="gap-1 pr-1">
           {tag}
           <button
             type="button"
             aria-label={`${tag} entfernen`}
-            onClick={() => onChange(value.filter(t => t !== tag))}
+            onClick={() => onChange(value.filter((t) => t !== tag))}
             className="rounded-full p-0.5 transition-colors hover:bg-foreground/10"
           >
             <X className="size-3" />
@@ -140,9 +145,9 @@ function TagEditor({
       ))}
       <input
         value={draft}
-        onChange={e => setDraft(e.target.value)}
+        onChange={(e) => setDraft(e.target.value)}
         onBlur={add}
-        onKeyDown={e => {
+        onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
             add();
@@ -168,13 +173,13 @@ export function Schulprofil() {
   const [formVersion, setFormVersion] = useState(0);
 
   const update = (patch: Partial<SchoolProfile>) =>
-    setProfile(current => ({ ...current, ...patch }));
+    setProfile((current) => ({ ...current, ...patch }));
 
   const updateHours = (index: number, hours: string) =>
-    setProfile(current => ({
+    setProfile((current) => ({
       ...current,
       opening_hours: current.opening_hours.map((entry, i) =>
-        i === index ? { ...entry, hours } : entry
+        i === index ? { ...entry, hours } : entry,
       ),
     }));
 
@@ -182,7 +187,7 @@ export function Schulprofil() {
 
   const discard = () => {
     setDirty(false);
-    setFormVersion(v => v + 1);
+    setFormVersion((v) => v + 1);
     void refresh();
   };
 
@@ -195,7 +200,7 @@ export function Schulprofil() {
       toast.error(
         error instanceof Error && error.message
           ? error.message
-          : "Schulprofil konnte nicht gespeichert werden."
+          : "Schulprofil konnte nicht gespeichert werden.",
       );
     }
   };
@@ -228,7 +233,7 @@ export function Schulprofil() {
         key={formVersion}
         className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6"
         onInputCapture={markDirty}
-        onClickCapture={event => {
+        onClickCapture={(event) => {
           if ((event.target as HTMLElement).closest("button")) markDirty();
         }}
       >
@@ -247,17 +252,21 @@ export function Schulprofil() {
                   id="slogan"
                   placeholder="z. B. Sicher ans Ziel."
                   value={profile.slogan}
-                  onChange={e => update({ slogan: e.target.value })}
+                  onChange={(e) => update({ slogan: e.target.value })}
                 />
               </Field>
-              <Field label="Gegründet" htmlFor="founded" hint="Jahr der Gründung (optional).">
+              <Field
+                label="Gegründet"
+                htmlFor="founded"
+                hint="Jahr der Gründung (optional)."
+              >
                 <IconInput
                   Icon={CalendarDays}
                   id="founded"
                   inputMode="numeric"
                   placeholder="z. B. 1998"
                   value={profile.founded_year ?? ""}
-                  onChange={e => {
+                  onChange={(e) => {
                     const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
                     update({ founded_year: digits ? Number(digits) : null });
                   }}
@@ -270,7 +279,7 @@ export function Schulprofil() {
                   type="url"
                   placeholder="https://…"
                   value={profile.website}
-                  onChange={e => update({ website: e.target.value })}
+                  onChange={(e) => update({ website: e.target.value })}
                 />
               </Field>
               <div className="md:col-span-2">
@@ -280,7 +289,7 @@ export function Schulprofil() {
                     rows={4}
                     placeholder="Beschreiben Sie Ihre Fahrschule in wenigen Sätzen…"
                     value={profile.description}
-                    onChange={e => update({ description: e.target.value })}
+                    onChange={(e) => update({ description: e.target.value })}
                   />
                 </Field>
               </div>
@@ -301,7 +310,7 @@ export function Schulprofil() {
                   id="instagram"
                   placeholder="https://instagram.com/…"
                   value={profile.instagram}
-                  onChange={e => update({ instagram: e.target.value })}
+                  onChange={(e) => update({ instagram: e.target.value })}
                 />
               </Field>
               <Field label="Facebook" htmlFor="facebook">
@@ -310,7 +319,7 @@ export function Schulprofil() {
                   id="facebook"
                   placeholder="https://facebook.com/…"
                   value={profile.facebook}
-                  onChange={e => update({ facebook: e.target.value })}
+                  onChange={(e) => update({ facebook: e.target.value })}
                 />
               </Field>
               <Field label="Google Maps" htmlFor="maps">
@@ -319,7 +328,7 @@ export function Schulprofil() {
                   id="maps"
                   placeholder="https://maps.google.com/…"
                   value={profile.google_maps_url}
-                  onChange={e => update({ google_maps_url: e.target.value })}
+                  onChange={(e) => update({ google_maps_url: e.target.value })}
                 />
               </Field>
             </div>
@@ -341,7 +350,7 @@ export function Schulprofil() {
                   <span className="w-32 shrink-0 text-sm font-medium">{entry.day}</span>
                   <Input
                     value={entry.hours}
-                    onChange={e => updateHours(i, e.target.value)}
+                    onChange={(e) => updateHours(i, e.target.value)}
                     placeholder="z. B. 09:00 – 18:00 oder Geschlossen"
                     className="flex-1"
                   />
@@ -357,10 +366,13 @@ export function Schulprofil() {
             Icon={ListChecks}
             accent="bg-emerald-500/10 text-emerald-600"
           >
-            <Field label="Leistungen" hint="Enter drücken zum Hinzufügen — z. B. Klasse B, Intensivkurse, Theorieunterricht online.">
+            <Field
+              label="Leistungen"
+              hint="Enter drücken zum Hinzufügen — z. B. Klasse B, Intensivkurse, Theorieunterricht online."
+            >
               <TagEditor
                 value={profile.services}
-                onChange={services => {
+                onChange={(services) => {
                   update({ services });
                   markDirty();
                 }}
@@ -376,10 +388,13 @@ export function Schulprofil() {
             Icon={Award}
             accent="bg-amber-500/10 text-amber-600"
           >
-            <Field label="Highlights" hint="Enter drücken zum Hinzufügen — z. B. Moderne Fahrzeugflotte, Hohe Bestehensquote.">
+            <Field
+              label="Highlights"
+              hint="Enter drücken zum Hinzufügen — z. B. Moderne Fahrzeugflotte, Hohe Bestehensquote."
+            >
               <TagEditor
                 value={profile.highlights}
-                onChange={highlights => {
+                onChange={(highlights) => {
                   update({ highlights });
                   markDirty();
                 }}

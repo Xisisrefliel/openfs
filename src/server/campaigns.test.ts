@@ -119,59 +119,57 @@ describe("createCampaign", () => {
 
   test("empty name → ValidationError 'Name ist ein Pflichtfeld.'", () => {
     expect(() => createCampaign(db, { ...VALID, name: "   " })).toThrow(
-      "Name ist ein Pflichtfeld."
+      "Name ist ein Pflichtfeld.",
     );
   });
 
   test("invalid channel → ValidationError 'Ungültiger Kanal.'", () => {
-    expect(() =>
-      createCampaign(db, { ...VALID, channel: "Plakat" as never })
-    ).toThrow("Ungültiger Kanal.");
+    expect(() => createCampaign(db, { ...VALID, channel: "Plakat" as never })).toThrow(
+      "Ungültiger Kanal.",
+    );
   });
 
   test("invalid status → ValidationError", () => {
-    expect(() =>
-      createCampaign(db, { ...VALID, status: "archiviert" as never })
-    ).toThrow("Status muss 'aktiv', 'pausiert' oder 'beendet' sein.");
+    expect(() => createCampaign(db, { ...VALID, status: "archiviert" as never })).toThrow(
+      "Status muss 'aktiv', 'pausiert' oder 'beendet' sein.",
+    );
   });
 
   test("negative budget → ValidationError", () => {
     expect(() => createCampaign(db, { ...VALID, budgetCents: -1 })).toThrow(
-      ValidationError
+      ValidationError,
     );
   });
 
   test("non-integer leads → ValidationError", () => {
-    expect(() => createCampaign(db, { ...VALID, leads: 1.5 })).toThrow(
-      ValidationError
-    );
+    expect(() => createCampaign(db, { ...VALID, leads: 1.5 })).toThrow(ValidationError);
   });
 
   test("string spentCents → ValidationError", () => {
-    expect(() =>
-      createCampaign(db, { ...VALID, spentCents: "120" as never })
-    ).toThrow(ValidationError);
+    expect(() => createCampaign(db, { ...VALID, spentCents: "120" as never })).toThrow(
+      ValidationError,
+    );
   });
 
   test("missing/invalid start date → ValidationError", () => {
-    expect(() =>
-      createCampaign(db, { ...VALID, startDate: "01.06.2026" })
-    ).toThrow("Startdatum muss ein ISO-Datum sein.");
+    expect(() => createCampaign(db, { ...VALID, startDate: "01.06.2026" })).toThrow(
+      "Startdatum muss ein ISO-Datum sein.",
+    );
     expect(() => createCampaign(db, { ...VALID, startDate: "" })).toThrow(
-      ValidationError
+      ValidationError,
     );
   });
 
   test("malformed end date → ValidationError", () => {
-    expect(() =>
-      createCampaign(db, { ...VALID, endDate: "31.08.2026" })
-    ).toThrow("Enddatum muss ein ISO-Datum oder leer sein.");
+    expect(() => createCampaign(db, { ...VALID, endDate: "31.08.2026" })).toThrow(
+      "Enddatum muss ein ISO-Datum oder leer sein.",
+    );
   });
 
   test("end before start → ValidationError", () => {
-    expect(() =>
-      createCampaign(db, { ...VALID, endDate: "2026-05-01" })
-    ).toThrow("Enddatum darf nicht vor dem Startdatum liegen.");
+    expect(() => createCampaign(db, { ...VALID, endDate: "2026-05-01" })).toThrow(
+      "Enddatum darf nicht vor dem Startdatum liegen.",
+    );
   });
 
   test("empty end date is allowed (laufende Kampagne)", () => {
@@ -203,24 +201,22 @@ describe("updateCampaign", () => {
   test("pause/resume via status patch", () => {
     const created = createCampaign(db, VALID);
     expect(updateCampaign(db, created.id, { status: "pausiert" }).status).toBe(
-      "pausiert"
+      "pausiert",
     );
-    expect(updateCampaign(db, created.id, { status: "aktiv" }).status).toBe(
-      "aktiv"
-    );
+    expect(updateCampaign(db, created.id, { status: "aktiv" }).status).toBe("aktiv");
   });
 
   test("invalid update is rejected and keeps current values", () => {
     const created = createCampaign(db, VALID);
-    expect(() =>
-      updateCampaign(db, created.id, { endDate: "2026-01-01" })
-    ).toThrow("Enddatum darf nicht vor dem Startdatum liegen.");
+    expect(() => updateCampaign(db, created.id, { endDate: "2026-01-01" })).toThrow(
+      "Enddatum darf nicht vor dem Startdatum liegen.",
+    );
     expect(getCampaign(db, created.id).endDate).toBe("2026-08-31");
   });
 
   test("update on missing id → ValidationError", () => {
     expect(() => updateCampaign(db, 999999, { name: "x" })).toThrow(
-      "Kampagne nicht gefunden."
+      "Kampagne nicht gefunden.",
     );
   });
 });
@@ -231,14 +227,10 @@ describe("deleteCampaign", () => {
     const before = listCampaigns(db).length;
     deleteCampaign(db, created.id);
     expect(listCampaigns(db).length).toBe(before - 1);
-    expect(() => getCampaign(db, created.id)).toThrow(
-      "Kampagne nicht gefunden."
-    );
+    expect(() => getCampaign(db, created.id)).toThrow("Kampagne nicht gefunden.");
   });
 
   test("delete on missing id → ValidationError", () => {
-    expect(() => deleteCampaign(db, 999999)).toThrow(
-      "Kampagne nicht gefunden."
-    );
+    expect(() => deleteCampaign(db, 999999)).toThrow("Kampagne nicht gefunden.");
   });
 });

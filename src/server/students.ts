@@ -163,7 +163,7 @@ function normalize(input: Partial<Student>, current: Student): Student {
       (!Number.isInteger(input.pricePlanId) || input.pricePlanId <= 0)
     ) {
       throw new ValidationError(
-        "Feld 'pricePlanId' muss eine Preisplan-ID oder null sein."
+        "Feld 'pricePlanId' muss eine Preisplan-ID oder null sein.",
       );
     }
     next.pricePlanId = input.pricePlanId;
@@ -176,7 +176,7 @@ function normalize(input: Partial<Student>, current: Student): Student {
         !/^\d{4}-\d{2}-\d{2}$/.test(input.licenseDate)
       ) {
         throw new ValidationError(
-          "Feld 'licenseDate' muss ein ISO-Datum (YYYY-MM-DD) oder leer sein."
+          "Feld 'licenseDate' muss ein ISO-Datum (YYYY-MM-DD) oder leer sein.",
         );
       }
     }
@@ -230,9 +230,7 @@ function guardUnique<T>(write: () => T): T {
     return write();
   } catch (error) {
     if (error instanceof Error && error.message.includes("UNIQUE")) {
-      throw new ValidationError(
-        "Kunden- oder Vertragsnummer ist bereits vergeben."
-      );
+      throw new ValidationError("Kunden- oder Vertragsnummer ist bereits vergeben.");
     }
     throw error;
   }
@@ -266,10 +264,7 @@ function writeParams(data: Student) {
   ] as const;
 }
 
-export function createStudent(
-  db: Database,
-  input: Partial<Student>
-): StudentRecord {
+export function createStudent(db: Database, input: Partial<Student>): StudentRecord {
   const data = normalize(input, EMPTY);
   const row = guardUnique(() =>
     db
@@ -280,9 +275,9 @@ export function createStudent(
            status, instructor, vehicle, balance, last_lesson, next_lesson,
            progress, lessons, documents, theory, price_plan_id, license_date
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         RETURNING id`
+         RETURNING id`,
       )
-      .get(...writeParams(data))
+      .get(...writeParams(data)),
   )!;
   return getStudent(db, row.id);
 }
@@ -290,7 +285,7 @@ export function createStudent(
 export function updateStudent(
   db: Database,
   id: number,
-  input: Partial<Student>
+  input: Partial<Student>,
 ): StudentRecord {
   const current = getStudent(db, id);
   const data = normalize(input, current);
@@ -303,16 +298,17 @@ export function updateStudent(
          vehicle = ?, balance = ?, last_lesson = ?, next_lesson = ?,
          progress = ?, lessons = ?, documents = ?, theory = ?,
          price_plan_id = ?, license_date = ?
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(...writeParams(data), id);
     // Chat threads carry a denormalized student_name next to their
     // student_id — keep it in sync on rename.
     const oldName = `${current.firstName} ${current.lastName}`.trim();
     const newName = `${data.firstName} ${data.lastName}`.trim();
     if (newName !== oldName && tableExists(db, "conversations")) {
-      db.prepare(
-        "UPDATE conversations SET student_name = ? WHERE student_id = ?"
-      ).run(newName, id);
+      db.prepare("UPDATE conversations SET student_name = ? WHERE student_id = ?").run(
+        newName,
+        id,
+      );
     }
   });
   guardUnique(write);
@@ -327,18 +323,18 @@ export function deleteStudent(db: Database, id: number): void {
     const theoryGroups = tableExists(db, "theory_groups")
       ? db
           .query<{ id: number; student_ids: string }, []>(
-            "SELECT id, student_ids FROM theory_groups"
+            "SELECT id, student_ids FROM theory_groups",
           )
           .all()
-          .filter(group => parseIdList(group.student_ids).includes(id))
+          .filter((group) => parseIdList(group.student_ids).includes(id))
       : [];
     const conversations = tableExists(db, "conversations")
       ? db
           .query<{ id: number }, [number]>(
-            "SELECT id FROM conversations WHERE student_id = ?"
+            "SELECT id FROM conversations WHERE student_id = ?",
           )
           .all(id)
-          .map(row => row.id)
+          .map((row) => row.id)
       : [];
     archiveRow(
       db,
@@ -346,21 +342,19 @@ export function deleteStudent(db: Database, id: number): void {
       id,
       `${student.firstName} ${student.lastName}`.trim() ||
         `Vertrag ${student.contractNumber}`,
-      { theoryGroups: theoryGroups.map(group => group.id), conversations }
+      { theoryGroups: theoryGroups.map((group) => group.id), conversations },
     );
     // Drop the id from member lists — a ghost id would keep counting
     // toward the group capacity (theory-groups.ts validates against
     // studentIds, not the resolved members).
     if (theoryGroups.length > 0) {
       const updateGroup = db.prepare(
-        "UPDATE theory_groups SET student_ids = ? WHERE id = ?"
+        "UPDATE theory_groups SET student_ids = ? WHERE id = ?",
       );
       for (const group of theoryGroups) {
         updateGroup.run(
-          JSON.stringify(
-            parseIdList(group.student_ids).filter(sid => sid !== id)
-          ),
-          group.id
+          JSON.stringify(parseIdList(group.student_ids).filter((sid) => sid !== id)),
+          group.id,
         );
       }
     }
@@ -368,16 +362,16 @@ export function deleteStudent(db: Database, id: number): void {
     // orphaned = 1 prevents these threads from being reused via name lookup.
     if (conversations.length > 0) {
       db.prepare(
-        "UPDATE conversations SET student_id = NULL, orphaned = 1 WHERE student_id = ?"
+        "UPDATE conversations SET student_id = NULL, orphaned = 1 WHERE student_id = ?",
       ).run(id);
     }
     // Calendar events survive as operational history, name-keyed via
     // subtitle — only the FK link is cut (it would otherwise block the
     // DELETE below, since PRAGMA foreign_keys is ON).
     if (tableExists(db, "calendar_events")) {
-      db.prepare(
-        "UPDATE calendar_events SET student_id = NULL WHERE student_id = ?"
-      ).run(id);
+      db.prepare("UPDATE calendar_events SET student_id = NULL WHERE student_id = ?").run(
+        id,
+      );
     }
     // Theory attendance is operational data, not a compliance record.
     if (tableExists(db, "theory_attendance")) {
@@ -396,8 +390,8 @@ function parseIdList(raw: string): number[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .map(value => Number(value))
-      .filter(sid => Number.isInteger(sid) && sid > 0);
+      .map((value) => Number(value))
+      .filter((sid) => Number.isInteger(sid) && sid > 0);
   } catch {
     return [];
   }

@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { Database } from "./sqlite";
 
-import { migrateCalendarEventBilling, migrateExamResults, migrateSkr03ToSkr04, openDb } from "./db";
+import {
+  migrateCalendarEventBilling,
+  migrateExamResults,
+  migrateSkr03ToSkr04,
+  openDb,
+} from "./db";
 import { listAccounts, listJournal, listLedger } from "./engine";
 import { seedTransactions } from "./seed";
 import { openSqlite } from "./sqlite";
@@ -41,17 +46,15 @@ function downgradeToSkr03(db: Database) {
   const tmp = db.prepare("UPDATE accounts SET number = ? WHERE number = ?");
   for (const [neu] of SKR04_TO_SKR03) tmp.run(`tmp:${neu}`, neu);
   for (const [neu, alt] of SKR04_TO_SKR03) {
-    db.prepare("UPDATE accounts SET number = ? WHERE number = ?").run(
-      alt,
-      `tmp:${neu}`
-    );
+    db.prepare("UPDATE accounts SET number = ? WHERE number = ?").run(alt, `tmp:${neu}`);
     db.prepare("UPDATE bookings SET soll_account = ? WHERE soll_account = ?").run(
       alt,
-      neu
+      neu,
     );
-    db.prepare(
-      "UPDATE bookings SET haben_account = ? WHERE haben_account = ?"
-    ).run(alt, neu);
+    db.prepare("UPDATE bookings SET haben_account = ? WHERE haben_account = ?").run(
+      alt,
+      neu,
+    );
   }
   db.exec("PRAGMA foreign_keys = ON;");
 }
@@ -64,12 +67,12 @@ beforeEach(() => {
 
 describe("SKR 03 → SKR 04 migration", () => {
   test("legacy fixture really looks like SKR 03", () => {
-    const numbers = new Set(listAccounts(db).map(a => a.number));
+    const numbers = new Set(listAccounts(db).map((a) => a.number));
     expect(numbers.has("8400")).toBe(true);
     expect(numbers.has("4400")).toBe(false);
     // legacy 1800 is Privatentnahmen, not Bank
-    expect(listAccounts(db).find(a => a.number === "1800")?.name).toBe(
-      "Privatentnahmen allgemein"
+    expect(listAccounts(db).find((a) => a.number === "1800")?.name).toBe(
+      "Privatentnahmen allgemein",
     );
   });
 
@@ -77,7 +80,7 @@ describe("SKR 03 → SKR 04 migration", () => {
     const before = listLedger(db, {});
     migrateSkr03ToSkr04(db);
 
-    const accounts = new Map(listAccounts(db).map(a => [a.number, a]));
+    const accounts = new Map(listAccounts(db).map((a) => [a.number, a]));
     expect(accounts.get("1600")?.name).toBe("Kasse");
     expect(accounts.get("1800")?.name).toBe("Bank"); // not Privatentnahmen
     expect(accounts.get("2100")?.name).toBe("Privatentnahmen allgemein");
@@ -96,7 +99,7 @@ describe("SKR 03 → SKR 04 migration", () => {
       expect(accounts.has(row.sollKonto)).toBe(true);
       expect(accounts.has(row.habenKonto)).toBe(true);
     }
-    const zahlung = journal.find(r => r.belegNr === "T0000124A")!;
+    const zahlung = journal.find((r) => r.belegNr === "T0000124A")!;
     expect(zahlung.sollKonto).toBe("1600");
     expect(zahlung.habenKonto).toBe("3272");
 
@@ -111,14 +114,12 @@ describe("SKR 03 → SKR 04 migration", () => {
     migrateSkr03ToSkr04(db);
     migrateSkr03ToSkr04(db); // second run must be a no-op
     expect(listAccounts(db)).toHaveLength(19);
-    expect(
-      listAccounts(db).find(a => a.number === "1800")?.name
-    ).toBe("Bank");
+    expect(listAccounts(db).find((a) => a.number === "1800")?.name).toBe("Bank");
 
     const fresh = openDb(":memory:");
     seedTransactions(fresh);
     migrateSkr03ToSkr04(fresh);
-    expect(listAccounts(fresh).find(a => a.number === "1800")?.name).toBe("Bank");
+    expect(listAccounts(fresh).find((a) => a.number === "1800")?.name).toBe("Bank");
   });
 });
 
@@ -166,7 +167,7 @@ describe("migrateCalendarEventBilling", () => {
     const colsBefore = legacy
       .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     expect(colsBefore).not.toContain("student_id");
     expect(colsBefore).not.toContain("billed_transaction_id");
 
@@ -175,7 +176,7 @@ describe("migrateCalendarEventBilling", () => {
     const colsAfter = legacy
       .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     expect(colsAfter).toContain("student_id");
     expect(colsAfter).toContain("billed_transaction_id");
   });
@@ -188,22 +189,24 @@ describe("migrateCalendarEventBilling", () => {
     const cols = legacy
       .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
       .all()
-      .map(c => c.name);
-    expect(cols.filter(c => c === "student_id")).toHaveLength(1);
-    expect(cols.filter(c => c === "billed_transaction_id")).toHaveLength(1);
+      .map((c) => c.name);
+    expect(cols.filter((c) => c === "student_id")).toHaveLength(1);
+    expect(cols.filter((c) => c === "billed_transaction_id")).toHaveLength(1);
   });
 
   test("back-fill links event to student when subtitle matches exactly one student name", () => {
     const legacy = openLegacyDb();
     // Insert one student named "Lena Braun".
-    legacy.run("INSERT INTO students (first_name, last_name) VALUES (?, ?)", "Lena", "Braun");
-    const { lastInsertRowid: studentId } = legacy.run(
-      "SELECT last_insert_rowid() as id"
+    legacy.run(
+      "INSERT INTO students (first_name, last_name) VALUES (?, ?)",
+      "Lena",
+      "Braun",
     );
+    const { lastInsertRowid: studentId } = legacy.run("SELECT last_insert_rowid() as id");
     // Insert an event whose subtitle exactly matches.
     legacy.run(
       `INSERT INTO calendar_events (date, start, "end", title, subtitle, type)
-       VALUES ('2026-06-10', '09:00', '10:00', 'Fahrstunde', 'Lena Braun', 'Praktisch')`
+       VALUES ('2026-06-10', '09:00', '10:00', 'Fahrstunde', 'Lena Braun', 'Praktisch')`,
     );
     const row = legacy
       .query<{ id: number }, []>("SELECT id FROM calendar_events LIMIT 1")
@@ -213,12 +216,12 @@ describe("migrateCalendarEventBilling", () => {
 
     const sid = legacy
       .query<{ id: number }, []>(
-        "SELECT id FROM students WHERE first_name='Lena' AND last_name='Braun'"
+        "SELECT id FROM students WHERE first_name='Lena' AND last_name='Braun'",
       )
       .get()!.id;
     const linked = legacy
       .query<{ student_id: number | null }, [number]>(
-        "SELECT student_id FROM calendar_events WHERE id = ?"
+        "SELECT student_id FROM calendar_events WHERE id = ?",
       )
       .get(row.id)!;
     expect(linked.student_id).toBe(sid);
@@ -228,7 +231,7 @@ describe("migrateCalendarEventBilling", () => {
     const legacy = openLegacyDb();
     legacy.run(
       `INSERT INTO calendar_events (date, start, "end", title, subtitle, type)
-       VALUES ('2026-06-10', '09:00', '10:00', 'Fahrstunde', 'Unbekannt Müller', 'Praktisch')`
+       VALUES ('2026-06-10', '09:00', '10:00', 'Fahrstunde', 'Unbekannt Müller', 'Praktisch')`,
     );
     const row = legacy
       .query<{ id: number }, []>("SELECT id FROM calendar_events LIMIT 1")
@@ -238,7 +241,7 @@ describe("migrateCalendarEventBilling", () => {
 
     const linked = legacy
       .query<{ student_id: number | null }, [number]>(
-        "SELECT student_id FROM calendar_events WHERE id = ?"
+        "SELECT student_id FROM calendar_events WHERE id = ?",
       )
       .get(row.id)!;
     expect(linked.student_id).toBeNull();
@@ -247,11 +250,19 @@ describe("migrateCalendarEventBilling", () => {
   test("back-fill leaves NULL when subtitle matches multiple students (ambiguous)", () => {
     const legacy = openLegacyDb();
     // Two students with the same name.
-    legacy.run("INSERT INTO students (first_name, last_name) VALUES (?, ?)", "Ali", "Yilmaz");
-    legacy.run("INSERT INTO students (first_name, last_name) VALUES (?, ?)", "Ali", "Yilmaz");
+    legacy.run(
+      "INSERT INTO students (first_name, last_name) VALUES (?, ?)",
+      "Ali",
+      "Yilmaz",
+    );
+    legacy.run(
+      "INSERT INTO students (first_name, last_name) VALUES (?, ?)",
+      "Ali",
+      "Yilmaz",
+    );
     legacy.run(
       `INSERT INTO calendar_events (date, start, "end", title, subtitle, type)
-       VALUES ('2026-06-10', '09:00', '10:00', 'Fahrstunde', 'Ali Yilmaz', 'Praktisch')`
+       VALUES ('2026-06-10', '09:00', '10:00', 'Fahrstunde', 'Ali Yilmaz', 'Praktisch')`,
     );
     const row = legacy
       .query<{ id: number }, []>("SELECT id FROM calendar_events LIMIT 1")
@@ -261,7 +272,7 @@ describe("migrateCalendarEventBilling", () => {
 
     const linked = legacy
       .query<{ student_id: number | null }, [number]>(
-        "SELECT student_id FROM calendar_events WHERE id = ?"
+        "SELECT student_id FROM calendar_events WHERE id = ?",
       )
       .get(row.id)!;
     expect(linked.student_id).toBeNull();
@@ -272,7 +283,7 @@ describe("migrateCalendarEventBilling", () => {
     const cols = fresh
       .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     // openDb calls migrateCalendarEventBilling; even a new DB that already
     // has the columns from the DDL seed must pass the idempotency check.
     // (Current DDL does NOT include these columns — they are only added via
@@ -321,11 +332,11 @@ describe("migrateExamResults", () => {
     const eventColsBefore = legacy
       .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     const studentColsBefore = legacy
       .query<{ name: string }, []>("PRAGMA table_info(students)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     expect(eventColsBefore).not.toContain("exam_result");
     expect(studentColsBefore).not.toContain("license_date");
 
@@ -334,11 +345,11 @@ describe("migrateExamResults", () => {
     const eventColsAfter = legacy
       .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     const studentColsAfter = legacy
       .query<{ name: string }, []>("PRAGMA table_info(students)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     expect(eventColsAfter).toContain("exam_result");
     expect(studentColsAfter).toContain("license_date");
   });
@@ -350,13 +361,13 @@ describe("migrateExamResults", () => {
     const eventCols = legacy
       .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     const studentCols = legacy
       .query<{ name: string }, []>("PRAGMA table_info(students)")
       .all()
-      .map(c => c.name);
-    expect(eventCols.filter(c => c === "exam_result")).toHaveLength(1);
-    expect(studentCols.filter(c => c === "license_date")).toHaveLength(1);
+      .map((c) => c.name);
+    expect(eventCols.filter((c) => c === "exam_result")).toHaveLength(1);
+    expect(studentCols.filter((c) => c === "license_date")).toHaveLength(1);
   });
 
   test("openDb (fresh) gains both columns from migrateExamResults", () => {
@@ -364,11 +375,11 @@ describe("migrateExamResults", () => {
     const eventCols = fresh
       .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     const studentCols = fresh
       .query<{ name: string }, []>("PRAGMA table_info(students)")
       .all()
-      .map(c => c.name);
+      .map((c) => c.name);
     expect(eventCols).toContain("exam_result");
     expect(studentCols).toContain("license_date");
   });

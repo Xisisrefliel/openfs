@@ -128,10 +128,7 @@ function formatDate(iso: string): string {
 
 function budgetPercent(campaign: Campaign): number {
   if (campaign.budgetCents <= 0) return 0;
-  return Math.min(
-    100,
-    Math.round((campaign.spentCents / campaign.budgetCents) * 100)
-  );
+  return Math.min(100, Math.round((campaign.spentCents / campaign.budgetCents) * 100));
 }
 
 function costPerLeadCents(spentCents: number, leads: number): number | null {
@@ -159,8 +156,7 @@ function KpiCards({ campaigns }: { campaigns: Campaign[] }) {
   const totalSignups = campaigns.reduce((s, c) => s + c.signups, 0);
   const spentPct =
     totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 0;
-  const conversion =
-    totalLeads > 0 ? Math.round((totalSignups / totalLeads) * 100) : 0;
+  const conversion = totalLeads > 0 ? Math.round((totalSignups / totalLeads) * 100) : 0;
   const cpl = costPerLeadCents(totalSpent, totalLeads);
 
   const kpis: Kpi[] = [
@@ -204,7 +200,7 @@ function KpiCards({ campaigns }: { campaigns: Campaign[] }) {
               <span
                 className={cn(
                   "flex size-6 items-center justify-center rounded-md",
-                  accent
+                  accent,
                 )}
               >
                 <Icon className="size-3.5" />
@@ -235,15 +231,15 @@ const chartConfig = {
 function ChannelChart({ campaigns }: { campaigns: Campaign[] }) {
   const chartData = useMemo(
     () =>
-      CHANNELS.map(channel => {
-        const inChannel = campaigns.filter(c => c.channel === channel);
+      CHANNELS.map((channel) => {
+        const inChannel = campaigns.filter((c) => c.channel === channel);
         return {
           channel,
           leads: inChannel.reduce((s, c) => s + c.leads, 0),
           signups: inChannel.reduce((s, c) => s + c.signups, 0),
         };
-      }).filter(row => row.leads > 0 || row.signups > 0),
-    [campaigns]
+      }).filter((row) => row.leads > 0 || row.signups > 0),
+    [campaigns],
   );
 
   return (
@@ -255,31 +251,16 @@ function ChannelChart({ campaigns }: { campaigns: Campaign[] }) {
           </span>
           Leads nach Kanal
         </CardTitle>
-        <CardDescription>
-          Leads und Anmeldungen über alle Kampagnen
-        </CardDescription>
+        <CardDescription>Leads und Anmeldungen über alle Kampagnen</CardDescription>
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Noch keine Leads erfasst.
-          </p>
+          <p className="text-sm text-muted-foreground">Noch keine Leads erfasst.</p>
         ) : (
-          <ChartContainer
-            config={chartConfig}
-            className="h-[240px] w-full 2xl:h-[300px]"
-          >
-            <BarChart
-              data={chartData}
-              margin={{ top: 8, left: 0, right: 0, bottom: 0 }}
-            >
+          <ChartContainer config={chartConfig} className="h-[240px] w-full 2xl:h-[300px]">
+            <BarChart data={chartData} margin={{ top: 8, left: 0, right: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="channel"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-              />
+              <XAxis dataKey="channel" tickLine={false} axisLine={false} tickMargin={8} />
               <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
               <ChartLegend content={<ChartLegendContent />} />
               <Bar dataKey="leads" fill="var(--color-leads)" radius={6} />
@@ -391,11 +372,8 @@ function CampaignEditDialog({
     setDraft(open ? campaignToDraft(campaign) : null);
   }, [open, campaign?.id]);
 
-  function update<Key extends keyof CampaignDraft>(
-    key: Key,
-    value: CampaignDraft[Key]
-  ) {
-    setDraft(current => (current ? { ...current, [key]: value } : current));
+  function update<Key extends keyof CampaignDraft>(key: Key, value: CampaignDraft[Key]) {
+    setDraft((current) => (current ? { ...current, [key]: value } : current));
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -429,23 +407,21 @@ function CampaignEditDialog({
             <Input
               id="campaign-name"
               value={draft.name}
-              onChange={event => update("name", event.target.value)}
+              onChange={(event) => update("name", event.target.value)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="campaign-channel">Kanal</FieldLabel>
             <Select
               value={draft.channel}
-              onValueChange={value =>
-                update("channel", value as CampaignChannel)
-              }
+              onValueChange={(value) => update("channel", value as CampaignChannel)}
             >
               <SelectTrigger id="campaign-channel" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {CHANNELS.map(channel => (
+                  {CHANNELS.map((channel) => (
                     <SelectItem key={channel} value={channel}>
                       {channel}
                     </SelectItem>
@@ -458,9 +434,7 @@ function CampaignEditDialog({
             <FieldLabel htmlFor="campaign-status">Status</FieldLabel>
             <Select
               value={draft.status}
-              onValueChange={value =>
-                update("status", value as CampaignStatus)
-              }
+              onValueChange={(value) => update("status", value as CampaignStatus)}
             >
               <SelectTrigger id="campaign-status" className="w-full">
                 <SelectValue />
@@ -481,7 +455,7 @@ function CampaignEditDialog({
               inputMode="decimal"
               placeholder="1.250,00"
               value={draft.budget}
-              onChange={event => update("budget", event.target.value)}
+              onChange={(event) => update("budget", event.target.value)}
             />
           </Field>
           <Field>
@@ -491,7 +465,7 @@ function CampaignEditDialog({
               inputMode="decimal"
               placeholder="0,00"
               value={draft.spent}
-              onChange={event => update("spent", event.target.value)}
+              onChange={(event) => update("spent", event.target.value)}
             />
           </Field>
           <Field>
@@ -500,7 +474,7 @@ function CampaignEditDialog({
               id="campaign-leads"
               inputMode="numeric"
               value={draft.leads}
-              onChange={event => update("leads", event.target.value)}
+              onChange={(event) => update("leads", event.target.value)}
             />
           </Field>
           <Field>
@@ -509,7 +483,7 @@ function CampaignEditDialog({
               id="campaign-signups"
               inputMode="numeric"
               value={draft.signups}
-              onChange={event => update("signups", event.target.value)}
+              onChange={(event) => update("signups", event.target.value)}
             />
           </Field>
           <Field>
@@ -518,18 +492,16 @@ function CampaignEditDialog({
               id="campaign-start"
               type="date"
               value={draft.startDate}
-              onChange={event => update("startDate", event.target.value)}
+              onChange={(event) => update("startDate", event.target.value)}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="campaign-end">
-              Enddatum (leer = laufend)
-            </FieldLabel>
+            <FieldLabel htmlFor="campaign-end">Enddatum (leer = laufend)</FieldLabel>
             <Input
               id="campaign-end"
               type="date"
               value={draft.endDate}
-              onChange={event => update("endDate", event.target.value)}
+              onChange={(event) => update("endDate", event.target.value)}
             />
           </Field>
           <Field className="sm:col-span-2">
@@ -537,7 +509,7 @@ function CampaignEditDialog({
             <Input
               id="campaign-notes"
               value={draft.notes}
-              onChange={event => update("notes", event.target.value)}
+              onChange={(event) => update("notes", event.target.value)}
             />
           </Field>
         </FieldGroup>
@@ -558,7 +530,7 @@ function CampaignEditDialog({
                 toast.error(
                   error instanceof Error
                     ? error.message
-                    : "Kampagne konnte nicht gespeichert werden."
+                    : "Kampagne konnte nicht gespeichert werden.",
                 );
               }
             }}
@@ -599,7 +571,7 @@ function CampaignCard({
           <div
             className={cn(
               "flex size-11 shrink-0 items-center justify-center rounded-lg",
-              channelAccents[campaign.channel]
+              channelAccents[campaign.channel],
             )}
           >
             <Megaphone className="size-6" />
@@ -668,15 +640,11 @@ function CampaignCard({
         <dl className="grid grid-cols-3 gap-x-6 gap-y-1">
           <div className="flex flex-col">
             <dt className="text-xs text-muted-foreground">Leads</dt>
-            <dd className="text-sm font-medium tabular-nums">
-              {campaign.leads}
-            </dd>
+            <dd className="text-sm font-medium tabular-nums">{campaign.leads}</dd>
           </div>
           <div className="flex flex-col">
             <dt className="text-xs text-muted-foreground">Anmeldungen</dt>
-            <dd className="text-sm font-medium tabular-nums">
-              {campaign.signups}
-            </dd>
+            <dd className="text-sm font-medium tabular-nums">{campaign.signups}</dd>
           </div>
           <div className="flex flex-col">
             <dt className="text-xs text-muted-foreground">Kosten/Lead</dt>
@@ -706,25 +674,20 @@ export function Marketing() {
   const editingMode: "create" | "edit" = isCreateOpen ? "create" : "edit";
   const editingCampaign = isCreateOpen
     ? null
-    : campaigns.find(campaign => campaign.id === editingCampaignId) ?? null;
+    : (campaigns.find((campaign) => campaign.id === editingCampaignId) ?? null);
   const isDialogOpen = isCreateOpen || editingCampaign !== null;
 
   async function toggleStatus(campaign: Campaign) {
-    const nextStatus: CampaignStatus =
-      campaign.status === "aktiv" ? "pausiert" : "aktiv";
+    const nextStatus: CampaignStatus = campaign.status === "aktiv" ? "pausiert" : "aktiv";
     try {
       await updateCampaign(campaign.id, { status: nextStatus });
       await refresh();
       toast.success(
-        nextStatus === "pausiert"
-          ? "Kampagne pausiert."
-          : "Kampagne fortgesetzt."
+        nextStatus === "pausiert" ? "Kampagne pausiert." : "Kampagne fortgesetzt.",
       );
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Status konnte nicht geändert werden."
+        error instanceof Error ? error.message : "Status konnte nicht geändert werden.",
       );
     }
   }
@@ -736,9 +699,7 @@ export function Marketing() {
       await refresh();
       toast.success("Kampagne gelöscht.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     } finally {
       if (editingCampaignId === pendingDelete.id) {
         setEditingCampaignId(null);
@@ -768,9 +729,7 @@ export function Marketing() {
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="stagger-in flex flex-col gap-4 2xl:gap-5">
           {loading && (
-            <div className="text-sm text-muted-foreground">
-              Lade Kampagnen…
-            </div>
+            <div className="text-sm text-muted-foreground">Lade Kampagnen…</div>
           )}
 
           {!loading && (
@@ -778,7 +737,7 @@ export function Marketing() {
               <KpiCards campaigns={campaigns} />
               <ChannelChart campaigns={campaigns} />
               <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">
-                {campaigns.map(campaign => (
+                {campaigns.map((campaign) => (
                   <CampaignCard
                     key={campaign.id}
                     campaign={campaign}
@@ -802,13 +761,13 @@ export function Marketing() {
         campaign={editingCampaign}
         mode={editingMode}
         open={isDialogOpen}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) {
             setEditingCampaignId(null);
             setIsCreateOpen(false);
           }
         }}
-        onSave={async payload => {
+        onSave={async (payload) => {
           if (editingMode === "create") {
             await createCampaign(payload);
             toast.success("Kampagne erstellt.");
@@ -826,7 +785,7 @@ export function Marketing() {
 
       <AlertDialog
         open={pendingDelete !== null}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) setPendingDelete(null);
         }}
       >
@@ -841,10 +800,7 @@ export function Marketing() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => void confirmDelete()}
-            >
+            <AlertDialogAction variant="destructive" onClick={() => void confirmDelete()}>
               Löschen
             </AlertDialogAction>
           </AlertDialogFooter>

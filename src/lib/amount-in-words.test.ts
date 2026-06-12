@@ -35,12 +35,10 @@ describe("numberToGermanWords", () => {
   test("thousands", () => {
     expect(numberToGermanWords(1000)).toBe("eintausend");
     expect(numberToGermanWords(1250)).toBe("eintausendzweihundertfünfzig");
-    expect(numberToGermanWords(19999)).toBe(
-      "neunzehntausendneunhundertneunundneunzig"
-    );
+    expect(numberToGermanWords(19999)).toBe("neunzehntausendneunhundertneunundneunzig");
     expect(numberToGermanWords(21000)).toBe("einundzwanzigtausend");
     expect(numberToGermanWords(999999)).toBe(
-      "neunhundertneunundneunzigtausendneunhundertneunundneunzig"
+      "neunhundertneunundneunzigtausendneunhundertneunundneunzig",
     );
   });
 
@@ -54,9 +52,7 @@ describe("numberToGermanWords", () => {
 describe("amountInWords", () => {
   test("classic receipt style", () => {
     expect(amountInWords(40983)).toBe("vierhundertneun Euro 83/100");
-    expect(amountInWords(125000)).toBe(
-      "eintausendzweihundertfünfzig Euro 00/100"
-    );
+    expect(amountInWords(125000)).toBe("eintausendzweihundertfünfzig Euro 00/100");
     expect(amountInWords(45000)).toBe("vierhundertfünfzig Euro 00/100");
     expect(amountInWords(0)).toBe("null Euro 00/100");
     expect(amountInWords(5)).toBe("null Euro 05/100");

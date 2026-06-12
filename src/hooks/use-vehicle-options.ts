@@ -16,7 +16,7 @@ export function useVehicleOptions() {
           return;
         }
 
-        const models = vehicles.map(vehicle => vehicle.model);
+        const models = vehicles.map((vehicle) => vehicle.model);
         setVehicleOptions([...new Set(models), UNASSIGNED_VEHICLE]);
       } catch {
         // Keep the selector usable if the endpoint is temporarily unavailable.

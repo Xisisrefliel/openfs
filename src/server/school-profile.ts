@@ -50,7 +50,7 @@ export const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
   instagram: "",
   facebook: "",
   google_maps_url: "",
-  opening_hours: WEEK_DAYS.map(day => ({
+  opening_hours: WEEK_DAYS.map((day) => ({
     day,
     hours:
       day === "Sonntag"
@@ -66,11 +66,7 @@ export const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
     "Intensivkurse",
     "Theorieunterricht online",
   ],
-  highlights: [
-    "Moderne Fahrzeugflotte",
-    "Erfahrene Fahrlehrer",
-    "Hohe Bestehensquote",
-  ],
+  highlights: ["Moderne Fahrzeugflotte", "Erfahrene Fahrlehrer", "Hohe Bestehensquote"],
 };
 
 /* ------------------------------------------------------------------ */
@@ -79,9 +75,7 @@ export const DEFAULT_SCHOOL_PROFILE: SchoolProfile = {
 
 export function getSchoolProfile(db: Database): SchoolProfile {
   const row = db
-    .query<{ value: string }, [string]>(
-      "SELECT value FROM settings WHERE key = ?"
-    )
+    .query<{ value: string }, [string]>("SELECT value FROM settings WHERE key = ?")
     .get(SETTINGS_KEY);
   if (!row) return structuredClone(DEFAULT_SCHOOL_PROFILE);
   try {
@@ -96,7 +90,7 @@ export function getSchoolProfile(db: Database): SchoolProfile {
 export function setSchoolProfile(db: Database, profile: SchoolProfile) {
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(
     SETTINGS_KEY,
-    JSON.stringify(profile)
+    JSON.stringify(profile),
   );
 }
 
@@ -120,9 +114,7 @@ function sanitizeStringList(value: unknown, label: string): string[] {
   const out: string[] = [];
   for (const item of value) {
     if (typeof item !== "string") {
-      throw new ValidationError(
-        `Feld '${label}' darf nur Texteinträge enthalten.`
-      );
+      throw new ValidationError(`Feld '${label}' darf nur Texteinträge enthalten.`);
     }
     const trimmed = item.trim();
     if (trimmed && !out.includes(trimmed)) out.push(trimmed);
@@ -133,14 +125,9 @@ function sanitizeStringList(value: unknown, label: string): string[] {
 function sanitizeFoundedYear(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const year = typeof value === "string" ? Number(value.trim()) : value;
-  if (
-    typeof year !== "number" ||
-    !Number.isInteger(year) ||
-    year < 1900 ||
-    year > 2100
-  ) {
+  if (typeof year !== "number" || !Number.isInteger(year) || year < 1900 || year > 2100) {
     throw new ValidationError(
-      "Feld 'founded_year' muss eine Jahreszahl zwischen 1900 und 2100 sein."
+      "Feld 'founded_year' muss eine Jahreszahl zwischen 1900 und 2100 sein.",
     );
   }
   return year;
@@ -148,12 +135,12 @@ function sanitizeFoundedYear(value: unknown): number | null {
 
 function sanitizeOpeningHours(
   value: unknown,
-  current: OpeningHoursEntry[]
+  current: OpeningHoursEntry[],
 ): OpeningHoursEntry[] {
   if (!Array.isArray(value)) {
     throw new ValidationError("Feld 'opening_hours' muss eine Liste sein.");
   }
-  const byDay = new Map(current.map(e => [e.day, e.hours]));
+  const byDay = new Map(current.map((e) => [e.day, e.hours]));
   for (const entry of value) {
     if (
       typeof entry !== "object" ||
@@ -162,7 +149,7 @@ function sanitizeOpeningHours(
       typeof (entry as OpeningHoursEntry).hours !== "string"
     ) {
       throw new ValidationError(
-        "Feld 'opening_hours' erwartet Einträge mit 'day' und 'hours'."
+        "Feld 'opening_hours' erwartet Einträge mit 'day' und 'hours'.",
       );
     }
     const day = (entry as OpeningHoursEntry).day.trim();
@@ -172,14 +159,14 @@ function sanitizeOpeningHours(
     byDay.set(day, (entry as OpeningHoursEntry).hours.trim());
   }
   // Normalize: always exactly Montag–Sonntag, in order.
-  return WEEK_DAYS.map(day => ({ day, hours: byDay.get(day) ?? "" }));
+  return WEEK_DAYS.map((day) => ({ day, hours: byDay.get(day) ?? "" }));
 }
 
 /** Merges a (partial) payload onto `current`, trimming strings and
  *  normalizing the arrays. Throws ValidationError on garbage. */
 export function sanitizeSchoolProfile(
   body: unknown,
-  current: SchoolProfile
+  current: SchoolProfile,
 ): SchoolProfile {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     throw new ValidationError("Ungültiger Schulprofil-Datensatz.");
@@ -200,10 +187,7 @@ export function sanitizeSchoolProfile(
     next.founded_year = sanitizeFoundedYear(input.founded_year);
   }
   if (input.opening_hours !== undefined) {
-    next.opening_hours = sanitizeOpeningHours(
-      input.opening_hours,
-      current.opening_hours
-    );
+    next.opening_hours = sanitizeOpeningHours(input.opening_hours, current.opening_hours);
   }
   if (input.services !== undefined) {
     next.services = sanitizeStringList(input.services, "services");

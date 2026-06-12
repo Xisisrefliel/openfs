@@ -1,7 +1,4 @@
-import type {
-  StudentDocument,
-  UploadedStudentDocument,
-} from "@/lib/student-data";
+import type { StudentDocument, UploadedStudentDocument } from "@/lib/student-data";
 
 export const MAX_STUDENT_DOCUMENT_BYTES = 12 * 1024 * 1024;
 
@@ -15,7 +12,7 @@ const uploadedAtFormatter = new Intl.DateTimeFormat("de-DE", {
 });
 
 export function isUploadedStudentDocument(
-  document: StudentDocument
+  document: StudentDocument,
 ): document is UploadedStudentDocument {
   return (
     typeof document === "object" &&
@@ -34,10 +31,7 @@ export function getStudentDocumentName(document: StudentDocument): string {
   return document;
 }
 
-export function getStudentDocumentKey(
-  document: StudentDocument,
-  index: number
-): string {
+export function getStudentDocumentKey(document: StudentDocument, index: number): string {
   return isUploadedStudentDocument(document)
     ? `upload-${document.id}`
     : `checklist-${document}-${index}`;
@@ -64,13 +58,13 @@ export function getStudentDocumentMeta(document: StudentDocument): string {
 
 export function hasStudentDocumentNamed(
   documents: StudentDocument[],
-  name: string
+  name: string,
 ): boolean {
   const normalizedName = name.trim().toLocaleLowerCase("de-DE");
   return documents.some(
-    document =>
+    (document) =>
       getStudentDocumentName(document).trim().toLocaleLowerCase("de-DE") ===
-      normalizedName
+      normalizedName,
   );
 }
 
@@ -92,7 +86,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 export async function fileToStudentDocument(
-  file: File
+  file: File,
 ): Promise<UploadedStudentDocument> {
   return {
     kind: "upload",

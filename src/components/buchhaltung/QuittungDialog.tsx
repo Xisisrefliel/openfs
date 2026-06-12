@@ -23,10 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { amountInWords } from "@/lib/amount-in-words";
-import {
-  PAYMENT_METHOD_LABELS,
-  type QuittungData,
-} from "@/lib/accounting-types";
+import { PAYMENT_METHOD_LABELS, type QuittungData } from "@/lib/accounting-types";
 import { formatCents } from "@/lib/money";
 import { accountingApi, formatIsoDate } from "./api";
 
@@ -37,10 +34,10 @@ function cityFromAddress(address: string): string {
 }
 
 function QuittungSheet({ data }: { data: QuittungData }) {
-  const showVatColumns = data.lines.some(line => (line.vatRate ?? 0) > 0);
-  const hasDurchlaufend = data.lines.some(line => line.durchlaufenderPosten);
+  const showVatColumns = data.lines.some((line) => (line.vatRate ?? 0) > 0);
+  const hasDurchlaufend = data.lines.some((line) => line.durchlaufenderPosten);
   const hasSteuerfrei = data.lines.some(
-    line => line.vatRate === 0 && !line.durchlaufenderPosten
+    (line) => line.vatRate === 0 && !line.durchlaufenderPosten,
   );
   const taxIds = [
     data.issuer.steuernummer && `Steuernummer: ${data.issuer.steuernummer}`,
@@ -59,7 +56,7 @@ function QuittungSheet({ data }: { data: QuittungData }) {
               .filter(Boolean)
               .join(" · ")}
           </span>
-          {taxIds.map(line => (
+          {taxIds.map((line) => (
             <span key={String(line)}>{line}</span>
           ))}
         </div>
@@ -152,9 +149,7 @@ function QuittungSheet({ data }: { data: QuittungData }) {
       <div className="flex flex-col gap-1">
         <span>
           <span className="text-black/60">Betrag in Worten:</span>{" "}
-          <span className="font-medium">
-            — {amountInWords(data.totalCents)} —
-          </span>
+          <span className="font-medium">— {amountInWords(data.totalCents)} —</span>
         </span>
         {data.paymentMethod && (
           <span>
@@ -173,9 +168,7 @@ function QuittungSheet({ data }: { data: QuittungData }) {
               Umsatzsteuer.
             </span>
           )}
-          {hasSteuerfrei && (
-            <span>** Steuerfreie Leistung nach § 4 Nr. 21 UStG.</span>
-          )}
+          {hasSteuerfrei && <span>** Steuerfreie Leistung nach § 4 Nr. 21 UStG.</span>}
         </div>
       )}
 
@@ -186,9 +179,7 @@ function QuittungSheet({ data }: { data: QuittungData }) {
         </span>
         <div className="flex w-64 flex-col items-center gap-1">
           <div className="w-full border-t border-black/60" />
-          <span className="text-[11px] text-black/60">
-            Unterschrift Aussteller
-          </span>
+          <span className="text-[11px] text-black/60">Unterschrift Aussteller</span>
         </div>
       </div>
     </div>
@@ -215,13 +206,13 @@ export function QuittungDialog({
     setLoading(true);
     setData([]);
 
-    Promise.allSettled(transactionIds.map(id => accountingApi.quittung(id)))
-      .then(results => {
+    Promise.allSettled(transactionIds.map((id) => accountingApi.quittung(id)))
+      .then((results) => {
         if (cancelled) return;
         const nextData: QuittungData[] = [];
         let failed = 0;
 
-        results.forEach(result => {
+        results.forEach((result) => {
           if (result.status === "fulfilled") {
             nextData.push(result.value);
           } else {
@@ -237,7 +228,7 @@ export function QuittungDialog({
         } else if (failed > 0) {
           const parts = transactionIds.length === 1 ? "" : "n";
           toast.error(
-            `${failed} Quittung${parts} im Batch konnten nicht geladen werden.`
+            `${failed} Quittung${parts} im Batch konnten nicht geladen werden.`,
           );
         }
 
@@ -245,9 +236,7 @@ export function QuittungDialog({
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        toast.error(
-          error instanceof Error ? error.message : "Quittung nicht verfügbar."
-        );
+        toast.error(error instanceof Error ? error.message : "Quittung nicht verfügbar.");
         onClose();
       })
       .finally(() => {
@@ -262,7 +251,7 @@ export function QuittungDialog({
 
   const printRoot = document.getElementById("print-root");
   const missingTaxId = data.some(
-    entry => !entry.issuer.steuernummer && !entry.issuer.ustIdNr
+    (entry) => !entry.issuer.steuernummer && !entry.issuer.ustIdNr,
   );
   const title =
     data.length === 1
@@ -270,34 +259,31 @@ export function QuittungDialog({
       : data.length > 1
         ? ` (${data.length})`
         : "";
-  const showDescription = data.length > 1
-    ? `${data.length} Quittungen aus den gefilterten Ergebnissen`
-    : "Gültiger Zahlungsbeleg nach § 368 BGB und § 14 UStG.";
+  const showDescription =
+    data.length > 1
+      ? `${data.length} Quittungen aus den gefilterten Ergebnissen`
+      : "Gültiger Zahlungsbeleg nach § 368 BGB und § 14 UStG.";
 
   return (
     <Dialog
       open={transactionIds.length > 0}
-      onOpenChange={open => {
+      onOpenChange={(open) => {
         if (!open) onClose();
       }}
     >
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            Quittung{title}
-          </DialogTitle>
-          <DialogDescription>
-            {showDescription}
-          </DialogDescription>
+          <DialogTitle>Quittung{title}</DialogTitle>
+          <DialogDescription>{showDescription}</DialogDescription>
         </DialogHeader>
 
         {missingTaxId && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
             <span>
-              Es ist weder Steuernummer noch USt-IdNr hinterlegt — die Quittung
-              ist so nicht als Rechnung i. S. d. § 14 UStG gültig. Bitte im
-              Profil unter Schulinformationen ergänzen.
+              Es ist weder Steuernummer noch USt-IdNr hinterlegt — die Quittung ist so
+              nicht als Rechnung i. S. d. § 14 UStG gültig. Bitte im Profil unter
+              Schulinformationen ergänzen.
             </span>
           </div>
         )}
@@ -310,7 +296,7 @@ export function QuittungDialog({
           <>
             <div className="max-h-[60vh] overflow-auto rounded-lg border shadow-sm">
               <div className="flex flex-col gap-6 p-2">
-                {data.map(item => (
+                {data.map((item) => (
                   <QuittungSheet key={item.quittungNr} data={item} />
                 ))}
               </div>
@@ -330,7 +316,7 @@ export function QuittungDialog({
                     </div>
                   ))}
                 </div>,
-                printRoot
+                printRoot,
               )}
           </>
         )}
@@ -339,11 +325,7 @@ export function QuittungDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Schließen
           </Button>
-          <Button
-            type="button"
-            disabled={!data}
-            onClick={() => window.print()}
-          >
+          <Button type="button" disabled={!data} onClick={() => window.print()}>
             <Printer data-icon="inline-start" />
             Drucken
           </Button>

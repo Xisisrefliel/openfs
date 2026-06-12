@@ -58,11 +58,7 @@ export function listAccounts(db: Database): Account[] {
     .map(toAccount);
 }
 
-export function setAccountActive(
-  db: Database,
-  number: string,
-  active: boolean
-) {
+export function setAccountActive(db: Database, number: string, active: boolean) {
   const result = db
     .prepare("UPDATE accounts SET active = ? WHERE number = ?")
     .run(active ? 1 : 0, number);
@@ -75,7 +71,7 @@ function requireAccount(
   db: Database,
   number: unknown,
   kinds: Account["kind"][],
-  role: string
+  role: string,
 ): Account {
   if (typeof number !== "string" || !number) {
     throw new ValidationError(`${role}: Konto fehlt.`);
@@ -90,7 +86,7 @@ function requireAccount(
   }
   if (!kinds.includes(account.kind)) {
     throw new ValidationError(
-      `${role}: Konto ${number} ${account.name} ist hier nicht zulässig.`
+      `${role}: Konto ${number} ${account.name} ist hier nicht zulässig.`,
     );
   }
   return account;
@@ -102,11 +98,11 @@ function requireAccount(
 function requireAccountOfKind(
   db: Database,
   kind: Account["kind"],
-  role: string
+  role: string,
 ): Account {
   const row = db
     .query<AccountRow, [string]>(
-      "SELECT * FROM accounts WHERE kind = ? AND active = 1 ORDER BY number LIMIT 1"
+      "SELECT * FROM accounts WHERE kind = ? AND active = 1 ORDER BY number LIMIT 1",
     )
     .get(kind);
   if (!row) {
@@ -151,9 +147,7 @@ function requirePaymentMethod(method: unknown): PaymentMethod {
 }
 
 function requireStudent(student: unknown) {
-  const s = student as CreateTransactionInput extends { student: infer S }
-    ? S
-    : never;
+  const s = student as CreateTransactionInput extends { student: infer S } ? S : never;
   if (
     !s ||
     typeof s !== "object" ||
@@ -197,7 +191,7 @@ export type CreatedTransaction = {
 
 export function createTransaction(
   db: Database,
-  input: CreateTransactionInput
+  input: CreateTransactionInput,
 ): CreatedTransaction {
   if (!input || typeof input !== "object") {
     throw new ValidationError("Ungültige Anfrage.");
@@ -237,7 +231,7 @@ export function createTransaction(
         db,
         input.habenKonto,
         ["erloes", "durchlaufend"],
-        "Erlöskonto"
+        "Erlöskonto",
       );
       paymentMethod = requirePaymentMethod(input.paymentMethod);
       student = requireStudent(input.student);
@@ -261,7 +255,7 @@ export function createTransaction(
         db,
         input.habenKonto,
         ["erloes", "durchlaufend"],
-        "Erlöskonto"
+        "Erlöskonto",
       );
       student = requireStudent(input.student);
       if (!description.trim()) {
@@ -287,7 +281,13 @@ export function createTransaction(
       }
       const transit = requireAccountOfKind(db, "transit", "Geldtransit");
       bookings = [
-        { soll: transit, haben: from, amountCents, vatAccount: null, lineDescription: "" },
+        {
+          soll: transit,
+          haben: from,
+          amountCents,
+          vatAccount: null,
+          lineDescription: "",
+        },
         { soll: to, haben: transit, amountCents, vatAccount: null, lineDescription: "" },
       ];
       break;
@@ -298,7 +298,7 @@ export function createTransaction(
         db,
         input.aufwandKonto,
         ["aufwand", "privat"],
-        "Aufwandskonto"
+        "Aufwandskonto",
       );
       if (input.paymentMethod != null) {
         paymentMethod = requirePaymentMethod(input.paymentMethod);
@@ -329,7 +329,7 @@ export function createTransaction(
            (beleg_nr, date, type, payment_method, description,
             student_customer_no, student_name, student_address,
             student_contract_no, student_classes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         belegNr,
@@ -341,7 +341,7 @@ export function createTransaction(
         student?.name ?? null,
         student?.address ?? null,
         student?.contractNo ?? null,
-        student?.classes ?? null
+        student?.classes ?? null,
       );
     const transactionId = Number(txResult.lastInsertRowid);
 
@@ -350,7 +350,7 @@ export function createTransaction(
       `INSERT INTO bookings
          (transaction_id, buchung_nr, soll_account, haben_account,
           amount_cents, vat_rate, net_cents, vat_cents, line_description)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     for (const spec of bookings) {
       const buchungNr = nextBuchungNr(db);
@@ -365,7 +365,7 @@ export function createTransaction(
         rate,
         split?.netCents ?? null,
         split?.vatCents ?? null,
-        spec.lineDescription
+        spec.lineDescription,
       );
       created.push({
         buchungNr,
@@ -423,7 +423,7 @@ export function stornoTransaction(
   db: Database,
   id: number,
   reason: string,
-  date: string
+  date: string,
 ): CreatedTransaction {
   if (!reason?.trim()) {
     throw new ValidationError("Stornogrund ist erforderlich.");
@@ -438,7 +438,7 @@ export function stornoTransaction(
   }
   const originalBookings = db
     .query<BookingRow, [number]>(
-      "SELECT * FROM bookings WHERE transaction_id = ? ORDER BY id"
+      "SELECT * FROM bookings WHERE transaction_id = ? ORDER BY id",
     )
     .all(id);
 
@@ -450,7 +450,7 @@ export function stornoTransaction(
            (beleg_nr, date, type, payment_method, description,
             student_customer_no, student_name, student_address,
             student_contract_no, student_classes, storno_of, storno_reason)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         belegNr,
@@ -464,7 +464,7 @@ export function stornoTransaction(
         original.student_contract_no,
         original.student_classes,
         id,
-        reason.trim()
+        reason.trim(),
       );
     const stornoId = Number(txResult.lastInsertRowid);
 
@@ -472,7 +472,7 @@ export function stornoTransaction(
       `INSERT INTO bookings
          (transaction_id, buchung_nr, soll_account, haben_account,
           amount_cents, vat_rate, net_cents, vat_cents, line_description)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const created: CreatedTransaction["bookings"] = [];
     for (const booking of originalBookings) {
@@ -487,7 +487,7 @@ export function stornoTransaction(
         booking.vat_rate,
         booking.net_cents,
         booking.vat_cents,
-        `Storno ${booking.buchung_nr}${booking.line_description ? `: ${booking.line_description}` : ""}`
+        `Storno ${booking.buchung_nr}${booking.line_description ? `: ${booking.line_description}` : ""}`,
       );
       created.push({
         buchungNr,
@@ -496,10 +496,7 @@ export function stornoTransaction(
         amountCents: booking.amount_cents,
       });
     }
-    db.prepare("UPDATE transactions SET storniert_by = ? WHERE id = ?").run(
-      stornoId,
-      id
-    );
+    db.prepare("UPDATE transactions SET storniert_by = ? WHERE id = ?").run(stornoId, id);
     return { id: stornoId, belegNr, bookings: created };
   });
   return write();
@@ -512,9 +509,7 @@ function isPrintableType(type: string): boolean {
 }
 
 function isPrintable(tx: TransactionRow): boolean {
-  return (
-    isPrintableType(tx.type) && tx.storniert_by == null && tx.storno_of == null
-  );
+  return isPrintableType(tx.type) && tx.storniert_by == null && tx.storno_of == null;
 }
 
 export type ListFilter = {
@@ -542,14 +537,12 @@ function matchesFilter(tx: TransactionRow, filter: ListFilter): boolean {
 }
 
 function accountMap(db: Database): Map<string, Account> {
-  return new Map(listAccounts(db).map(a => [a.number, a]));
+  return new Map(listAccounts(db).map((a) => [a.number, a]));
 }
 
 function allTransactions(db: Database): TransactionRow[] {
   return db
-    .query<TransactionRow, []>(
-      "SELECT * FROM transactions ORDER BY date DESC, id DESC"
-    )
+    .query<TransactionRow, []>("SELECT * FROM transactions ORDER BY date DESC, id DESC")
     .all();
 }
 
@@ -569,9 +562,9 @@ function bookingsByTransaction(db: Database): Map<number, BookingRow[]> {
 function transactionVatLabel(
   tx: TransactionRow,
   bookings: BookingRow[],
-  accounts: Map<string, Account>
+  accounts: Map<string, Account>,
 ): string {
-  const withVat = bookings.find(b => b.vat_rate != null);
+  const withVat = bookings.find((b) => b.vat_rate != null);
   if (tx.type === "transfer") return "Nicht zutreffend";
   if (!withVat) {
     const haben = accounts.get(bookings[0]?.haben_account ?? "");
@@ -586,13 +579,13 @@ function transactionVatLabel(
 export function listLedger(db: Database, filter: ListFilter): LedgerResponse {
   const accounts = accountMap(db);
   const geldkonten = new Set(
-    [...accounts.values()].filter(a => a.kind === "geldkonto").map(a => a.number)
+    [...accounts.values()].filter((a) => a.kind === "geldkonto").map((a) => a.number),
   );
   const bookingMap = bookingsByTransaction(db);
   const transactions = allTransactions(db);
 
   const openingBase = [...accounts.values()]
-    .filter(a => a.kind === "geldkonto")
+    .filter((a) => a.kind === "geldkonto")
     .reduce((sum, a) => sum + (a.openingCents ?? 0), 0);
 
   let beforeRange = 0;
@@ -644,12 +637,12 @@ export function listLedger(db: Database, filter: ListFilter): LedgerResponse {
 
 function stornoReasonOfReversal(
   transactions: TransactionRow[],
-  tx: TransactionRow
+  tx: TransactionRow,
 ): string | null {
   if (tx.storniert_by == null) return null;
   return (
-    transactions.find(candidate => candidate.id === tx.storniert_by)
-      ?.storno_reason ?? null
+    transactions.find((candidate) => candidate.id === tx.storniert_by)?.storno_reason ??
+    null
   );
 }
 
@@ -696,12 +689,12 @@ export function getQuittung(db: Database, transactionId: number): QuittungData {
   const tx = getTransactionRow(db, transactionId);
   if (!isPrintable(tx)) {
     throw new ValidationError(
-      "Für diese Buchung kann keine Quittung ausgestellt werden."
+      "Für diese Buchung kann keine Quittung ausgestellt werden.",
     );
   }
   const bookings = db
     .query<BookingRow, [number]>(
-      "SELECT * FROM bookings WHERE transaction_id = ? ORDER BY id"
+      "SELECT * FROM bookings WHERE transaction_id = ? ORDER BY id",
     )
     .all(transactionId);
   const accounts = accountMap(db);
@@ -711,7 +704,7 @@ export function getQuittung(db: Database, transactionId: number): QuittungData {
   const issue = db.transaction(() => {
     const existing = db
       .query<{ quittung_nr: string; issued_at: string }, [number]>(
-        "SELECT quittung_nr, issued_at FROM quittungen WHERE transaction_id = ?"
+        "SELECT quittung_nr, issued_at FROM quittungen WHERE transaction_id = ?",
       )
       .get(transactionId);
     if (existing) {
@@ -719,19 +712,20 @@ export function getQuittung(db: Database, transactionId: number): QuittungData {
     }
     const year = Number(tx.date.slice(0, 4));
     const quittungNr = nextQuittungNr(db, year);
-    db.prepare(
-      "INSERT INTO quittungen (quittung_nr, transaction_id) VALUES (?, ?)"
-    ).run(quittungNr, transactionId);
+    db.prepare("INSERT INTO quittungen (quittung_nr, transaction_id) VALUES (?, ?)").run(
+      quittungNr,
+      transactionId,
+    );
     const issuedAt = db
       .query<{ issued_at: string }, [number]>(
-        "SELECT issued_at FROM quittungen WHERE transaction_id = ?"
+        "SELECT issued_at FROM quittungen WHERE transaction_id = ?",
       )
       .get(transactionId)!.issued_at;
     return { quittungNr, issuedAt };
   });
   const { quittungNr, issuedAt } = issue();
 
-  const lines: QuittungLine[] = bookings.map(booking => {
+  const lines: QuittungLine[] = bookings.map((booking) => {
     const haben = accounts.get(booking.haben_account);
     const durchlaufend = haben?.kind === "durchlaufend";
     return {
@@ -746,9 +740,7 @@ export function getQuittung(db: Database, transactionId: number): QuittungData {
 
   const company = getCompany(db);
   const verwendungszweckParts = [
-    tx.type === "zahlung_guthaben"
-      ? "Zahlung auf Ausbildungskonto"
-      : tx.description,
+    tx.type === "zahlung_guthaben" ? "Zahlung auf Ausbildungskonto" : tx.description,
     tx.student_contract_no ? `Vertrag ${tx.student_contract_no}` : "",
     tx.student_classes ? `Klasse ${tx.student_classes}` : "",
   ].filter(Boolean);
@@ -821,13 +813,13 @@ export function listStudentBalances(db: Database): StudentBalance[] {
          t.student_customer_no IS NOT NULL
          AND t.student_customer_no != ''
          AND (b.haben_account = ?3 OR b.soll_account = ?3)
-       GROUP BY t.student_customer_no`
+       GROUP BY t.student_customer_no`,
     )
     .all(acctNo, acctNo, acctNo);
 
   return rows
-    .filter(row => row.customer_no != null)
-    .map(row => ({
+    .filter((row) => row.customer_no != null)
+    .map((row) => ({
       customerNo: row.customer_no,
       name: row.name ?? "",
       balanceCents: row.balance_cents,

@@ -11,34 +11,18 @@ import {
   Phone,
 } from "lucide-react";
 
-import {
-  FormSection as Section,
-  FormSectionIndex,
-} from "./components/FormSection.tsx";
+import { FormSection as Section, FormSectionIndex } from "./components/FormSection.tsx";
 import { PageHeader } from "./components/PageHeader.tsx";
 import { useInstructors } from "@/hooks/use-instructors";
 import { useVehicleOptions } from "@/hooks/use-vehicle-options";
-import {
-  createStudent,
-  useStudents,
-  type StudentRecord,
-} from "@/hooks/use-students";
+import { createStudent, useStudents, type StudentRecord } from "@/hooks/use-students";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -72,7 +56,7 @@ const requiredLessons = [
 
 const now = new Date();
 const TODAY = `${String(now.getDate()).padStart(2, "0")}.${String(
-  now.getMonth() + 1
+  now.getMonth() + 1,
 ).padStart(2, "0")}.${now.getFullYear()}`;
 
 const formatDate = (date: Date) =>
@@ -93,11 +77,11 @@ const parseDate = (value: string): Date | undefined => {
 function nextIds(students: StudentRecord[]) {
   const maxCustomer = students.reduce(
     (max, s) => Math.max(max, Number(s.customerNumber) || 0),
-    10058
+    10058,
   );
   const maxContract = students.reduce(
     (max, s) => Math.max(max, Number(s.contractNumber.split("-").pop()) || 0),
-    1042
+    1042,
   );
   return {
     customerNumber: String(maxCustomer + 1),
@@ -181,20 +165,20 @@ export function NeueSchueler() {
 
   // The system-assigned numbers continue the DB range, which loads async.
   useEffect(() => {
-    setForm(current => ({ ...current, ...nextIds(students) }));
+    setForm((current) => ({ ...current, ...nextIds(students) }));
   }, [students]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm(current => ({ ...current, [key]: value }));
+    setForm((current) => ({ ...current, [key]: value }));
     setDirty(true);
   };
 
   const toggleDocument = (doc: string, checked: boolean) => {
-    setForm(current => ({
+    setForm((current) => ({
       ...current,
       documents: checked
         ? [...current.documents, doc]
-        : current.documents.filter(item => item !== doc),
+        : current.documents.filter((item) => item !== doc),
     }));
     setDirty(true);
   };
@@ -205,9 +189,7 @@ export function NeueSchueler() {
   };
 
   const canSubmit =
-    !submitting &&
-    form.firstName.trim() !== "" &&
-    form.lastName.trim() !== "";
+    !submitting && form.firstName.trim() !== "" && form.lastName.trim() !== "";
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -216,7 +198,7 @@ export function NeueSchueler() {
       await createStudent({
         ...form,
         progress: 0,
-        lessons: requiredLessons.map(lesson => ({
+        lessons: requiredLessons.map((lesson) => ({
           label: lesson.label,
           done: lesson.target,
         })),
@@ -227,9 +209,7 @@ export function NeueSchueler() {
       await refresh();
       reset();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Anlegen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Anlegen fehlgeschlagen.");
     } finally {
       setSubmitting(false);
     }
@@ -275,7 +255,7 @@ export function NeueSchueler() {
                   <Input
                     id="firstName"
                     value={form.firstName}
-                    onChange={event => update("firstName", event.target.value)}
+                    onChange={(event) => update("firstName", event.target.value)}
                     placeholder="Lena"
                   />
                 </Field>
@@ -284,7 +264,7 @@ export function NeueSchueler() {
                   <Input
                     id="lastName"
                     value={form.lastName}
-                    onChange={event => update("lastName", event.target.value)}
+                    onChange={(event) => update("lastName", event.target.value)}
                     placeholder="Braun"
                   />
                 </Field>
@@ -293,7 +273,7 @@ export function NeueSchueler() {
                   <Input
                     id="birthday"
                     value={form.birthday}
-                    onChange={event => update("birthday", event.target.value)}
+                    onChange={(event) => update("birthday", event.target.value)}
                     placeholder="TT.MM.JJJJ"
                     className="tabular-nums"
                   />
@@ -304,13 +284,13 @@ export function NeueSchueler() {
                     type="single"
                     variant="outline"
                     value={form.classes}
-                    onValueChange={value => {
+                    onValueChange={(value) => {
                       if (value) update("classes", value);
                     }}
                     className="justify-start gap-2"
                     aria-label="Führerscheinklasse"
                   >
-                    {classOptions.map(option => (
+                    {classOptions.map((option) => (
                       <ToggleGroupItem
                         key={option}
                         value={option}
@@ -335,7 +315,7 @@ export function NeueSchueler() {
                   <FieldLabel>Fahrlehrer/in</FieldLabel>
                   <Select
                     value={form.instructor}
-                    onValueChange={value => update("instructor", value)}
+                    onValueChange={(value) => update("instructor", value)}
                   >
                     <SelectTrigger>
                       <GraduationCap className="text-muted-foreground" />
@@ -343,7 +323,7 @@ export function NeueSchueler() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        {instructorOptions.map(option => (
+                        {instructorOptions.map((option) => (
                           <SelectItem key={option} value={option}>
                             {option}
                           </SelectItem>
@@ -356,7 +336,7 @@ export function NeueSchueler() {
                   <FieldLabel>Fahrzeug</FieldLabel>
                   <Select
                     value={form.vehicle}
-                    onValueChange={value => update("vehicle", value)}
+                    onValueChange={(value) => update("vehicle", value)}
                   >
                     <SelectTrigger>
                       <Car className="text-muted-foreground" />
@@ -364,7 +344,7 @@ export function NeueSchueler() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        {vehicleOptions.map(option => (
+                        {vehicleOptions.map((option) => (
                           <SelectItem key={option} value={option}>
                             {option}
                           </SelectItem>
@@ -387,7 +367,7 @@ export function NeueSchueler() {
                       id="phone"
                       className="pl-9 tabular-nums"
                       value={form.phone}
-                      onChange={event => update("phone", event.target.value)}
+                      onChange={(event) => update("phone", event.target.value)}
                       placeholder="+49 151 23456780"
                     />
                   </div>
@@ -401,7 +381,7 @@ export function NeueSchueler() {
                       type="email"
                       className="pl-9"
                       value={form.email}
-                      onChange={event => update("email", event.target.value)}
+                      onChange={(event) => update("email", event.target.value)}
                       placeholder="lena.braun@example.com"
                     />
                   </div>
@@ -414,7 +394,7 @@ export function NeueSchueler() {
                       id="address"
                       className="min-h-16 pl-9"
                       value={form.address}
-                      onChange={event => update("address", event.target.value)}
+                      onChange={(event) => update("address", event.target.value)}
                       placeholder="Weidingweg 31, 64297 Darmstadt"
                     />
                   </div>
@@ -429,7 +409,7 @@ export function NeueSchueler() {
               description="Vorliegende Unterlagen."
             >
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {documentOptions.map(doc => {
+                {documentOptions.map((doc) => {
                   const checked = form.documents.includes(doc);
                   return (
                     <Label
@@ -438,12 +418,12 @@ export function NeueSchueler() {
                         "flex cursor-pointer items-center gap-2.5 rounded-lg border p-2.5 text-sm font-normal transition-colors",
                         checked
                           ? "border-primary bg-secondary"
-                          : "hover:border-ring hover:bg-muted"
+                          : "hover:border-ring hover:bg-muted",
                       )}
                     >
                       <Checkbox
                         checked={checked}
-                        onCheckedChange={value => toggleDocument(doc, value === true)}
+                        onCheckedChange={(value) => toggleDocument(doc, value === true)}
                       />
                       {doc}
                     </Label>
@@ -467,7 +447,7 @@ export function NeueSchueler() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {requiredLessons.map(lesson => (
+                    {requiredLessons.map((lesson) => (
                       <TableRow key={lesson.label}>
                         <TableCell>{lesson.label}</TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -499,7 +479,10 @@ export function NeueSchueler() {
                         className="h-8 justify-start px-2.5 font-normal data-[empty=true]:text-muted-foreground"
                         data-empty={!form.registrationDate}
                       >
-                        <CalendarDays data-icon="inline-start" className="text-muted-foreground" />
+                        <CalendarDays
+                          data-icon="inline-start"
+                          className="text-muted-foreground"
+                        />
                         <span className="tabular-nums">
                           {form.registrationDate || "Datum wählen"}
                         </span>
@@ -511,7 +494,7 @@ export function NeueSchueler() {
                         selected={parseDate(form.registrationDate)}
                         defaultMonth={parseDate(form.registrationDate)}
                         weekStartsOn={1}
-                        onSelect={date => {
+                        onSelect={(date) => {
                           if (date) update("registrationDate", formatDate(date));
                         }}
                       />
@@ -526,7 +509,7 @@ export function NeueSchueler() {
                       id="drivingSchool"
                       className="pl-9"
                       value={form.drivingSchool}
-                      onChange={event => update("drivingSchool", event.target.value)}
+                      onChange={(event) => update("drivingSchool", event.target.value)}
                     />
                   </div>
                 </Field>
@@ -536,7 +519,7 @@ export function NeueSchueler() {
                     id="balance"
                     className="tabular-nums"
                     value={form.balance}
-                    onChange={event => update("balance", event.target.value)}
+                    onChange={(event) => update("balance", event.target.value)}
                   />
                 </Field>
                 <Field>
@@ -544,7 +527,7 @@ export function NeueSchueler() {
                   <ToggleGroup
                     type="single"
                     value={form.status}
-                    onValueChange={value => {
+                    onValueChange={(value) => {
                       if (value === "aktiv" || value === "inaktiv") {
                         update("status", value);
                       }

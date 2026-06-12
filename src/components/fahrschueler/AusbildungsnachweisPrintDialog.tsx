@@ -43,10 +43,7 @@ function NachweisSheet({
   school: CompanyProfile | null;
   attestations: Attestation[];
 }) {
-  const totalMinutes = attestations.reduce(
-    (sum, att) => sum + att.durationMin,
-    0
-  );
+  const totalMinutes = attestations.reduce((sum, att) => sum + att.durationMin, 0);
   const printedOn = new Date().toLocaleDateString("de-DE", {
     day: "2-digit",
     month: "2-digit",
@@ -62,9 +59,7 @@ function NachweisSheet({
           <span>{school?.address ?? ""}</span>
         </div>
         <div className="flex flex-col items-end gap-0.5 text-right">
-          <span className="text-2xl font-bold tracking-wide">
-            Ausbildungsnachweis
-          </span>
+          <span className="text-2xl font-bold tracking-wide">Ausbildungsnachweis</span>
         </div>
       </div>
 
@@ -120,7 +115,7 @@ function NachweisSheet({
           </tr>
         </thead>
         <tbody>
-          {attestations.map(att => (
+          {attestations.map((att) => (
             <tr key={att.id} className="border-b border-black/10">
               <td className="py-1.5 pr-2 align-top">
                 {formatIsoDate(att.signedAt.slice(0, 10))}
@@ -156,9 +151,7 @@ function NachweisSheet({
         </tfoot>
       </table>
 
-      <span className="text-[11px] text-black/60">
-        Gedruckt am {printedOn}
-      </span>
+      <span className="text-[11px] text-black/60">Gedruckt am {printedOn}</span>
     </div>
   );
 }
@@ -179,31 +172,29 @@ export function AusbildungsnachweisPrintDialog({
     let cancelled = false;
 
     fetchAttestationsForStudent(student.id)
-      .then(list => {
+      .then((list) => {
         if (cancelled) return;
-        setAttestations(
-          list.toSorted((a, b) => a.signedAt.localeCompare(b.signedAt))
-        );
+        setAttestations(list.toSorted((a, b) => a.signedAt.localeCompare(b.signedAt)));
       })
       .catch((error: unknown) => {
         if (cancelled) return;
         toast.error(
           error instanceof Error
             ? error.message
-            : "Nachweise konnten nicht geladen werden."
+            : "Nachweise konnten nicht geladen werden.",
         );
         onClose();
       });
 
     fetch("/api/profile")
-      .then(response => response.json())
+      .then((response) => response.json())
       .then((profile: CompanyProfile) => {
         if (!cancelled) setSchool(profile);
       })
       .catch(() => {
         if (!cancelled) {
           toast.error(
-            "Firmenprofil konnte nicht geladen werden — Briefkopf unvollständig."
+            "Firmenprofil konnte nicht geladen werden — Briefkopf unvollständig.",
           );
         }
       });
@@ -220,7 +211,7 @@ export function AusbildungsnachweisPrintDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={isOpen => {
+      onOpenChange={(isOpen) => {
         if (!isOpen) onClose();
       }}
     >
@@ -258,7 +249,7 @@ export function AusbildungsnachweisPrintDialog({
                     attestations={attestations}
                   />
                 </div>,
-                printRoot
+                printRoot,
               )}
           </>
         )}

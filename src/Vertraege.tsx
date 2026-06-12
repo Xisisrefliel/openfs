@@ -10,23 +10,13 @@
 /* ------------------------------------------------------------------ */
 
 import { useMemo, useState } from "react";
-import {
-  CalendarPlus,
-  FileCheck2,
-  FileSearch,
-  FileText,
-  FileX2,
-} from "lucide-react";
+import { CalendarPlus, FileCheck2, FileSearch, FileText, FileX2 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
 import { VertragDialog } from "./components/VertragDialog.tsx";
 import { useStudents, type StudentRecord } from "@/hooks/use-students";
 import { usePricePlans } from "@/hooks/use-price-plans";
-import {
-  type StudentBalance,
-  accountingApi,
-  useApi,
-} from "@/components/buchhaltung/api";
+import { type StudentBalance, accountingApi, useApi } from "@/components/buchhaltung/api";
 import { formatCents } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import {
@@ -145,11 +135,7 @@ function TableRowSkeleton() {
   );
 }
 
-export function Vertraege({
-  navigate,
-}: {
-  navigate: (to: string) => void;
-}) {
+export function Vertraege({ navigate }: { navigate: (to: string) => void }) {
   // DB-backed: contracts are a view over /api/students + /api/price-plans.
   const { students, loading: studentsLoading } = useStudents();
   const { plans, loading: plansLoading } = usePricePlans();
@@ -158,41 +144,37 @@ export function Vertraege({
 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ContractStatusFilter>("alle");
-  const [vertragStudent, setVertragStudent] = useState<StudentRecord | null>(
-    null
-  );
+  const [vertragStudent, setVertragStudent] = useState<StudentRecord | null>(null);
 
   const balancesMap = useMemo(() => {
     const list: StudentBalance[] = balancesResult.data?.balances ?? [];
-    return new Map(list.map(b => [b.customerNo, b.balanceCents]));
+    return new Map(list.map((b) => [b.customerNo, b.balanceCents]));
   }, [balancesResult.data]);
 
   const rows = useMemo(
     () => deriveContractRows(students, plans, balancesMap),
-    [students, plans, balancesMap]
+    [students, plans, balancesMap],
   );
   const kpis = useMemo(() => computeContractKpis(rows), [rows]);
   const filteredRows = useMemo(
     () =>
-      filterContractRows(rows, query, statusFilter).toSorted(
-        (left, right) => {
-          // Newest contracts first; unparseable dates sink to the end.
-          const leftTime = Number.isNaN(left.registrationTime)
-            ? Number.NEGATIVE_INFINITY
-            : left.registrationTime;
-          const rightTime = Number.isNaN(right.registrationTime)
-            ? Number.NEGATIVE_INFINITY
-            : right.registrationTime;
-          if (leftTime !== rightTime) return rightTime - leftTime;
-          return left.name.localeCompare(right.name, "de");
-        }
-      ),
-    [rows, query, statusFilter]
+      filterContractRows(rows, query, statusFilter).toSorted((left, right) => {
+        // Newest contracts first; unparseable dates sink to the end.
+        const leftTime = Number.isNaN(left.registrationTime)
+          ? Number.NEGATIVE_INFINITY
+          : left.registrationTime;
+        const rightTime = Number.isNaN(right.registrationTime)
+          ? Number.NEGATIVE_INFINITY
+          : right.registrationTime;
+        if (leftTime !== rightTime) return rightTime - leftTime;
+        return left.name.localeCompare(right.name, "de");
+      }),
+    [rows, query, statusFilter],
   );
 
   const studentsById = useMemo(
-    () => new Map(students.map(student => [student.id, student])),
-    [students]
+    () => new Map(students.map((student) => [student.id, student])),
+    [students],
   );
 
   const resetFilters = () => {
@@ -200,8 +182,7 @@ export function Vertraege({
     setStatusFilter("alle");
   };
 
-  const openStudent = (row: ContractRow) =>
-    navigate(`/fahrschueler/${row.studentId}`);
+  const openStudent = (row: ContractRow) => navigate(`/fahrschueler/${row.studentId}`);
 
   const openVertrag = (row: ContractRow) => {
     const student = studentsById.get(row.studentId);
@@ -216,14 +197,14 @@ export function Vertraege({
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <Input
             value={query}
-            onChange={event => setQuery(event.target.value)}
+            onChange={(event) => setQuery(event.target.value)}
             placeholder="Name, Vertrags- oder Kundennummer suchen"
             className="h-8 w-80 max-w-full"
           />
           <ToggleGroup
             type="single"
             value={statusFilter}
-            onValueChange={value => {
+            onValueChange={(value) => {
               if (value === "alle" || value === "aktiv" || value === "inaktiv") {
                 setStatusFilter(value);
               }
@@ -243,12 +224,7 @@ export function Vertraege({
               Inaktiv
             </ToggleGroupItem>
           </ToggleGroup>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={resetFilters}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
             Zurücksetzen
           </Button>
         </div>
@@ -313,9 +289,7 @@ export function Vertraege({
                     <TableHead className="px-1">Anmeldedatum</TableHead>
                     <TableHead className="px-1">Status</TableHead>
                     <TableHead className="px-1 text-right">Saldo</TableHead>
-                    <TableHead className="pl-1 pr-4 text-right">
-                      Aktion
-                    </TableHead>
+                    <TableHead className="pl-1 pr-4 text-right">Aktion</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -356,13 +330,13 @@ export function Vertraege({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredRows.map(row => (
+                    filteredRows.map((row) => (
                       <TableRow
                         key={row.studentId}
                         tabIndex={0}
                         className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
                         onClick={() => openStudent(row)}
-                        onKeyDown={event => {
+                        onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             openStudent(row);
@@ -375,15 +349,13 @@ export function Vertraege({
                         <TableCell className="px-1 text-muted-foreground">
                           {row.customerNumber}
                         </TableCell>
-                        <TableCell className="px-1 font-medium">
-                          {row.name}
-                        </TableCell>
+                        <TableCell className="px-1 font-medium">{row.name}</TableCell>
                         <TableCell className="px-1">
                           <div className="flex flex-wrap gap-1">
                             {row.classes.length === 0 ? (
                               <span className="text-muted-foreground">—</span>
                             ) : (
-                              row.classes.map(klass => (
+                              row.classes.map((klass) => (
                                 <Badge key={klass} variant="outline">
                                   {klass}
                                 </Badge>
@@ -392,9 +364,7 @@ export function Vertraege({
                           </div>
                         </TableCell>
                         <TableCell className="px-1">{row.planName}</TableCell>
-                        <TableCell className="px-1">
-                          {row.registrationDate}
-                        </TableCell>
+                        <TableCell className="px-1">{row.registrationDate}</TableCell>
                         <TableCell className="px-1">
                           <Badge
                             variant="outline"
@@ -415,7 +385,7 @@ export function Vertraege({
                               className={cn(
                                 row.balanceCents < 0
                                   ? "text-destructive dark:text-destructive"
-                                  : "text-emerald-600 dark:text-emerald-400"
+                                  : "text-emerald-600 dark:text-emerald-400",
                               )}
                             >
                               {formatCents(row.balanceCents)}
@@ -429,7 +399,7 @@ export function Vertraege({
                               variant="ghost"
                               size="sm"
                               className="h-7 px-2 text-xs"
-                              onClick={event => {
+                              onClick={(event) => {
                                 event.stopPropagation();
                                 openVertrag(row);
                               }}
@@ -449,10 +419,7 @@ export function Vertraege({
         </div>
       </div>
 
-      <VertragDialog
-        student={vertragStudent}
-        onClose={() => setVertragStudent(null)}
-      />
+      <VertragDialog student={vertragStudent} onClose={() => setVertragStudent(null)} />
     </div>
   );
 }

@@ -38,68 +38,65 @@ export type ConversationInput = {
 
 export async function fetchConversations(): Promise<Conversation[]> {
   const data = await parseOrThrow<{ conversations: Conversation[] }>(
-    await fetch("/api/conversations")
+    await fetch("/api/conversations"),
   );
   return data.conversations;
 }
 
-export async function fetchMessages(
-  conversationId: number
-): Promise<ChatMessage[]> {
+export async function fetchMessages(conversationId: number): Promise<ChatMessage[]> {
   const data = await parseOrThrow<{ messages: ChatMessage[] }>(
-    await fetch(`/api/conversations/${conversationId}/messages`)
+    await fetch(`/api/conversations/${conversationId}/messages`),
   );
   return data.messages;
 }
 
 export async function sendChatMessage(
   conversationId: number,
-  text: string
+  text: string,
 ): Promise<ChatMessage> {
   return parseOrThrow<ChatMessage>(
     await fetch(`/api/conversations/${conversationId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
-    })
+    }),
   );
 }
 
 export async function markConversationRead(
-  conversationId: number
+  conversationId: number,
 ): Promise<Conversation> {
   return parseOrThrow<Conversation>(
     await fetch(`/api/conversations/${conversationId}/read`, {
       method: "POST",
-    })
+    }),
   );
 }
 
 export async function createConversation(
-  input: ConversationInput
+  input: ConversationInput,
 ): Promise<Conversation> {
   return parseOrThrow<Conversation>(
     await fetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
-export async function deleteConversation(
-  conversationId: number
-): Promise<void> {
+export async function deleteConversation(conversationId: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/conversations/${conversationId}`, { method: "DELETE" })
+    await fetch(`/api/conversations/${conversationId}`, { method: "DELETE" }),
   );
 }
 
 export function useConversations() {
-  const { items: fetched, loading, refresh: fetchRefresh } = useFetchList(
-    fetchConversations,
-    "Unterhaltungen konnten nicht geladen werden"
-  );
+  const {
+    items: fetched,
+    loading,
+    refresh: fetchRefresh,
+  } = useFetchList(fetchConversations, "Unterhaltungen konnten nicht geladen werden");
   const [overrides, setOverrides] = useState<Record<number, number>>({});
 
   /** Full refetch — also clears any optimistic overrides. */
@@ -110,15 +107,15 @@ export function useConversations() {
 
   /** Optimistically clear the unread badge for one conversation. */
   const clearUnread = useCallback((id: number) => {
-    setOverrides(prev => ({ ...prev, [id]: 0 }));
+    setOverrides((prev) => ({ ...prev, [id]: 0 }));
   }, []);
 
   const conversations = useMemo(
     () =>
-      fetched.map(c =>
-        c.id in overrides ? { ...c, unread: overrides[c.id] ?? c.unread } : c
+      fetched.map((c) =>
+        c.id in overrides ? { ...c, unread: overrides[c.id] ?? c.unread } : c,
       ),
-    [fetched, overrides]
+    [fetched, overrides],
   );
 
   return { conversations, loading, refresh, clearUnread };

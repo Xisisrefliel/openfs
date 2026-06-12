@@ -63,7 +63,10 @@ function makeStudent(overrides: Record<string, unknown> = {}) {
 
 describe("createInstructor", () => {
   test("happy path: returns record with id and correct fields", () => {
-    const instructor = createInstructor(db, makeInstructor({ firstName: "  Britta  ", lastName: "  Schmidt  " }));
+    const instructor = createInstructor(
+      db,
+      makeInstructor({ firstName: "  Britta  ", lastName: "  Schmidt  " }),
+    );
     expect(instructor.id).toBeGreaterThan(0);
     expect(instructor.firstName).toBe("Britta");
     expect(instructor.lastName).toBe("Schmidt");
@@ -71,16 +74,20 @@ describe("createInstructor", () => {
   });
 
   test("missing firstName → ValidationError", () => {
-    expect(() => createInstructor(db, makeInstructor({ firstName: "" }))).toThrow(ValidationError);
+    expect(() => createInstructor(db, makeInstructor({ firstName: "" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("missing lastName → ValidationError", () => {
-    expect(() => createInstructor(db, makeInstructor({ lastName: "" }))).toThrow(ValidationError);
+    expect(() => createInstructor(db, makeInstructor({ lastName: "" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("bad status → ValidationError", () => {
     expect(() =>
-      createInstructor(db, makeInstructor({ status: "weg" as InstructorStatus }))
+      createInstructor(db, makeInstructor({ status: "weg" as InstructorStatus })),
     ).toThrow(ValidationError);
   });
 
@@ -102,7 +109,10 @@ describe("createInstructor", () => {
 
 describe("updateInstructor", () => {
   test("partial update merges — changing phone leaves name unchanged", () => {
-    const instructor = createInstructor(db, makeInstructor({ firstName: "Clara", lastName: "Klein" }));
+    const instructor = createInstructor(
+      db,
+      makeInstructor({ firstName: "Clara", lastName: "Klein" }),
+    );
     const updated = updateInstructor(db, instructor.id, { phone: "0987654321" });
     expect(updated.phone).toBe("0987654321");
     expect(updated.firstName).toBe("Clara");
@@ -110,7 +120,9 @@ describe("updateInstructor", () => {
   });
 
   test("update with unknown id → ValidationError", () => {
-    expect(() => updateInstructor(db, 999999, { phone: "0000" })).toThrow(ValidationError);
+    expect(() => updateInstructor(db, 999999, { phone: "0000" })).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -120,7 +132,10 @@ describe("updateInstructor", () => {
 
 describe("rename cascade", () => {
   test("renaming instructor updates students, calendar_events, and theory_groups", () => {
-    const instructor = createInstructor(db, makeInstructor({ firstName: "Max", lastName: "Muster" }));
+    const instructor = createInstructor(
+      db,
+      makeInstructor({ firstName: "Max", lastName: "Muster" }),
+    );
     const fullName = `${instructor.firstName} ${instructor.lastName}`;
 
     // Arrange: student pointing at instructor by name
@@ -128,22 +143,25 @@ describe("rename cascade", () => {
 
     // Arrange: calendar_event pointing at instructor by name
     db.prepare(
-      "INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
     ).run("2026-01-10", "10:00", "11:00", "Fahrstunde", fullName, "", "Praktisch");
 
     // Arrange: theory_group pointing at instructor by name
     db.prepare(
-      "CREATE TABLE IF NOT EXISTS theory_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, instructor TEXT, student_ids TEXT, capacity INTEGER)"
+      "CREATE TABLE IF NOT EXISTS theory_groups (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, instructor TEXT, student_ids TEXT, capacity INTEGER)",
     ).run();
     db.prepare(
-      "INSERT INTO theory_groups (name, instructor, student_ids, capacity) VALUES (?, ?, ?, ?)"
+      "INSERT INTO theory_groups (name, instructor, student_ids, capacity) VALUES (?, ?, ?, ?)",
     ).run("Gruppe A", fullName, "[]", 10);
 
     // Arrange: unrelated student with a different instructor — must not be touched
     const unrelated = createStudent(db, makeStudent({ instructor: "Andere Lehrerin" }));
 
     // Act: rename instructor
-    const renamed = updateInstructor(db, instructor.id, { firstName: "Max", lastName: "Neumann" });
+    const renamed = updateInstructor(db, instructor.id, {
+      firstName: "Max",
+      lastName: "Neumann",
+    });
     const newName = `${renamed.firstName} ${renamed.lastName}`;
     expect(newName).toBe("Max Neumann");
 
@@ -154,7 +172,7 @@ describe("rename cascade", () => {
     // Assert: calendar_event reference updated
     const evRow = db
       .query<{ instructor: string }, [string]>(
-        "SELECT instructor FROM calendar_events WHERE instructor = ?"
+        "SELECT instructor FROM calendar_events WHERE instructor = ?",
       )
       .get("Max Neumann");
     expect(evRow?.instructor).toBe("Max Neumann");
@@ -162,7 +180,7 @@ describe("rename cascade", () => {
     // Assert: theory_group reference updated
     const groupRow = db
       .query<{ instructor: string }, [string]>(
-        "SELECT instructor FROM theory_groups WHERE instructor = ?"
+        "SELECT instructor FROM theory_groups WHERE instructor = ?",
       )
       .get("Max Neumann");
     expect(groupRow?.instructor).toBe("Max Neumann");
@@ -170,7 +188,7 @@ describe("rename cascade", () => {
     // Assert: old name gone
     const oldInstructor = db
       .query<{ instructor: string }, [string]>(
-        "SELECT instructor FROM students WHERE instructor = ?"
+        "SELECT instructor FROM students WHERE instructor = ?",
       )
       .get("Max Muster");
     expect(oldInstructor).toBeNull();
@@ -181,7 +199,10 @@ describe("rename cascade", () => {
   });
 
   test("rename cascades to lesson_attestations.instructor", () => {
-    const instructor = createInstructor(db, makeInstructor({ firstName: "Rena", lastName: "Alt" }));
+    const instructor = createInstructor(
+      db,
+      makeInstructor({ firstName: "Rena", lastName: "Alt" }),
+    );
     const fullName = `${instructor.firstName} ${instructor.lastName}`;
     const attId = insertAttestation(db, fullName);
 
@@ -189,7 +210,7 @@ describe("rename cascade", () => {
 
     const row = db
       .query<{ instructor: string }, [number]>(
-        "SELECT instructor FROM lesson_attestations WHERE id = ?"
+        "SELECT instructor FROM lesson_attestations WHERE id = ?",
       )
       .get(attId);
     expect(row?.instructor).toBe("Rena Neu");
@@ -199,8 +220,14 @@ describe("rename cascade", () => {
     // Create two instructors with the same name — the name-keyed schema
     // cannot tell them apart, so a rename of one cascades to all references.
     // This is the documented limitation in instructors.ts:170-173.
-    const a = createInstructor(db, makeInstructor({ firstName: "Same", lastName: "Name" }));
-    const _b = createInstructor(db, makeInstructor({ firstName: "Same", lastName: "Name" }));
+    const a = createInstructor(
+      db,
+      makeInstructor({ firstName: "Same", lastName: "Name" }),
+    );
+    const _b = createInstructor(
+      db,
+      makeInstructor({ firstName: "Same", lastName: "Name" }),
+    );
     const sharedName = "Same Name";
 
     // Two students both assigned to "Same Name"
@@ -234,7 +261,10 @@ describe("deleteInstructor", () => {
   });
 
   test("re-assigns students to 'Nicht zugeteilt'", () => {
-    const instructor = createInstructor(db, makeInstructor({ firstName: "Lena", lastName: "Lehr" }));
+    const instructor = createInstructor(
+      db,
+      makeInstructor({ firstName: "Lena", lastName: "Lehr" }),
+    );
     const fullName = `${instructor.firstName} ${instructor.lastName}`;
     const student = createStudent(db, makeStudent({ instructor: fullName }));
 
@@ -245,25 +275,31 @@ describe("deleteInstructor", () => {
   });
 
   test("re-assigns calendar_events to 'Nicht zugeteilt'", () => {
-    const instructor = createInstructor(db, makeInstructor({ firstName: "Tom", lastName: "Fahr" }));
+    const instructor = createInstructor(
+      db,
+      makeInstructor({ firstName: "Tom", lastName: "Fahr" }),
+    );
     const fullName = `${instructor.firstName} ${instructor.lastName}`;
     const student = createStudent(db, makeStudent());
     db.prepare(
-      "INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
     ).run("2026-02-01", "09:00", "10:00", "Fahrstunde", fullName, "", "Praktisch");
 
     deleteInstructor(db, instructor.id);
 
     const ev = db
       .query<{ instructor: string }, []>(
-        "SELECT instructor FROM calendar_events WHERE date = '2026-02-01'"
+        "SELECT instructor FROM calendar_events WHERE date = '2026-02-01'",
       )
       .get();
     expect(ev?.instructor).toBe("Nicht zugeteilt");
   });
 
   test("writes archive entry with correct entity and label", () => {
-    const instructor = createInstructor(db, makeInstructor({ firstName: "Karl", lastName: "Archiv" }));
+    const instructor = createInstructor(
+      db,
+      makeInstructor({ firstName: "Karl", lastName: "Archiv" }),
+    );
     const fullName = "Karl Archiv";
     const archiveBefore = listArchive(db).length;
 
@@ -287,7 +323,10 @@ describe("deleteInstructor", () => {
   });
 
   test("leaves lesson_attestations.instructor unchanged (compliance record)", () => {
-    const instructor = createInstructor(db, makeInstructor({ firstName: "Doro", lastName: "Bleibt" }));
+    const instructor = createInstructor(
+      db,
+      makeInstructor({ firstName: "Doro", lastName: "Bleibt" }),
+    );
     const fullName = `${instructor.firstName} ${instructor.lastName}`;
     const attId = insertAttestation(db, fullName);
 
@@ -295,7 +334,7 @@ describe("deleteInstructor", () => {
 
     const row = db
       .query<{ instructor: string }, [number]>(
-        "SELECT instructor FROM lesson_attestations WHERE id = ?"
+        "SELECT instructor FROM lesson_attestations WHERE id = ?",
       )
       .get(attId);
     expect(row?.instructor).toBe(fullName);
@@ -310,7 +349,7 @@ function insertAttestation(db: Database, instructorName: string): number {
     .query<{ id: number }, [string]>(
       `INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type)
        VALUES ('2026-03-01', '08:00', '09:00', 'Fahrstunde', ?, '', 'Praktisch')
-       RETURNING id`
+       RETURNING id`,
     )
     .get(instructorName)!;
   return db
@@ -318,7 +357,7 @@ function insertAttestation(db: Database, instructorName: string): number {
       `INSERT INTO lesson_attestations
          (event_id, student_id, instructor, content, duration_min, signature_data_url)
        VALUES (?, 1, ?, 'Stadtfahrt', 45, 'data:image/png;base64,abc')
-       RETURNING id`
+       RETURNING id`,
     )
     .get(event.id, instructorName)!.id;
 }

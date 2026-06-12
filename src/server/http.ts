@@ -9,7 +9,7 @@ export function err(message: string, status = 400): Response {
 }
 
 export function handle<A extends unknown[]>(
-  fn: (...args: A) => Response | Promise<Response>
+  fn: (...args: A) => Response | Promise<Response>,
 ) {
   return async (...args: A): Promise<Response> => {
     try {

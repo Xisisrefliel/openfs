@@ -122,7 +122,7 @@ export function registrationMonth(raw: string): string | null {
 export function studentStatistics(db: Database): StudentStatistics {
   const rows = db
     .query<{ status: string; registration_date: string }, []>(
-      "SELECT status, registration_date FROM students"
+      "SELECT status, registration_date FROM students",
     )
     .all();
 
@@ -162,7 +162,7 @@ export function lessonStatistics(db: Database): LessonStatistics {
       `SELECT substr(date, 1, 7) AS month, type, count(*) AS count
        FROM calendar_events
        GROUP BY month, type
-       ORDER BY month`
+       ORDER BY month`,
     )
     .all();
 
@@ -206,7 +206,7 @@ export function instructorStatistics(db: Database): InstructorStatistics {
     .query<{ total: number; aktiv: number }, []>(
       `SELECT count(*) AS total,
               sum(CASE WHEN status = 'aktiv' THEN 1 ELSE 0 END) AS aktiv
-       FROM instructors`
+       FROM instructors`,
     )
     .get()!;
 
@@ -223,7 +223,7 @@ export function instructorStatistics(db: Database): InstructorStatistics {
        FROM calendar_events
        WHERE instructor <> ''
        GROUP BY instructor
-       ORDER BY minutes DESC, instructor`
+       ORDER BY minutes DESC, instructor`,
     )
     .all();
 
@@ -241,7 +241,7 @@ export function vehicleStatistics(db: Database): VehicleStatistics {
     .query<{ total: number; aktiv: number }, []>(
       `SELECT count(*) AS total,
               sum(CASE WHEN status = 'aktiv' THEN 1 ELSE 0 END) AS aktiv
-       FROM vehicles`
+       FROM vehicles`,
     )
     .get()!;
   const aktiv = row.aktiv ?? 0;
@@ -265,7 +265,7 @@ export function revenueStatistics(db: Database): RevenueStatistics {
          AND t.storno_of IS NULL
          AND t.storniert_by IS NULL
        GROUP BY month
-       ORDER BY month`
+       ORDER BY month`,
     )
     .all();
 
@@ -277,39 +277,29 @@ export function revenueStatistics(db: Database): RevenueStatistics {
 
 /* ------------------------------- exams ----------------------------- */
 
-const EXAM_EVENT_TYPES = [
-  "Theorieprüfung",
-  "Vorstellung zur prakt. Prüfung",
-] as const;
+const EXAM_EVENT_TYPES = ["Theorieprüfung", "Vorstellung zur prakt. Prüfung"] as const;
 
 export function examStatistics(db: Database): ExamStatistics {
-  const byType: ExamTypeStatistics[] = EXAM_EVENT_TYPES.map(type => {
+  const byType: ExamTypeStatistics[] = EXAM_EVENT_TYPES.map((type) => {
     // Totals row: all events of this type regardless of student_id or result.
     const totals = db
-      .query<
-        { total: number; bestanden: number; nicht_bestanden: number },
-        [string]
-      >(
+      .query<{ total: number; bestanden: number; nicht_bestanden: number }, [string]>(
         `SELECT
            count(*) AS total,
            coalesce(sum(CASE WHEN exam_result = 'bestanden' THEN 1 ELSE 0 END), 0) AS bestanden,
            coalesce(sum(CASE WHEN exam_result = 'nicht_bestanden' THEN 1 ELSE 0 END), 0) AS nicht_bestanden
          FROM calendar_events
-         WHERE type = ?`
+         WHERE type = ?`,
       )
       .get(type)!;
 
-    const offen =
-      totals.total - totals.bestanden - totals.nicht_bestanden;
+    const offen = totals.total - totals.bestanden - totals.nicht_bestanden;
 
     // First-attempt pass rate: only events with a student_id AND an
     // exam_result. The "first attempt" per student is the event with the
     // lowest date (then id) that has a recorded result.
     const firstAttemptRows = db
-      .query<
-        { student_id: number; exam_result: string },
-        [string]
-      >(
+      .query<{ student_id: number; exam_result: string }, [string]>(
         `SELECT student_id, exam_result FROM (
            SELECT student_id, exam_result,
                   ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY date, id) AS rn
@@ -317,15 +307,13 @@ export function examStatistics(db: Database): ExamStatistics {
            WHERE type = ?
              AND student_id IS NOT NULL
              AND exam_result IS NOT NULL
-         ) WHERE rn = 1`
+         ) WHERE rn = 1`,
       )
       .all(type);
 
     let firstAttemptPassRate: number | null = null;
     if (firstAttemptRows.length > 0) {
-      const passed = firstAttemptRows.filter(
-        r => r.exam_result === "bestanden"
-      ).length;
+      const passed = firstAttemptRows.filter((r) => r.exam_result === "bestanden").length;
       firstAttemptPassRate = passed / firstAttemptRows.length;
     }
 

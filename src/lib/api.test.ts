@@ -20,15 +20,11 @@ describe("parseOrThrow", () => {
 
   test("500 + non-JSON body → rejects with fallback message", async () => {
     const response = new Response("Internal Server Error", { status: 500 });
-    await expect(parseOrThrow(response)).rejects.toThrow(
-      "Anfrage fehlgeschlagen."
-    );
+    await expect(parseOrThrow(response)).rejects.toThrow("Anfrage fehlgeschlagen.");
   });
 
   test("200 + empty/invalid JSON body → rejects with fallback message", async () => {
     const response = new Response("", { status: 200 });
-    await expect(parseOrThrow(response)).rejects.toThrow(
-      "Anfrage fehlgeschlagen."
-    );
+    await expect(parseOrThrow(response)).rejects.toThrow("Anfrage fehlgeschlagen.");
   });
 });

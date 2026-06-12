@@ -49,7 +49,7 @@ describe("upcomingExams", () => {
     ];
 
     const result = upcomingExams(events, "2026-06-11", 60);
-    expect(result.map(item => item.id)).toEqual(["today", "a", "b"]);
+    expect(result.map((item) => item.id)).toEqual(["today", "a", "b"]);
   });
 
   test("includes the horizon boundary day", () => {
@@ -70,9 +70,9 @@ describe("groupExamsByDate", () => {
     const groups = groupExamsByDate(exams);
     expect(groups).toHaveLength(2);
     expect(groups[0]?.date).toBe("2026-06-12");
-    expect(groups[0]?.exams.map(item => item.id)).toEqual(["1", "2"]);
+    expect(groups[0]?.exams.map((item) => item.id)).toEqual(["1", "2"]);
     expect(groups[1]?.date).toBe("2026-06-15");
-    expect(groups[1]?.exams.map(item => item.id)).toEqual(["3"]);
+    expect(groups[1]?.exams.map((item) => item.id)).toEqual(["3"]);
   });
 
   test("returns an empty list for no exams", () => {
@@ -119,7 +119,7 @@ describe("rankByReadiness", () => {
     status: "aktiv" | "inaktiv",
     progress: number,
     theoryProgress: number,
-    name: string
+    name: string,
   ) => ({
     name,
     status,
@@ -134,7 +134,7 @@ describe("rankByReadiness", () => {
       student("aktiv", 91, 91, "Aylin"),
       student("aktiv", 78, 78, "Lena"),
     ]);
-    expect(ranked.map(item => item.name)).toEqual(["Aylin", "Lena", "Tom"]);
+    expect(ranked.map((item) => item.name)).toEqual(["Aylin", "Lena", "Tom"]);
   });
 
   test("breaks progress ties via theory progress", () => {
@@ -142,7 +142,7 @@ describe("rankByReadiness", () => {
       student("aktiv", 50, 10, "Low"),
       student("aktiv", 50, 90, "High"),
     ]);
-    expect(ranked.map(item => item.name)).toEqual(["High", "Low"]);
+    expect(ranked.map((item) => item.name)).toEqual(["High", "Low"]);
   });
 });
 
@@ -155,19 +155,15 @@ describe("suggestedExamType", () => {
 
   test("suggests the practical exam once theory is done or running", () => {
     expect(suggestedExamType(withTheoryStatus("Bereit"))).toBe(
-      "Vorstellung zur prakt. Prüfung"
+      "Vorstellung zur prakt. Prüfung",
     );
     expect(suggestedExamType(withTheoryStatus("In Prüfung"))).toBe(
-      "Vorstellung zur prakt. Prüfung"
+      "Vorstellung zur prakt. Prüfung",
     );
   });
 
   test("suggests the theory exam otherwise", () => {
-    expect(suggestedExamType(withTheoryStatus("Aktiv"))).toBe(
-      "Theorieprüfung"
-    );
-    expect(suggestedExamType(withTheoryStatus("Pausiert"))).toBe(
-      "Theorieprüfung"
-    );
+    expect(suggestedExamType(withTheoryStatus("Aktiv"))).toBe("Theorieprüfung");
+    expect(suggestedExamType(withTheoryStatus("Pausiert"))).toBe("Theorieprüfung");
   });
 });

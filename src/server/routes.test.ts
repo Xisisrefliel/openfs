@@ -21,10 +21,7 @@ import {
   vehicleRoutes,
 } from "./routes";
 import { openSqlite } from "./sqlite";
-import {
-  attestationRoutes,
-  ensureAttestationTables,
-} from "./ausbildungsnachweis";
+import { attestationRoutes, ensureAttestationTables } from "./ausbildungsnachweis";
 
 /* ------------------------------------------------------------------ */
 /* Server setup — one server for the whole file.                       */
@@ -73,7 +70,7 @@ describe("GET /api/students", () => {
   test("returns 200 with students array", async () => {
     const res = await fetch(url("/api/students"));
     expect(res.status).toBe(200);
-    const body = await res.json() as { students: unknown[] };
+    const body = (await res.json()) as { students: unknown[] };
     expect(Array.isArray(body.students)).toBe(true);
   });
 });
@@ -92,7 +89,7 @@ describe("POST /api/students", () => {
       }),
     });
     expect(res.status).toBe(201);
-    const body = await res.json() as { id: number };
+    const body = (await res.json()) as { id: number };
     expect(typeof body.id).toBe("number");
     expect(body.id).toBeGreaterThan(0);
   });
@@ -104,7 +101,7 @@ describe("POST /api/students", () => {
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(typeof body.error).toBe("string");
     expect(body.error.length).toBeGreaterThan(0);
   });
@@ -118,7 +115,7 @@ describe("PATCH /api/students/:id", () => {
       body: JSON.stringify({ phone: "123" }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Ungültige");
   });
 
@@ -129,7 +126,7 @@ describe("PATCH /api/students/:id", () => {
       body: JSON.stringify({ phone: "123" }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("nicht gefunden");
   });
 });
@@ -148,20 +145,20 @@ describe("DELETE /api/students/:id", () => {
       }),
     });
     expect(postRes.status).toBe(201);
-    const created = await postRes.json() as { id: number };
+    const created = (await postRes.json()) as { id: number };
     expect(created.id).toBeGreaterThan(0);
 
     const delRes = await fetch(url(`/api/students/${created.id}`), {
       method: "DELETE",
     });
     expect(delRes.status).toBe(200);
-    const delBody = await delRes.json() as { ok: boolean };
+    const delBody = (await delRes.json()) as { ok: boolean };
     expect(delBody.ok).toBe(true);
 
     const listRes = await fetch(url("/api/students"));
     expect(listRes.status).toBe(200);
-    const list = await listRes.json() as { students: { id: number }[] };
-    const ids = list.students.map(s => s.id);
+    const list = (await listRes.json()) as { students: { id: number }[] };
+    const ids = list.students.map((s) => s.id);
     expect(ids).not.toContain(created.id);
   });
 
@@ -170,7 +167,7 @@ describe("DELETE /api/students/:id", () => {
       method: "DELETE",
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Ungültige");
   });
 });
@@ -196,14 +193,14 @@ describe("POST /api/instructors + DELETE /api/instructors/:id", () => {
       }),
     });
     expect(postRes.status).toBe(201);
-    const created = await postRes.json() as { id: number };
+    const created = (await postRes.json()) as { id: number };
     expect(created.id).toBeGreaterThan(0);
 
     const delRes = await fetch(url(`/api/instructors/${created.id}`), {
       method: "DELETE",
     });
     expect(delRes.status).toBe(200);
-    const delBody = await delRes.json() as { ok: boolean };
+    const delBody = (await delRes.json()) as { ok: boolean };
     expect(delBody.ok).toBe(true);
   });
 });
@@ -225,7 +222,7 @@ describe("POST /api/vehicles", () => {
       }),
     });
     expect(res.status).toBe(201);
-    const body = await res.json() as { id: number };
+    const body = (await res.json()) as { id: number };
     expect(body.id).toBeGreaterThan(0);
   });
 
@@ -239,7 +236,7 @@ describe("POST /api/vehicles", () => {
       }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(typeof body.error).toBe("string");
   });
 });
@@ -248,7 +245,7 @@ describe("GET /api/vehicle-options", () => {
   test("returns 200 with vehicleOptions array ending with 'Nicht zugeteilt'", async () => {
     const res = await fetch(url("/api/vehicle-options"));
     expect(res.status).toBe(200);
-    const body = await res.json() as { vehicleOptions: string[] };
+    const body = (await res.json()) as { vehicleOptions: string[] };
     expect(Array.isArray(body.vehicleOptions)).toBe(true);
     const options = body.vehicleOptions;
     expect(options[options.length - 1]).toBe("Nicht zugeteilt");
@@ -272,7 +269,7 @@ describe("GET /api/calendar-events", () => {
   test("returns 200 with events array (9 seeded)", async () => {
     const res = await fetch(url("/api/calendar-events"));
     expect(res.status).toBe(200);
-    const body = await res.json() as { events: unknown[] };
+    const body = (await res.json()) as { events: unknown[] };
     expect(Array.isArray(body.events)).toBe(true);
     expect(body.events.length).toBeGreaterThanOrEqual(9);
   });
@@ -286,7 +283,7 @@ describe("POST /api/calendar-events", () => {
       body: JSON.stringify(validEvent),
     });
     expect(res.status).toBe(201);
-    const body = await res.json() as { id: string };
+    const body = (await res.json()) as { id: string };
     expect(typeof body.id).toBe("string");
     expect(body.id.length).toBeGreaterThan(0);
   });
@@ -298,7 +295,7 @@ describe("POST /api/calendar-events", () => {
       body: JSON.stringify({ ...validEvent, start: "12:00", end: "11:00" }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Ende");
   });
 });
@@ -310,12 +307,12 @@ describe("DELETE /api/calendar-events/:id", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(validEvent),
     });
-    const created = await postRes.json() as { id: string };
+    const created = (await postRes.json()) as { id: string };
     const delRes = await fetch(url(`/api/calendar-events/${created.id}`), {
       method: "DELETE",
     });
     expect(delRes.status).toBe(200);
-    const delBody = await delRes.json() as { ok: boolean };
+    const delBody = (await delRes.json()) as { ok: boolean };
     expect(delBody.ok).toBe(true);
   });
 
@@ -324,7 +321,7 @@ describe("DELETE /api/calendar-events/:id", () => {
       method: "DELETE",
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Ungültige");
   });
 });
@@ -358,9 +355,11 @@ describe("GET /api/student-balances", () => {
 
     const res = await fetch(url("/api/student-balances"));
     expect(res.status).toBe(200);
-    const body = await res.json() as { balances: { customerNo: string; balanceCents: number }[] };
+    const body = (await res.json()) as {
+      balances: { customerNo: string; balanceCents: number }[];
+    };
     expect(Array.isArray(body.balances)).toBe(true);
-    const entry = body.balances.find(b => b.customerNo === `B-${id}`);
+    const entry = body.balances.find((b) => b.customerNo === `B-${id}`);
     expect(entry).toBeDefined();
     expect(entry!.balanceCents).toBe(50000);
   });
@@ -378,7 +377,7 @@ describe("PATCH /api/accounting/accounts/:number", () => {
       body: JSON.stringify({ active: "yes" }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("active");
     expect(body.error).toContain("boolean");
   });
@@ -392,7 +391,7 @@ describe("GET /api/profile", () => {
   test("returns 200 with name field", async () => {
     const res = await fetch(url("/api/profile"));
     expect(res.status).toBe(200);
-    const body = await res.json() as { name: string };
+    const body = (await res.json()) as { name: string };
     expect(typeof body.name).toBe("string");
     expect(body.name.length).toBeGreaterThan(0);
   });
@@ -406,7 +405,7 @@ describe("PUT /api/profile", () => {
       body: JSON.stringify({ name: "  Neue Fahrschule  " }),
     });
     expect(res.status).toBe(200);
-    const body = await res.json() as { name: string };
+    const body = (await res.json()) as { name: string };
     expect(body.name).toBe("Neue Fahrschule");
   });
 });
@@ -444,9 +443,9 @@ describe("GET /api/export/database", () => {
     await Bun.write(tmpPath, bytes);
 
     const tmpDb = openSqlite(tmpPath);
-    const row = tmpDb.query<{ n: number }, []>(
-      "SELECT count(*) AS n FROM students"
-    ).get();
+    const row = tmpDb
+      .query<{ n: number }, []>("SELECT count(*) AS n FROM students")
+      .get();
     tmpDb.close();
 
     expect(row).not.toBeNull();
@@ -459,7 +458,11 @@ describe("GET /api/export/database", () => {
 /* ================================================================== */
 
 /** Create a student via the API, return the created student. */
-async function createTestStudent(): Promise<{ id: number; customerNumber: string; contractNumber: string }> {
+async function createTestStudent(): Promise<{
+  id: number;
+  customerNumber: string;
+  contractNumber: string;
+}> {
   const tag = uniq("bill");
   const res = await fetch(url("/api/students"), {
     method: "POST",
@@ -474,7 +477,11 @@ async function createTestStudent(): Promise<{ id: number; customerNumber: string
     }),
   });
   expect(res.status).toBe(201);
-  return res.json() as Promise<{ id: number; customerNumber: string; contractNumber: string }>;
+  return res.json() as Promise<{
+    id: number;
+    customerNumber: string;
+    contractNumber: string;
+  }>;
 }
 
 /** Create a Praktisch event linked to a student. */
@@ -522,7 +529,7 @@ describe("POST /api/calendar-events/:id/bill", () => {
       body: JSON.stringify(billBody),
     });
     expect(res.status).toBe(201);
-    const body = await res.json() as {
+    const body = (await res.json()) as {
       transaction: { id: number };
       event: { billedTransactionId: number; billedActive: boolean };
     };
@@ -564,7 +571,7 @@ describe("POST /api/calendar-events/:id/bill", () => {
         body: JSON.stringify(billBody),
       });
       expect(res.status).toBe(201);
-      results.push(await res.json() as BillResponse);
+      results.push((await res.json()) as BillResponse);
     }
 
     const [first, second] = results as [BillResponse, BillResponse];
@@ -614,7 +621,7 @@ describe("POST /api/calendar-events/:id/bill", () => {
       body: JSON.stringify(billBody),
     });
     expect(second.status).toBe(400);
-    const errBody = await second.json() as { error: string };
+    const errBody = (await second.json()) as { error: string };
     expect(errBody.error).toContain("abgerechnet");
   });
 
@@ -632,7 +639,7 @@ describe("POST /api/calendar-events/:id/bill", () => {
       }),
     });
     expect(res1.status).toBe(201);
-    const theoryEvent = await res1.json() as { id: string };
+    const theoryEvent = (await res1.json()) as { id: string };
 
     const res = await fetch(url(`/api/calendar-events/${theoryEvent.id}/bill`), {
       method: "POST",
@@ -642,12 +649,18 @@ describe("POST /api/calendar-events/:id/bill", () => {
         date: "2026-06-15",
         amountCents: 5000,
         habenKonto: "4400",
-        student: { customerNo: "X", name: "X", address: "", contractNo: "X", classes: "B" },
+        student: {
+          customerNo: "X",
+          name: "X",
+          address: "",
+          contractNo: "X",
+          classes: "B",
+        },
         description: "Test",
       }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("praktische");
   });
 
@@ -666,7 +679,7 @@ describe("POST /api/calendar-events/:id/bill", () => {
       }),
     });
     expect(res1.status).toBe(201);
-    const evt = await res1.json() as { id: string };
+    const evt = (await res1.json()) as { id: string };
 
     const res = await fetch(url(`/api/calendar-events/${evt.id}/bill`), {
       method: "POST",
@@ -676,12 +689,18 @@ describe("POST /api/calendar-events/:id/bill", () => {
         date: "2026-06-15",
         amountCents: 5000,
         habenKonto: "4400",
-        student: { customerNo: "X", name: "X", address: "", contractNo: "X", classes: "B" },
+        student: {
+          customerNo: "X",
+          name: "X",
+          address: "",
+          contractNo: "X",
+          classes: "B",
+        },
         description: "Test",
       }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("Fahrschüler");
   });
 
@@ -708,7 +727,7 @@ describe("POST /api/calendar-events/:id/bill", () => {
       }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error).toContain("guthaben_uebertragung");
 
     // Verify no transaction was linked: the event is still not billed.
@@ -759,7 +778,10 @@ describe("POST /api/calendar-events/:id/bill", () => {
       body: JSON.stringify(billBody),
     });
     expect(billRes.status).toBe(201);
-    const billData = await billRes.json() as { transaction: { id: number }; event: { billedTransactionId: number } };
+    const billData = (await billRes.json()) as {
+      transaction: { id: number };
+      event: { billedTransactionId: number };
+    };
     const txId = billData.transaction.id;
 
     // Storno the transaction.
@@ -777,7 +799,10 @@ describe("POST /api/calendar-events/:id/bill", () => {
       body: JSON.stringify(billBody),
     });
     expect(rebillRes.status).toBe(201);
-    const rebillData = await rebillRes.json() as { transaction: { id: number }; event: { billedTransactionId: number } };
+    const rebillData = (await rebillRes.json()) as {
+      transaction: { id: number };
+      event: { billedTransactionId: number };
+    };
     expect(rebillData.transaction.id).not.toBe(txId);
     expect(rebillData.event.billedTransactionId).toBe(rebillData.transaction.id);
   });
@@ -792,7 +817,7 @@ const VALID_SIGNATURE = "data:image/png;base64,iVBORw0KGgo=";
 /** Create a calendar event of the given type linked to a student. */
 async function createEventOfType(
   type: string,
-  studentId: number
+  studentId: number,
 ): Promise<{ id: number }> {
   const res = await fetch(url("/api/calendar-events"), {
     method: "POST",
@@ -825,7 +850,7 @@ describe("GET /api/attestations", () => {
   test("without studentId → 400 with error", async () => {
     const res = await fetch(url("/api/attestations"));
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(typeof body.error).toBe("string");
     expect(body.error.length).toBeGreaterThan(0);
   });
@@ -834,7 +859,7 @@ describe("GET /api/attestations", () => {
     const student = await createTestStudent();
     const res = await fetch(url(`/api/attestations?studentId=${student.id}`));
     expect(res.status).toBe(200);
-    const body = await res.json() as { attestations: unknown[] };
+    const body = (await res.json()) as { attestations: unknown[] };
     expect(body.attestations).toEqual([]);
   });
 });
@@ -850,7 +875,7 @@ describe("POST /api/calendar-events/:id/attestation", () => {
       body: JSON.stringify(attestationBody(student.id)),
     });
     expect(res.status).toBe(201);
-    const body = await res.json() as {
+    const body = (await res.json()) as {
       attestation: { eventId: number; studentId: number };
     };
     expect(body.attestation.eventId).toBe(Number(event.id));
@@ -859,7 +884,7 @@ describe("POST /api/calendar-events/:id/attestation", () => {
     // List for the student is now non-empty.
     const listRes = await fetch(url(`/api/attestations?studentId=${student.id}`));
     expect(listRes.status).toBe(200);
-    const listBody = await listRes.json() as { attestations: unknown[] };
+    const listBody = (await listRes.json()) as { attestations: unknown[] };
     expect(listBody.attestations.length).toBe(1);
   });
 
@@ -873,7 +898,7 @@ describe("POST /api/calendar-events/:id/attestation", () => {
       body: JSON.stringify(attestationBody(student.id)),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error.length).toBeGreaterThan(0);
   });
 
@@ -888,7 +913,7 @@ describe("POST /api/calendar-events/:id/attestation", () => {
       body: JSON.stringify(attestationBody(other.id)),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error.length).toBeGreaterThan(0);
   });
 
@@ -941,7 +966,7 @@ describe("GET /api/calendar-events/:id/attestation", () => {
 
     const after = await fetch(url(`/api/calendar-events/${event.id}/attestation`));
     expect(after.status).toBe(200);
-    const body = await after.json() as { attestation: { eventId: number } };
+    const body = (await after.json()) as { attestation: { eventId: number } };
     expect(body.attestation.eventId).toBe(Number(event.id));
   });
 });
@@ -961,15 +986,15 @@ describe("POST /api/calendar-events/:id/exam-result", () => {
       body: JSON.stringify({ result: "bestanden" }),
     });
     expect(res.status).toBe(200);
-    const body = await res.json() as { examResult?: string };
+    const body = (await res.json()) as { examResult?: string };
     expect(body.examResult).toBe("bestanden");
 
     // Re-GET via the list endpoint shows the persisted result.
     const listRes = await fetch(
-      url("/api/calendar-events?from=2026-06-16&to=2026-06-16")
+      url("/api/calendar-events?from=2026-06-16&to=2026-06-16"),
     );
     expect(listRes.status).toBe(200);
-    const listBody = await listRes.json() as {
+    const listBody = (await listRes.json()) as {
       events: { id: string; examResult?: string }[];
     };
     // Calendar event ids are serialized as strings.
@@ -994,7 +1019,7 @@ describe("POST /api/calendar-events/:id/exam-result", () => {
       body: JSON.stringify({ result: null }),
     });
     expect(clear.status).toBe(200);
-    const body = await clear.json() as { examResult?: string };
+    const body = (await clear.json()) as { examResult?: string };
     expect(body.examResult).toBeUndefined();
   });
 
@@ -1008,7 +1033,7 @@ describe("POST /api/calendar-events/:id/exam-result", () => {
       body: JSON.stringify({ result: "vielleicht" }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error.length).toBeGreaterThan(0);
   });
 
@@ -1022,7 +1047,7 @@ describe("POST /api/calendar-events/:id/exam-result", () => {
       body: JSON.stringify({ result: "bestanden" }),
     });
     expect(res.status).toBe(400);
-    const body = await res.json() as { error: string };
+    const body = (await res.json()) as { error: string };
     expect(body.error.length).toBeGreaterThan(0);
   });
 });

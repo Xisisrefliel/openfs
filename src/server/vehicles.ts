@@ -64,18 +64,18 @@ function parseDetails(raw: string): VehicleDetail[] {
     const next = new Map<string, string>(
       parsed
         .filter(
-          item =>
+          (item) =>
             item !== null &&
             typeof item === "object" &&
             "label" in item &&
-            "value" in item
+            "value" in item,
         )
-        .map(item => [
+        .map((item) => [
           String((item as { label: unknown }).label).trim(),
           String((item as { value: unknown }).value).trim(),
-        ])
+        ]),
     );
-    return DETAIL_LABELS.map(label => ({
+    return DETAIL_LABELS.map((label) => ({
       label,
       value: next.get(label) ?? "",
     }));
@@ -94,14 +94,10 @@ const toVehicle = (row: VehicleRow): Vehicle => ({
   details: parseDetails(row.details),
 });
 
-const SELECT =
-  "SELECT id, model, plate, klass, status, accent, details FROM vehicles";
+const SELECT = "SELECT id, model, plate, klass, status, accent, details FROM vehicles";
 
 export function listVehicles(db: Database): Vehicle[] {
-  return db
-    .query<VehicleRow, []>(`${SELECT} ORDER BY model`)
-    .all()
-    .map(toVehicle);
+  return db.query<VehicleRow, []>(`${SELECT} ORDER BY model`).all().map(toVehicle);
 }
 
 export function getVehicle(db: Database, id: number): Vehicle {
@@ -114,7 +110,7 @@ export function listVehicleModels(db: Database): string[] {
   return db
     .query<{ model: string }, []>("SELECT DISTINCT model FROM vehicles ORDER BY model")
     .all()
-    .map(row => row.model)
+    .map((row) => row.model)
     .filter(Boolean);
 }
 
@@ -126,10 +122,7 @@ function normalizeStatus(value: unknown): VehicleStatus {
   return value;
 }
 
-function normalizeDetails(
-  value: unknown,
-  current: VehicleDetail[]
-): VehicleDetail[] {
+function normalizeDetails(value: unknown, current: VehicleDetail[]): VehicleDetail[] {
   if (value === undefined) return current;
   if (!Array.isArray(value)) {
     throw new ValidationError("Feld 'details' muss eine Liste sein.");
@@ -147,7 +140,7 @@ function normalizeDetails(
     const detailValue = String((row as { value: unknown }).value).trim();
     next.set(label, detailValue);
   }
-  return DETAIL_LABELS.map(label => ({ label, value: next.get(label) ?? "" }));
+  return DETAIL_LABELS.map((label) => ({ label, value: next.get(label) ?? "" }));
 }
 
 /* Merge partial payload over current values, trimming strings and applying
@@ -180,10 +173,7 @@ function normalize(input: Partial<VehicleInput>, current: Vehicle): Vehicle {
     next.status = normalizeStatus(input.status);
   }
 
-  next.details = normalizeDetails(
-    input.details,
-    current.details
-  );
+  next.details = normalizeDetails(input.details, current.details);
 
   if (!next.model) {
     throw new ValidationError("Modell ist ein Pflichtfeld.");
@@ -213,8 +203,7 @@ function guardUnique<T>(write: () => T): T {
   } catch (error) {
     if (
       error instanceof Error &&
-      (error.message.includes("UNIQUE") ||
-        error.message.includes("unique constraint"))
+      (error.message.includes("UNIQUE") || error.message.includes("unique constraint"))
     ) {
       throw new ValidationError("Kennzeichen ist bereits vergeben.");
     }
@@ -226,16 +215,13 @@ function toJson(details: VehicleDetail[]) {
   return JSON.stringify(details);
 }
 
-export function createVehicle(
-  db: Database,
-  input: Partial<VehicleInput>
-): Vehicle {
+export function createVehicle(db: Database, input: Partial<VehicleInput>): Vehicle {
   const data = normalize(input, { ...EMPTY, id: 0 });
   const row = guardUnique(() =>
     db
       .query<{ id: number }, [string, string, string, string, string, string]>(
         `INSERT INTO vehicles (model, plate, klass, status, accent, details)
-         VALUES (?, ?, ?, ?, ?, ?) RETURNING id`
+         VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
       )
       .get(
         data.model,
@@ -243,8 +229,8 @@ export function createVehicle(
         data.klass,
         data.status,
         data.accent,
-        toJson(data.details)
-      )
+        toJson(data.details),
+      ),
   )!;
   return getVehicle(db, row.id);
 }
@@ -252,7 +238,7 @@ export function createVehicle(
 export function updateVehicle(
   db: Database,
   id: number,
-  input: Partial<VehicleInput>
+  input: Partial<VehicleInput>,
 ): Vehicle {
   const current = getVehicle(db, id);
   const data = normalize(input, current);
@@ -260,7 +246,7 @@ export function updateVehicle(
     db.prepare(
       `UPDATE vehicles
        SET model = ?, plate = ?, klass = ?, status = ?, accent = ?, details = ?, updated_at = datetime('now')
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(
       data.model,
       data.plate,
@@ -268,7 +254,7 @@ export function updateVehicle(
       data.status,
       data.accent,
       toJson(data.details),
-      id
+      id,
     );
     // Students, instructors and Termine reference vehicles by model — a
     // model rename must follow, but only when no fleet mate still
@@ -276,20 +262,22 @@ export function updateVehicle(
     if (data.model !== current.model && current.model) {
       const sameModel = db
         .query<{ n: number }, [string]>(
-          "SELECT count(*) AS n FROM vehicles WHERE model = ?"
+          "SELECT count(*) AS n FROM vehicles WHERE model = ?",
         )
         .get(current.model)!.n;
       if (sameModel === 0) {
         db.prepare("UPDATE students SET vehicle = ? WHERE vehicle = ?").run(
           data.model,
-          current.model
+          current.model,
         );
-        db.prepare(
-          "UPDATE instructors SET vehicle = ? WHERE vehicle = ?"
-        ).run(data.model, current.model);
-        db.prepare(
-          "UPDATE calendar_events SET vehicle = ? WHERE vehicle = ?"
-        ).run(data.model, current.model);
+        db.prepare("UPDATE instructors SET vehicle = ? WHERE vehicle = ?").run(
+          data.model,
+          current.model,
+        );
+        db.prepare("UPDATE calendar_events SET vehicle = ? WHERE vehicle = ?").run(
+          data.model,
+          current.model,
+        );
       }
     }
   });
@@ -303,17 +291,15 @@ export function deleteVehicle(db: Database, id: number): void {
     // Remember who was assigned so a restore can re-link them.
     const byModel = (table: string) =>
       db
-        .query<{ id: number }, [string]>(
-          `SELECT id FROM ${table} WHERE vehicle = ?`
-        )
+        .query<{ id: number }, [string]>(`SELECT id FROM ${table} WHERE vehicle = ?`)
         .all(vehicle.model)
-        .map(row => row.id);
+        .map((row) => row.id);
     // Only sever references when this is the LAST vehicle of its model —
     // fleet mates with the same model keep the assignments valid.
     const lastOfModel =
       db
         .query<{ n: number }, [string, number]>(
-          "SELECT count(*) AS n FROM vehicles WHERE model = ? AND id != ?"
+          "SELECT count(*) AS n FROM vehicles WHERE model = ? AND id != ?",
         )
         .get(vehicle.model, id)!.n === 0;
     archiveRow(db, "vehicle", id, `${vehicle.model} · ${vehicle.plate}`, {
@@ -324,16 +310,16 @@ export function deleteVehicle(db: Database, id: number): void {
     if (lastOfModel) {
       db.prepare("UPDATE students SET vehicle = ? WHERE vehicle = ?").run(
         UNASSIGNED_VEHICLE,
-        vehicle.model
+        vehicle.model,
       );
       db.prepare("UPDATE instructors SET vehicle = ? WHERE vehicle = ?").run(
         UNASSIGNED_VEHICLE,
-        vehicle.model
+        vehicle.model,
       );
       // Events treat '' as "no vehicle" (optional field).
-      db.prepare(
-        "UPDATE calendar_events SET vehicle = '' WHERE vehicle = ?"
-      ).run(vehicle.model);
+      db.prepare("UPDATE calendar_events SET vehicle = '' WHERE vehicle = ?").run(
+        vehicle.model,
+      );
     }
     db.prepare("DELETE FROM vehicles WHERE id = ?").run(id);
   });

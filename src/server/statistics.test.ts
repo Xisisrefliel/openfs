@@ -150,13 +150,20 @@ function insertStudent(status: "aktiv" | "inaktiv", registrationDate: string) {
   studentSeq += 1;
   db.prepare(
     `INSERT INTO students (first_name, last_name, registration_date, contract_number, customer_number, status)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run("Test", `Schüler${studentSeq}`, registrationDate, `V-${studentSeq}`, `K-${studentSeq}`, status);
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    "Test",
+    `Schüler${studentSeq}`,
+    registrationDate,
+    `V-${studentSeq}`,
+    `K-${studentSeq}`,
+    status,
+  );
 }
 
 function insertInstructor(status: "aktiv" | "inaktiv", lastName: string) {
   db.prepare(
-    "INSERT INTO instructors (first_name, last_name, status) VALUES (?, ?, ?)"
+    "INSERT INTO instructors (first_name, last_name, status) VALUES (?, ?, ?)",
   ).run("Test", lastName, status);
 }
 
@@ -164,7 +171,7 @@ let vehicleSeq = 0;
 function insertVehicle(status: "aktiv" | "wartung") {
   vehicleSeq += 1;
   db.prepare(
-    "INSERT INTO vehicles (model, plate, klass, status) VALUES (?, ?, ?, ?)"
+    "INSERT INTO vehicles (model, plate, klass, status) VALUES (?, ?, ?, ?)",
   ).run("VW Golf", `DA-FS ${vehicleSeq}`, "B", status);
 }
 
@@ -173,17 +180,17 @@ function insertEvent(
   start: string,
   end: string,
   type: string,
-  instructor = "Köksal Gül"
+  instructor = "Köksal Gül",
 ) {
   db.prepare(
     `INSERT INTO calendar_events (date, start, "end", title, instructor, type)
-     VALUES (?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(date, start, end, "Termin", instructor, type);
 }
 
 function insertAccounts() {
   const insert = db.prepare(
-    "INSERT INTO accounts (number, name, kind, vat_rate, vat_label) VALUES (?, ?, ?, ?, ?)"
+    "INSERT INTO accounts (number, name, kind, vat_rate, vat_label) VALUES (?, ?, ?, ?, ?)",
   );
   insert.run("1600", "Kasse", "geldkonto", null, "Nicht zutreffend");
   insert.run("4400", "Erlöse 19 % USt", "erloes", 19, "19%");
@@ -194,23 +201,23 @@ let belegSeq = 0;
 function insertRevenue(
   date: string,
   amountCents: number,
-  options: { haben?: string; stornoOf?: number } = {}
+  options: { haben?: string; stornoOf?: number } = {},
 ): number {
   belegSeq += 1;
   const tx = db
     .query<{ id: number }, [string, string, number | null]>(
       `INSERT INTO transactions (beleg_nr, date, type, storno_of)
-       VALUES (?, ?, 'zahlung', ?) RETURNING id`
+       VALUES (?, ?, 'zahlung', ?) RETURNING id`,
     )
     .get(`T${belegSeq}`, date, options.stornoOf ?? null)!;
   db.prepare(
     `INSERT INTO bookings (transaction_id, buchung_nr, soll_account, haben_account, amount_cents)
-     VALUES (?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?)`,
   ).run(tx.id, `B${belegSeq}`, "1600", options.haben ?? "4400", amountCents);
   if (options.stornoOf) {
     db.prepare("UPDATE transactions SET storniert_by = ? WHERE id = ?").run(
       tx.id,
-      options.stornoOf
+      options.stornoOf,
     );
   }
   return tx.id;
@@ -362,7 +369,7 @@ describe("statisticsRoutes", () => {
 
     const routes = statisticsRoutes(db);
     const response = await routes["/api/statistics"].GET(
-      new Request("http://localhost/api/statistics") as BunRequest
+      new Request("http://localhost/api/statistics") as BunRequest,
     );
     expect(response.status).toBe(200);
 
@@ -402,7 +409,7 @@ function insertStudent2(seq: number): number {
   return db
     .query<{ id: number }, [string, string, string, string]>(
       `INSERT INTO students (first_name, last_name, contract_number, customer_number)
-       VALUES (?, ?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?, ?) RETURNING id`,
     )
     .get("Test", `Schüler${seq}`, `V-ES-${seq}`, `K-ES-${seq}`)!.id;
 }
@@ -411,11 +418,11 @@ function insertExamEvent(
   type: "Theorieprüfung" | "Vorstellung zur prakt. Prüfung",
   date: string,
   examResult: string | null,
-  studentId: number | null
+  studentId: number | null,
 ): void {
   db.prepare(
     `INSERT INTO calendar_events (date, start, "end", title, type, exam_result, student_id)
-     VALUES (?, '09:00', '11:00', 'Prüfung', ?, ?, ?)`
+     VALUES (?, '09:00', '11:00', 'Prüfung', ?, ?, ?)`,
   ).run(date, type, examResult, studentId);
 }
 
@@ -439,7 +446,7 @@ describe("examStatistics", () => {
     insertExamEvent("Theorieprüfung", "2026-01-10", "nicht_bestanden", s2);
     insertExamEvent("Theorieprüfung", "2026-01-20", null, null); // offen, no student
     const result = examStatistics(db);
-    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    const theorie = result.byType.find((r) => r.type === "Theorieprüfung")!;
     expect(theorie.total).toBe(3);
     expect(theorie.bestanden).toBe(1);
     expect(theorie.nicht_bestanden).toBe(1);
@@ -450,7 +457,7 @@ describe("examStatistics", () => {
     const s1 = insertStudent2(200);
     insertExamEvent("Theorieprüfung", "2026-02-01", "bestanden", s1);
     const result = examStatistics(db);
-    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    const theorie = result.byType.find((r) => r.type === "Theorieprüfung")!;
     expect(theorie.firstAttemptPassRate).toBeCloseTo(1.0);
   });
 
@@ -459,7 +466,7 @@ describe("examStatistics", () => {
     insertExamEvent("Theorieprüfung", "2026-03-01", "nicht_bestanden", s1); // first
     insertExamEvent("Theorieprüfung", "2026-03-15", "bestanden", s1); // second — ignored for rate
     const result = examStatistics(db);
-    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    const theorie = result.byType.find((r) => r.type === "Theorieprüfung")!;
     // first attempt = nicht_bestanden → rate 0
     expect(theorie.firstAttemptPassRate).toBeCloseTo(0.0);
   });
@@ -472,7 +479,7 @@ describe("examStatistics", () => {
     insertExamEvent("Theorieprüfung", "2026-03-05", "nicht_bestanden", s1); // higher id, earlier date → first attempt
     insertExamEvent("Theorieprüfung", "2026-03-10", "bestanden", s2);
     const result = examStatistics(db);
-    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    const theorie = result.byType.find((r) => r.type === "Theorieprüfung")!;
     // s1 first attempt = nicht_bestanden (earlier date), s2 = bestanden → 1/2
     expect(theorie.firstAttemptPassRate).toBeCloseTo(0.5);
   });
@@ -480,7 +487,7 @@ describe("examStatistics", () => {
   test("events with NULL student_id excluded from first-attempt rate but counted in totals", () => {
     insertExamEvent("Theorieprüfung", "2026-04-01", "bestanden", null); // no student_id
     const result = examStatistics(db);
-    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
+    const theorie = result.byType.find((r) => r.type === "Theorieprüfung")!;
     expect(theorie.total).toBe(1);
     expect(theorie.bestanden).toBe(1);
     expect(theorie.firstAttemptPassRate).toBeNull(); // excluded
@@ -489,10 +496,17 @@ describe("examStatistics", () => {
   test("Vorstellung zur prakt. Prüfung tracked separately from Theorieprüfung", () => {
     const s1 = insertStudent2(400);
     insertExamEvent("Theorieprüfung", "2026-05-01", "bestanden", s1);
-    insertExamEvent("Vorstellung zur prakt. Prüfung", "2026-05-10", "nicht_bestanden", s1);
+    insertExamEvent(
+      "Vorstellung zur prakt. Prüfung",
+      "2026-05-10",
+      "nicht_bestanden",
+      s1,
+    );
     const result = examStatistics(db);
-    const theorie = result.byType.find(r => r.type === "Theorieprüfung")!;
-    const praktisch = result.byType.find(r => r.type === "Vorstellung zur prakt. Prüfung")!;
+    const theorie = result.byType.find((r) => r.type === "Theorieprüfung")!;
+    const praktisch = result.byType.find(
+      (r) => r.type === "Vorstellung zur prakt. Prüfung",
+    )!;
     expect(theorie.total).toBe(1);
     expect(theorie.bestanden).toBe(1);
     expect(praktisch.total).toBe(1);

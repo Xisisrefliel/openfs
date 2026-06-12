@@ -76,7 +76,7 @@ describe("parseDetails recovery on malformed JSON", () => {
     // Insert a row directly with malformed JSON in details
     const row = db
       .query<{ id: number }, [string, string, string, string, string, string]>(
-        "INSERT INTO vehicles (model, plate, klass, status, accent, details) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
+        "INSERT INTO vehicles (model, plate, klass, status, accent, details) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
       )
       .get("BadJson", uniq("BAD-"), "B", "aktiv", "", "not json")!;
 
@@ -94,7 +94,7 @@ describe("parseDetails recovery on malformed JSON", () => {
   test("row with details = '\"string\"' (non-array JSON) → falls back to BASE_DETAILS", () => {
     const row = db
       .query<{ id: number }, [string, string, string, string, string, string]>(
-        "INSERT INTO vehicles (model, plate, klass, status, accent, details) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
+        "INSERT INTO vehicles (model, plate, klass, status, accent, details) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
       )
       .get("StringJson", uniq("STR-"), "B", "aktiv", "", '"a string"')!;
 
@@ -128,13 +128,17 @@ describe("createVehicle validation", () => {
   });
 
   test("bad status → ValidationError", () => {
-    expect(() => createVehicle(db, makeVehicle({ status: "defekt" }))).toThrow(ValidationError);
+    expect(() => createVehicle(db, makeVehicle({ status: "defekt" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("duplicate plate → ValidationError with German message", () => {
     const v = makeVehicle();
     createVehicle(db, v);
-    expect(() => createVehicle(db, { ...v })).toThrowError("Kennzeichen ist bereits vergeben.");
+    expect(() => createVehicle(db, { ...v })).toThrowError(
+      "Kennzeichen ist bereits vergeben.",
+    );
   });
 });
 
@@ -144,15 +148,26 @@ describe("createVehicle validation", () => {
 
 describe("model rename propagation", () => {
   test("renaming the last vehicle of a model updates students and calendar_events", () => {
-    const vehicle = createVehicle(db, makeVehicle({ model: "OldModel", plate: uniq("OLD-") }));
+    const vehicle = createVehicle(
+      db,
+      makeVehicle({ model: "OldModel", plate: uniq("OLD-") }),
+    );
 
     // Student assigned to old model
     const student = createStudent(db, makeStudent({ vehicle: "OldModel" }));
 
     // Calendar event assigned to old model
     db.prepare(
-      "INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).run("2026-03-01", "10:00", "11:00", "Fahrstunde", "Nicht zugeteilt", "OldModel", "Praktisch");
+      "INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      "2026-03-01",
+      "10:00",
+      "11:00",
+      "Fahrstunde",
+      "Nicht zugeteilt",
+      "OldModel",
+      "Praktisch",
+    );
 
     // Act: rename model
     updateVehicle(db, vehicle.id, { model: "NewModel" });
@@ -164,7 +179,7 @@ describe("model rename propagation", () => {
     // Assert: calendar_event vehicle updated
     const ev = db
       .query<{ vehicle: string }, []>(
-        "SELECT vehicle FROM calendar_events WHERE date = '2026-03-01'"
+        "SELECT vehicle FROM calendar_events WHERE date = '2026-03-01'",
       )
       .get();
     expect(ev?.vehicle).toBe("NewModel");
@@ -172,7 +187,10 @@ describe("model rename propagation", () => {
 
   test("renaming model with a fleet mate leaves references untouched", () => {
     // Two vehicles share the same model
-    const v1 = createVehicle(db, makeVehicle({ model: "SharedModel", plate: uniq("S1-") }));
+    const v1 = createVehicle(
+      db,
+      makeVehicle({ model: "SharedModel", plate: uniq("S1-") }),
+    );
     createVehicle(db, makeVehicle({ model: "SharedModel", plate: uniq("S2-") }));
 
     const student = createStudent(db, makeStudent({ vehicle: "SharedModel" }));
@@ -186,7 +204,10 @@ describe("model rename propagation", () => {
   });
 
   test("plate change on same model (no model rename) does not touch student references", () => {
-    const vehicle = createVehicle(db, makeVehicle({ model: "PlateModel", plate: uniq("P1-") }));
+    const vehicle = createVehicle(
+      db,
+      makeVehicle({ model: "PlateModel", plate: uniq("P1-") }),
+    );
     const student = createStudent(db, makeStudent({ vehicle: "PlateModel" }));
 
     updateVehicle(db, vehicle.id, { plate: uniq("P2-") });
@@ -208,7 +229,7 @@ describe("listVehicleModels", () => {
 
     const models = listVehicleModels(db);
     // Only one "Alpha" despite two vehicles
-    const alphaCount = models.filter(m => m === "Alpha").length;
+    const alphaCount = models.filter((m) => m === "Alpha").length;
     expect(alphaCount).toBe(1);
 
     // Sorted alphabetically
@@ -237,7 +258,10 @@ describe("deleteVehicle", () => {
   });
 
   test("last vehicle of model → re-assigns students to 'Nicht zugeteilt'", () => {
-    const vehicle = createVehicle(db, makeVehicle({ model: "DeleteModel", plate: uniq("D-") }));
+    const vehicle = createVehicle(
+      db,
+      makeVehicle({ model: "DeleteModel", plate: uniq("D-") }),
+    );
     const student = createStudent(db, makeStudent({ vehicle: "DeleteModel" }));
 
     deleteVehicle(db, vehicle.id);
@@ -247,7 +271,10 @@ describe("deleteVehicle", () => {
   });
 
   test("last vehicle of model → re-assigns instructor vehicle to 'Nicht zugeteilt'", () => {
-    const vehicle = createVehicle(db, makeVehicle({ model: "InstrModel", plate: uniq("I-") }));
+    const vehicle = createVehicle(
+      db,
+      makeVehicle({ model: "InstrModel", plate: uniq("I-") }),
+    );
     const instructor = createInstructor(db, makeInstructor({ vehicle: "InstrModel" }));
 
     deleteVehicle(db, vehicle.id);
@@ -257,23 +284,37 @@ describe("deleteVehicle", () => {
   });
 
   test("last vehicle of model → re-assigns calendar_events vehicle to ''", () => {
-    const vehicle = createVehicle(db, makeVehicle({ model: "CalModel", plate: uniq("C-") }));
+    const vehicle = createVehicle(
+      db,
+      makeVehicle({ model: "CalModel", plate: uniq("C-") }),
+    );
     db.prepare(
-      "INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).run("2026-04-01", "10:00", "11:00", "Termin", "Nicht zugeteilt", "CalModel", "Praktisch");
+      "INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      "2026-04-01",
+      "10:00",
+      "11:00",
+      "Termin",
+      "Nicht zugeteilt",
+      "CalModel",
+      "Praktisch",
+    );
 
     deleteVehicle(db, vehicle.id);
 
     const ev = db
       .query<{ vehicle: string }, []>(
-        "SELECT vehicle FROM calendar_events WHERE date = '2026-04-01'"
+        "SELECT vehicle FROM calendar_events WHERE date = '2026-04-01'",
       )
       .get();
     expect(ev?.vehicle).toBe("");
   });
 
   test("writes archive entry with correct entity", () => {
-    const vehicle = createVehicle(db, makeVehicle({ model: "ArchModel", plate: uniq("AR-") }));
+    const vehicle = createVehicle(
+      db,
+      makeVehicle({ model: "ArchModel", plate: uniq("AR-") }),
+    );
     const archiveBefore = listArchive(db).length;
 
     deleteVehicle(db, vehicle.id);
@@ -285,7 +326,10 @@ describe("deleteVehicle", () => {
 
   test("fleet mate: deleting one of two same-model vehicles does NOT re-assign references", () => {
     createVehicle(db, makeVehicle({ model: "FleetModel", plate: uniq("F1-") }));
-    const v2 = createVehicle(db, makeVehicle({ model: "FleetModel", plate: uniq("F2-") }));
+    const v2 = createVehicle(
+      db,
+      makeVehicle({ model: "FleetModel", plate: uniq("F2-") }),
+    );
     const student = createStudent(db, makeStudent({ vehicle: "FleetModel" }));
 
     deleteVehicle(db, v2.id);

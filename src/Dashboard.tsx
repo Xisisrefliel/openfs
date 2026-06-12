@@ -1,12 +1,6 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, XAxis } from "recharts";
-import {
-  ArrowRight,
-  CalendarDays,
-  ChevronRight,
-  MapPin,
-  Plus,
-} from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronRight, MapPin, Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,28 +55,21 @@ const weekStart = startOfWeek(TODAY);
 const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
 const byDateTime = (a: CalEvent, b: CalEvent) =>
-  a.date === b.date
-    ? toMinutes(a.start) - toMinutes(b.start)
-    : a.date < b.date
-      ? -1
-      : 1;
+  a.date === b.date ? toMinutes(a.start) - toMinutes(b.start) : a.date < b.date ? -1 : 1;
 
 const eventsOn = (events: CalEvent[], day: Date) =>
-  events.filter(event => isSameDay(parseISODate(event.date), day));
+  events.filter((event) => isSameDay(parseISODate(event.date), day));
 
 /* h-full lets the three widgets share one row height (the tallest — the
    month calendar — sets it), so the row reads as one composed band
    instead of three ragged card bottoms. */
-const dashboardCardClass =
-  "h-full rounded-lg border border-border/80 ring-0 shadow-none";
+const dashboardCardClass = "h-full rounded-lg border border-border/80 ring-0 shadow-none";
 const dashboardCardHeaderClass = "border-b border-border/70";
 
 function PanelTitle({ children }: { children: React.ReactNode }) {
   /* truncate (not balance-wrap): a two-line title makes one card header
      taller and breaks the hairline alignment across the widget band. */
-  return (
-    <CardTitle className="truncate text-sm font-medium">{children}</CardTitle>
-  );
+  return <CardTitle className="truncate text-sm font-medium">{children}</CardTitle>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -103,9 +90,7 @@ type Stat = {
 
 function HeaderStats({ events }: { events: CalEvent[] }) {
   const { students } = useStudents();
-  const activeStudents = students.filter(
-    student => student.status === "aktiv"
-  ).length;
+  const activeStudents = students.filter((student) => student.status === "aktiv").length;
 
   // Counts derived from the shared sources — students come from the DB.
   const fahrstundenThisWeek = events.filter(isFahrstunde).length;
@@ -163,7 +148,7 @@ function HeaderStats({ events }: { events: CalEvent[] }) {
                   "text-[11px] leading-none tabular-nums",
                   trend.positive
                     ? "text-green-700 dark:text-green-400"
-                    : "text-destructive"
+                    : "text-destructive",
                 )}
               >
                 {trend.delta}
@@ -213,10 +198,10 @@ function Chart({ events }: { events: CalEvent[] }) {
         day: WEEKDAY_LABELS[i],
         value: eventsOn(events, day).filter(isFahrstunde).length,
       })),
-    [events]
+    [events],
   );
   const total = chartData.reduce((s, d) => s + d.value, 0);
-  const max = Math.max(...chartData.map(d => d.value));
+  const max = Math.max(...chartData.map((d) => d.value));
   return (
     <Card className={dashboardCardClass}>
       <CardHeader className={dashboardCardHeaderClass}>
@@ -240,32 +225,32 @@ function Chart({ events }: { events: CalEvent[] }) {
             </span>
           </div>
         ) : (
-        /* basis-0 keeps the chart from dictating the row height — it
+          /* basis-0 keeps the chart from dictating the row height — it
            absorbs whatever the calendar column leaves it. */
-        <ChartContainer
-          config={chartConfig}
-          className="aspect-auto min-h-[240px] w-full flex-1 basis-0"
-        >
-          <BarChart data={chartData} margin={{ top: 8, left: 0, right: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
-            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-            {/* The busiest day reads at full strength; the rest recede.
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-auto min-h-[240px] w-full flex-1 basis-0"
+          >
+            <BarChart data={chartData} margin={{ top: 8, left: 0, right: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
+              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              {/* The busiest day reads at full strength; the rest recede.
                 Top-only rounding keeps bars anchored to the baseline. */}
-            <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={36}>
-              {chartData.map(entry => (
-                <Cell
-                  key={entry.day}
-                  fill={
-                    entry.value > 0 && entry.value === max
-                      ? "var(--chart-1)"
-                      : "var(--chart-2)"
-                  }
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={36}>
+                {chartData.map((entry) => (
+                  <Cell
+                    key={entry.day}
+                    fill={
+                      entry.value > 0 && entry.value === max
+                        ? "var(--chart-1)"
+                        : "var(--chart-2)"
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartContainer>
         )}
       </CardContent>
     </Card>
@@ -287,7 +272,7 @@ function List({ events }: { events: CalEvent[] }) {
   const nonFahrstundeEvents = useMemo(() => {
     const todayISO = toISODate(TODAY);
     return events
-      .filter(event => !isFahrstunde(event) && event.date >= todayISO)
+      .filter((event) => !isFahrstunde(event) && event.date >= todayISO)
       .sort(byDateTime);
   }, [events]);
   return (
@@ -296,8 +281,7 @@ function List({ events }: { events: CalEvent[] }) {
         <PanelTitle>Anstehende Termine</PanelTitle>
         <CardDescription>
           <span className="tabular-nums">{nonFahrstundeEvents.length}</span>{" "}
-          {nonFahrstundeEvents.length === 1 ? "Termin" : "Termine"} ohne
-          Fahrstunden
+          {nonFahrstundeEvents.length === 1 ? "Termin" : "Termine"} ohne Fahrstunden
         </CardDescription>
         <CardAction>
           <Button variant="ghost" size="sm" onClick={openCalendar}>
@@ -315,52 +299,50 @@ function List({ events }: { events: CalEvent[] }) {
             </span>
           </div>
         ) : (
-        /* Radix wraps viewport children in a display:table div that sizes
+          /* Radix wraps viewport children in a display:table div that sizes
            to max-content, which defeats row truncation — force block so
            long titles ellipsize instead of clipping the badges. */
-        <ScrollArea className="min-h-[280px] flex-1 basis-0 [&>[data-slot=scroll-area-viewport]>div]:block!">
-          <div className="flex flex-col gap-1 pr-3">
-            {nonFahrstundeEvents.map(event => {
-              const place = event.location ?? event.vehicle;
-              return (
-                <button
-                  key={event.id}
-                  type="button"
-                  onClick={openCalendar}
-                  className="group/row flex items-center gap-3 rounded-md px-2 py-2.5 text-left outline-hidden transition-colors duration-150 hover:bg-muted hover:duration-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-                >
-                  <span className="flex w-12 shrink-0 flex-col items-center">
-                    <span className="text-[11px] font-medium text-muted-foreground">
-                      {weekdayShort(parseISODate(event.date))}
+          <ScrollArea className="min-h-[280px] flex-1 basis-0 [&>[data-slot=scroll-area-viewport]>div]:block!">
+            <div className="flex flex-col gap-1 pr-3">
+              {nonFahrstundeEvents.map((event) => {
+                const place = event.location ?? event.vehicle;
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={openCalendar}
+                    className="group/row flex items-center gap-3 rounded-md px-2 py-2.5 text-left outline-hidden transition-colors duration-150 hover:bg-muted hover:duration-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  >
+                    <span className="flex w-12 shrink-0 flex-col items-center">
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        {weekdayShort(parseISODate(event.date))}
+                      </span>
+                      <span className="text-sm font-medium tabular-nums">
+                        {event.start}
+                      </span>
                     </span>
-                    <span className="text-sm font-medium tabular-nums">
-                      {event.start}
-                    </span>
-                  </span>
-                  <Separator orientation="vertical" className="h-9" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium">
-                      {event.title}
-                    </span>
-                    <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                      {event.subtitle}
-                      {place && (
-                        <>
-                          <span className="text-border">·</span>
-                          <MapPin className="size-3 shrink-0" />
-                          {place}
-                        </>
-                      )}
-                    </span>
-                  </div>
-                  <Badge variant="secondary" className="shrink-0">
-                    {eventTypeShortLabel[event.type]}
-                  </Badge>
-                </button>
-              );
-            })}
-          </div>
-        </ScrollArea>
+                    <Separator orientation="vertical" className="h-9" />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-medium">{event.title}</span>
+                      <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                        {event.subtitle}
+                        {place && (
+                          <>
+                            <span className="text-border">·</span>
+                            <MapPin className="size-3 shrink-0" />
+                            {place}
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0">
+                      {eventTypeShortLabel[event.type]}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>
@@ -375,13 +357,11 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
   const [selected, setSelected] = useState<Date | undefined>(TODAY);
   // Days that have at least one event, for the calendar's dot markers.
   const eventDates = useMemo(
-    () => [...new Set(events.map(event => event.date))].map(parseISODate),
-    [events]
+    () => [...new Set(events.map((event) => event.date))].map(parseISODate),
+    [events],
   );
   const dayEvents = selected
-    ? eventsOn(events, selected).sort(
-        (a, b) => toMinutes(a.start) - toMinutes(b.start)
-      )
+    ? eventsOn(events, selected).sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
     : [];
   const isToday = selected ? isSameDay(selected, TODAY) : false;
   const dayLabel = selected
@@ -410,9 +390,9 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
               "relative after:absolute after:bottom-1 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-primary data-[selected-single=true]:after:bg-primary-foreground",
           }}
           formatters={{
-            formatCaption: d =>
+            formatCaption: (d) =>
               d.toLocaleDateString("de-DE", { month: "long", year: "numeric" }),
-            formatWeekdayName: d => d.toLocaleDateString("de-DE", { weekday: "short" }),
+            formatWeekdayName: (d) => d.toLocaleDateString("de-DE", { weekday: "short" }),
           }}
         />
 
@@ -422,7 +402,9 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
           <div className="flex items-baseline justify-between pb-2">
             <span className="text-sm font-medium">
               {dayLabel}
-              {isToday && <span className="ml-1.5 text-xs text-muted-foreground">Heute</span>}
+              {isToday && (
+                <span className="ml-1.5 text-xs text-muted-foreground">Heute</span>
+              )}
             </span>
             <span className="text-xs tabular-nums text-muted-foreground">
               {dayEvents.length} {dayEvents.length === 1 ? "Termin" : "Termine"}
@@ -442,7 +424,9 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
                   <span className="h-8 w-1 shrink-0 rounded-full bg-primary/70" />
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium">{event.title}</span>
-                    <span className="text-xs tabular-nums text-muted-foreground">{event.start} Uhr</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {event.start} Uhr
+                    </span>
                   </div>
                   <ArrowRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/row:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover/row:translate-x-0" />
                 </button>
@@ -454,7 +438,9 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
               className="animate-agenda-fade flex flex-col items-center justify-center gap-1 py-6 text-center"
             >
               <CalendarDays className="size-5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Keine Termine an diesem Tag</span>
+              <span className="text-xs text-muted-foreground">
+                Keine Termine an diesem Tag
+              </span>
             </div>
           )}
         </div>
@@ -472,7 +458,11 @@ export function Dashboard() {
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <Navigation events={events} />
-      <div className={cn("flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:gap-5 2xl:p-6")}>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:gap-5 2xl:p-6",
+        )}
+      >
         {/* The 12-col band needs ~1280px: below that the month calendar
             (7 × 32px cells + card padding) no longer fits a 3–4 col slot,
             so everything stacks. The cap keeps ultra-wide monitors from

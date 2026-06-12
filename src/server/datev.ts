@@ -86,13 +86,33 @@ function belegfeld(value: string): string {
 /* Unicode → CP1252 for the 0x80–0x9F range (the rest maps 1:1 with    */
 /* Latin-1). Covers €, dashes and typographic quotes.                  */
 const CP1252_EXTRA = new Map<number, number>([
-  [0x20ac, 0x80], [0x201a, 0x82], [0x0192, 0x83], [0x201e, 0x84],
-  [0x2026, 0x85], [0x2020, 0x86], [0x2021, 0x87], [0x02c6, 0x88],
-  [0x2030, 0x89], [0x0160, 0x8a], [0x2039, 0x8b], [0x0152, 0x8c],
-  [0x017d, 0x8e], [0x2018, 0x91], [0x2019, 0x92], [0x201c, 0x93],
-  [0x201d, 0x94], [0x2022, 0x95], [0x2013, 0x96], [0x2014, 0x97],
-  [0x02dc, 0x98], [0x2122, 0x99], [0x0161, 0x9a], [0x203a, 0x9b],
-  [0x0153, 0x9c], [0x017e, 0x9e], [0x0178, 0x9f],
+  [0x20ac, 0x80],
+  [0x201a, 0x82],
+  [0x0192, 0x83],
+  [0x201e, 0x84],
+  [0x2026, 0x85],
+  [0x2020, 0x86],
+  [0x2021, 0x87],
+  [0x02c6, 0x88],
+  [0x2030, 0x89],
+  [0x0160, 0x8a],
+  [0x2039, 0x8b],
+  [0x0152, 0x8c],
+  [0x017d, 0x8e],
+  [0x2018, 0x91],
+  [0x2019, 0x92],
+  [0x201c, 0x93],
+  [0x201d, 0x94],
+  [0x2022, 0x95],
+  [0x2013, 0x96],
+  [0x2014, 0x97],
+  [0x02dc, 0x98],
+  [0x2122, 0x99],
+  [0x0161, 0x9a],
+  [0x203a, 0x9b],
+  [0x0153, 0x9c],
+  [0x017e, 0x9e],
+  [0x0178, 0x9f],
 ]);
 
 export function encodeCp1252(value: string): Uint8Array {
@@ -170,13 +190,16 @@ export type DatevExport = { filename: string; bytes: Uint8Array };
 
 export function generateDatevExport(
   db: Database,
-  options: { from?: string; to?: string; createdAt?: Date }
+  options: { from?: string; to?: string; createdAt?: Date },
 ): DatevExport {
   const { from, to } = options;
-  if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
-    throw new ValidationError(
-      "DATEV-Export benötigt einen Zeitraum (von/bis)."
-    );
+  if (
+    !from ||
+    !to ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(from) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(to)
+  ) {
+    throw new ValidationError("DATEV-Export benötigt einen Zeitraum (von/bis).");
   }
   if (from > to) {
     throw new ValidationError("Zeitraum: 'von' liegt nach 'bis'.");
@@ -185,19 +208,19 @@ export function generateDatevExport(
     // Belegdatum is TTMM — the year comes from the header WJ, so a
     // Stapel must not span fiscal years.
     throw new ValidationError(
-      "DATEV-Buchungsstapel müssen je Wirtschaftsjahr exportiert werden — bitte den Zeitraum auf ein Kalenderjahr begrenzen."
+      "DATEV-Buchungsstapel müssen je Wirtschaftsjahr exportiert werden — bitte den Zeitraum auf ein Kalenderjahr begrenzen.",
     );
   }
 
   const company = getCompany(db);
   if (!/^\d{4,7}$/.test(company.beraterNr) || Number(company.beraterNr) < 1001) {
     throw new ValidationError(
-      "Bitte zuerst die DATEV-Beraternummer (1001–9999999) im Profil hinterlegen."
+      "Bitte zuerst die DATEV-Beraternummer (1001–9999999) im Profil hinterlegen.",
     );
   }
   if (!/^\d{1,5}$/.test(company.mandantNr) || Number(company.mandantNr) < 1) {
     throw new ValidationError(
-      "Bitte zuerst die DATEV-Mandantennummer (1–99999) im Profil hinterlegen."
+      "Bitte zuerst die DATEV-Mandantennummer (1–99999) im Profil hinterlegen.",
     );
   }
 
@@ -206,7 +229,7 @@ export function generateDatevExport(
     throw new ValidationError("Im gewählten Zeitraum liegen keine Buchungen vor.");
   }
 
-  const accounts = new Map(listAccounts(db).map(a => [a.number, a]));
+  const accounts = new Map(listAccounts(db).map((a) => [a.number, a]));
   const lines: string[] = [
     headerRow({
       beraterNr: company.beraterNr,
@@ -229,8 +252,7 @@ export function generateDatevExport(
     // Konto im Soll, wird die Buchung gedreht, damit der Schlüssel
     // am Gegenkonto landet (z. B. Ausgabe: 1800 "H" an 6530 BU 9).
     const flip =
-      buSchluessel(soll, row.vatRate) !== "" &&
-      buSchluessel(haben, row.vatRate) === "";
+      buSchluessel(soll, row.vatRate) !== "" && buSchluessel(haben, row.vatRate) === "";
     const konto = flip ? row.habenKonto : row.sollKonto;
     const gegenkonto = flip ? row.sollKonto : row.habenKonto;
     const kennzeichen = flip ? '"H"' : '"S"';

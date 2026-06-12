@@ -204,7 +204,7 @@ function currentWeekDate(day: number): string {
   const date = new Date(today);
   date.setDate(today.getDate() - offset + day);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate()
+    date.getDate(),
   ).padStart(2, "0")}`;
 }
 
@@ -232,7 +232,7 @@ export function ensureAppointmentRequestTables(db: Database): void {
   const insert = db.prepare(
     `INSERT INTO appointment_requests
        (name, phone, email, message, requested_date, requested_time, type, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const seed = db.transaction(() => {
     for (const row of [...SEED, CONFLICTING_SEED]) insert.run(...row);
@@ -263,18 +263,17 @@ const SELECT =
 function findConflictingEvents(
   db: Database,
   date: string,
-  time: string
+  time: string,
 ): AppointmentRequestConflict[] {
   if (!/^\d{2}:\d{2}$/.test(time)) return [];
   const requestStart = toMinutes(time);
   const requestEnd = requestStart + DEFAULT_DURATION_MINUTES;
   return listCalendarEvents(db, { from: date, to: date })
     .filter(
-      event =>
-        toMinutes(event.start) < requestEnd &&
-        toMinutes(event.end) > requestStart
+      (event) =>
+        toMinutes(event.start) < requestEnd && toMinutes(event.end) > requestStart,
     )
-    .map(event => ({
+    .map((event) => ({
       id: event.id,
       title: event.title,
       start: event.start,
@@ -285,16 +284,14 @@ function findConflictingEvents(
 
 /* Only open requests carry conflicts — accepted ones would always
    collide with the calendar event their own acceptance created. */
-export function listAppointmentRequests(
-  db: Database
-): AppointmentRequestWithConflicts[] {
+export function listAppointmentRequests(db: Database): AppointmentRequestWithConflicts[] {
   return db
     .query<AppointmentRequestRow, []>(
-      `${SELECT} ORDER BY requested_date, requested_time, id`
+      `${SELECT} ORDER BY requested_date, requested_time, id`,
     )
     .all()
     .map(toRequest)
-    .map(request => ({
+    .map((request) => ({
       ...request,
       conflicts:
         request.status === "offen"
@@ -303,13 +300,8 @@ export function listAppointmentRequests(
     }));
 }
 
-export function getAppointmentRequest(
-  db: Database,
-  id: number
-): AppointmentRequest {
-  const row = db
-    .query<AppointmentRequestRow, [number]>(`${SELECT} WHERE id = ?`)
-    .get(id);
+export function getAppointmentRequest(db: Database, id: number): AppointmentRequest {
+  const row = db.query<AppointmentRequestRow, [number]>(`${SELECT} WHERE id = ?`).get(id);
   if (!row) throw new ValidationError("Terminanfrage nicht gefunden.");
   return toRequest(row);
 }
@@ -359,7 +351,7 @@ const EMPTY: AppointmentRequestInput = {
    applying the validation rules shared by create and update. */
 function normalize(
   input: Partial<AppointmentRequestInput>,
-  current: AppointmentRequestInput
+  current: AppointmentRequestInput,
 ): AppointmentRequestInput {
   const str = (key: keyof AppointmentRequestInput, fallback: string): string => {
     const value = input[key];
@@ -373,12 +365,12 @@ function normalize(
   const capped = (
     key: keyof AppointmentRequestInput,
     fallback: string,
-    maxLen: number
+    maxLen: number,
   ): string => {
     const value = str(key, fallback);
     if (value.length > maxLen) {
       throw new ValidationError(
-        `Feld '${key}' darf maximal ${maxLen} Zeichen lang sein.`
+        `Feld '${key}' darf maximal ${maxLen} Zeichen lang sein.`,
       );
     }
     return value;
@@ -391,9 +383,7 @@ function normalize(
 
   const email = capped("email", current.email, EMAIL_MAX_LEN);
   if (email && !EMAIL_PATTERN.test(email)) {
-    throw new ValidationError(
-      "Feld 'email' muss eine gültige E-Mail-Adresse sein."
-    );
+    throw new ValidationError("Feld 'email' muss eine gültige E-Mail-Adresse sein.");
   }
 
   const requestedDate = str("requestedDate", current.requestedDate);
@@ -413,9 +403,7 @@ function normalize(
 
   const status = input.status === undefined ? current.status : input.status;
   if (!STATUSES.includes(status as AppointmentRequestStatus)) {
-    throw new ValidationError(
-      "Status muss 'offen', 'bestätigt' oder 'abgelehnt' sein."
-    );
+    throw new ValidationError("Status muss 'offen', 'bestätigt' oder 'abgelehnt' sein.");
   }
 
   return {
@@ -434,7 +422,7 @@ function normalize(
 
 export function createAppointmentRequest(
   db: Database,
-  input: Partial<AppointmentRequestInput>
+  input: Partial<AppointmentRequestInput>,
 ): AppointmentRequest {
   const data = normalize(input, EMPTY);
   const row = db
@@ -444,7 +432,7 @@ export function createAppointmentRequest(
     >(
       `INSERT INTO appointment_requests
          (name, phone, email, message, requested_date, requested_time, type, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     .get(
       data.name,
@@ -454,7 +442,7 @@ export function createAppointmentRequest(
       data.requestedDate,
       data.requestedTime,
       data.type,
-      data.status
+      data.status,
     )!;
   return getAppointmentRequest(db, row.id);
 }
@@ -462,7 +450,7 @@ export function createAppointmentRequest(
 export function updateAppointmentRequest(
   db: Database,
   id: number,
-  input: Partial<AppointmentRequestInput>
+  input: Partial<AppointmentRequestInput>,
 ): AppointmentRequest {
   const current = getAppointmentRequest(db, id);
   const data = normalize(input, current);
@@ -470,7 +458,7 @@ export function updateAppointmentRequest(
     `UPDATE appointment_requests
      SET name = ?, phone = ?, email = ?, message = ?,
          requested_date = ?, requested_time = ?, type = ?, status = ?
-     WHERE id = ?`
+     WHERE id = ?`,
   ).run(
     data.name,
     data.phone,
@@ -480,7 +468,7 @@ export function updateAppointmentRequest(
     data.requestedTime,
     data.type,
     data.status,
-    id
+    id,
   );
   return getAppointmentRequest(db, id);
 }
@@ -500,7 +488,7 @@ export function deleteAppointmentRequest(db: Database, id: number): void {
 export function acceptAppointmentRequest(
   db: Database,
   id: number,
-  overrides: AcceptOverrides = {}
+  overrides: AcceptOverrides = {},
 ): { request: AppointmentRequest; event: CalendarEvent } {
   const request = getAppointmentRequest(db, id);
   if (request.status === "bestätigt") {
@@ -527,23 +515,18 @@ export function acceptAppointmentRequest(
       vehicle: overrides.vehicle ?? "",
       type: request.type,
     });
-    db.prepare(
-      "UPDATE appointment_requests SET status = 'bestätigt' WHERE id = ?"
-    ).run(id);
+    db.prepare("UPDATE appointment_requests SET status = 'bestätigt' WHERE id = ?").run(
+      id,
+    );
     return event;
   });
   const event = run();
   return { request: getAppointmentRequest(db, id), event };
 }
 
-export function declineAppointmentRequest(
-  db: Database,
-  id: number
-): AppointmentRequest {
+export function declineAppointmentRequest(db: Database, id: number): AppointmentRequest {
   getAppointmentRequest(db, id); // 404 → ValidationError
-  db.prepare(
-    "UPDATE appointment_requests SET status = 'abgelehnt' WHERE id = ?"
-  ).run(id);
+  db.prepare("UPDATE appointment_requests SET status = 'abgelehnt' WHERE id = ?").run(id);
   return getAppointmentRequest(db, id);
 }
 
@@ -576,7 +559,7 @@ type RequestIPSource = {
 
 export function appointmentRequestRoutes(
   db: Database,
-  options: AppointmentRequestRouteOptions = {}
+  options: AppointmentRequestRouteOptions = {},
 ) {
   // Self-provision: the table lives outside the db.ts schema, so make
   // sure it exists (and is seeded once) before the first request.
@@ -591,7 +574,7 @@ export function appointmentRequestRoutes(
   function rateLimited(ip: string, now: number): boolean {
     if (!rateLimit) return false;
     const cutoff = now - rateLimit.windowMs;
-    const recent = (recentByIp.get(ip) ?? []).filter(t => t > cutoff);
+    const recent = (recentByIp.get(ip) ?? []).filter((t) => t > cutoff);
     const limited = recent.length >= rateLimit.max;
     if (!limited) recent.push(now);
     recentByIp.set(ip, recent);
@@ -608,15 +591,15 @@ export function appointmentRequestRoutes(
           if (rateLimited(ip, Date.now())) {
             return json(
               { error: "Zu viele Anfragen. Bitte später erneut versuchen." },
-              429
+              429,
             );
           }
           return json(
             createAppointmentRequest(
               db,
-              (await req.json()) as Partial<AppointmentRequestInput>
+              (await req.json()) as Partial<AppointmentRequestInput>,
             ),
-            201
+            201,
           );
         })(),
     },
@@ -628,9 +611,9 @@ export function appointmentRequestRoutes(
             updateAppointmentRequest(
               db,
               parseId(req.params.id),
-              (await req.json()) as Partial<AppointmentRequestInput>
-            )
-          )
+              (await req.json()) as Partial<AppointmentRequestInput>,
+            ),
+          ),
         )(),
       DELETE: (req: BunRequest<"/api/appointment-requests/:id">) =>
         handle(() => {
@@ -644,17 +627,13 @@ export function appointmentRequestRoutes(
         handle(async () => {
           // Body is optional — accept with the requested slot by default.
           const body = (await req.json().catch(() => ({}))) as AcceptOverrides;
-          return json(
-            acceptAppointmentRequest(db, parseId(req.params.id), body)
-          );
+          return json(acceptAppointmentRequest(db, parseId(req.params.id), body));
         })(),
     },
 
     "/api/appointment-requests/:id/decline": {
       POST: (req: BunRequest<"/api/appointment-requests/:id/decline">) =>
-        handle(() =>
-          json(declineAppointmentRequest(db, parseId(req.params.id)))
-        )(),
+        handle(() => json(declineAppointmentRequest(db, parseId(req.params.id))))(),
     },
   };
 }

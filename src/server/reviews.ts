@@ -132,14 +132,12 @@ const REVIEW_SEED: ReviewSeed[] = [
 export function ensureReviewTables(db: Database) {
   db.exec(DDL);
 
-  const count = db
-    .query<{ n: number }, []>("SELECT count(*) AS n FROM reviews")
-    .get()!.n;
+  const count = db.query<{ n: number }, []>("SELECT count(*) AS n FROM reviews").get()!.n;
   if (count > 0) return;
 
   const insert = db.prepare(
     `INSERT INTO reviews (author, rating, source, text, reply, status, date)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const review of REVIEW_SEED) {
     insert.run(
@@ -149,7 +147,7 @@ export function ensureReviewTables(db: Database) {
       review.text,
       review.reply ?? "",
       review.status ?? "neu",
-      review.date
+      review.date,
     );
   }
 }
@@ -170,9 +168,7 @@ export function getReview(db: Database, id: number): Review {
 function normalizeRating(value: unknown, current: number): number {
   if (value === undefined) return current;
   if (typeof value !== "number" || !Number.isInteger(value)) {
-    throw new ValidationError(
-      "Bewertung muss eine ganze Zahl zwischen 1 und 5 sein."
-    );
+    throw new ValidationError("Bewertung muss eine ganze Zahl zwischen 1 und 5 sein.");
   }
   return value;
 }
@@ -181,7 +177,7 @@ function normalizeSource(value: unknown, current: ReviewSource): ReviewSource {
   if (value === undefined) return current;
   if (!REVIEW_SOURCES.includes(value as ReviewSource)) {
     throw new ValidationError(
-      "Quelle muss 'Google', 'Facebook', 'Webseite' oder 'Intern' sein."
+      "Quelle muss 'Google', 'Facebook', 'Webseite' oder 'Intern' sein.",
     );
   }
   return value as ReviewSource;
@@ -191,7 +187,7 @@ function normalizeStatus(value: unknown, current: ReviewStatus): ReviewStatus {
   if (value === undefined) return current;
   if (!REVIEW_STATUSES.includes(value as ReviewStatus)) {
     throw new ValidationError(
-      "Status muss 'neu', 'beantwortet' oder 'ausgeblendet' sein."
+      "Status muss 'neu', 'beantwortet' oder 'ausgeblendet' sein.",
     );
   }
   return value as ReviewStatus;
@@ -235,9 +231,7 @@ function normalize(input: Partial<ReviewInput>, current: Review): Review {
     throw new ValidationError("Name ist ein Pflichtfeld.");
   }
   if (next.rating < 1 || next.rating > 5) {
-    throw new ValidationError(
-      "Bewertung muss eine ganze Zahl zwischen 1 und 5 sein."
-    );
+    throw new ValidationError("Bewertung muss eine ganze Zahl zwischen 1 und 5 sein.");
   }
 
   return next;
@@ -257,18 +251,12 @@ const EMPTY = (): Omit<Review, "id"> => ({
   date: todayIso(),
 });
 
-export function createReview(
-  db: Database,
-  input: Partial<ReviewInput>
-): Review {
+export function createReview(db: Database, input: Partial<ReviewInput>): Review {
   const data = normalize(input, { ...EMPTY(), id: 0 });
   const row = db
-    .query<
-      { id: number },
-      [string, number, string, string, string, string, string]
-    >(
+    .query<{ id: number }, [string, number, string, string, string, string, string]>(
       `INSERT INTO reviews (author, rating, source, text, reply, status, date)
-       VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     .get(
       data.author,
@@ -277,7 +265,7 @@ export function createReview(
       data.text,
       data.reply,
       data.status,
-      data.date
+      data.date,
     )!;
   return getReview(db, row.id);
 }
@@ -285,14 +273,14 @@ export function createReview(
 export function updateReview(
   db: Database,
   id: number,
-  input: Partial<ReviewInput>
+  input: Partial<ReviewInput>,
 ): Review {
   const current = getReview(db, id);
   const data = normalize(input, current);
   db.prepare(
     `UPDATE reviews
      SET author = ?, rating = ?, source = ?, text = ?, reply = ?, status = ?, date = ?
-     WHERE id = ?`
+     WHERE id = ?`,
   ).run(
     data.author,
     data.rating,
@@ -301,7 +289,7 @@ export function updateReview(
     data.reply,
     data.status,
     data.date,
-    id
+    id,
   );
   return getReview(db, id);
 }
@@ -321,11 +309,10 @@ export function reviewRoutes(db: Database) {
 
   return {
     "/api/reviews": {
-      GET: (req: BunRequest) =>
-        handle(() => json({ reviews: listReviews(db) }))(),
+      GET: (req: BunRequest) => handle(() => json({ reviews: listReviews(db) }))(),
       POST: (req: BunRequest) =>
         handle(async () =>
-          json(createReview(db, (await req.json()) as Partial<ReviewInput>), 201)
+          json(createReview(db, (await req.json()) as Partial<ReviewInput>), 201),
         )(),
     },
 
@@ -336,9 +323,7 @@ export function reviewRoutes(db: Database) {
           if (!Number.isInteger(id)) {
             throw new ValidationError("Ungültige Bewertungs-ID.");
           }
-          return json(
-            updateReview(db, id, (await req.json()) as Partial<ReviewInput>)
-          );
+          return json(updateReview(db, id, (await req.json()) as Partial<ReviewInput>));
         })(),
       DELETE: (req: BunRequest<"/api/reviews/:id">) =>
         handle(() => {

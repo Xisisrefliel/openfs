@@ -102,7 +102,7 @@ function InstructorDialog({
 }) {
   function update<Key extends keyof InstructorInput>(
     key: Key,
-    value: InstructorInput[Key]
+    value: InstructorInput[Key],
   ) {
     onChange({ ...draft, [key]: value });
   }
@@ -121,7 +121,7 @@ function InstructorDialog({
             <Input
               id="instructor-first-name"
               value={draft.firstName}
-              onChange={event => update("firstName", event.target.value)}
+              onChange={(event) => update("firstName", event.target.value)}
             />
           </Field>
           <Field>
@@ -129,25 +129,23 @@ function InstructorDialog({
             <Input
               id="instructor-last-name"
               value={draft.lastName}
-              onChange={event => update("lastName", event.target.value)}
+              onChange={(event) => update("lastName", event.target.value)}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="instructor-classes">
-              Ausbildungsklassen
-            </FieldLabel>
+            <FieldLabel htmlFor="instructor-classes">Ausbildungsklassen</FieldLabel>
             <Input
               id="instructor-classes"
               placeholder="z. B. B, B197"
               value={draft.classes}
-              onChange={event => update("classes", event.target.value)}
+              onChange={(event) => update("classes", event.target.value)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="instructor-status">Status</FieldLabel>
             <Select
               value={draft.status}
-              onValueChange={value =>
+              onValueChange={(value) =>
                 update("status", value as InstructorInput["status"])
               }
             >
@@ -167,7 +165,7 @@ function InstructorDialog({
             <Input
               id="instructor-phone"
               value={draft.phone}
-              onChange={event => update("phone", event.target.value)}
+              onChange={(event) => update("phone", event.target.value)}
             />
           </Field>
           <Field>
@@ -176,7 +174,7 @@ function InstructorDialog({
               id="instructor-email"
               type="email"
               value={draft.email}
-              onChange={event => update("email", event.target.value)}
+              onChange={(event) => update("email", event.target.value)}
             />
           </Field>
           <Field>
@@ -185,7 +183,7 @@ function InstructorDialog({
               id="instructor-vehicle"
               placeholder="z. B. VW Golf"
               value={draft.vehicle}
-              onChange={event => update("vehicle", event.target.value)}
+              onChange={(event) => update("vehicle", event.target.value)}
             />
           </Field>
           <Field>
@@ -194,7 +192,7 @@ function InstructorDialog({
               id="instructor-since"
               placeholder="z. B. 03/2019"
               value={draft.since}
-              onChange={event => update("since", event.target.value)}
+              onChange={(event) => update("since", event.target.value)}
             />
           </Field>
         </FieldGroup>
@@ -248,7 +246,7 @@ function InstructorCard({
     { Icon: Mail, label: "E-Mail", value: instructor.email },
     { Icon: Car, label: "Stammfahrzeug", value: instructor.vehicle },
     { Icon: CalendarDays, label: "Dabei seit", value: instructor.since },
-  ].filter(detail => detail.value);
+  ].filter((detail) => detail.value);
 
   return (
     <Card>
@@ -257,7 +255,7 @@ function InstructorCard({
           <div
             className={cn(
               "flex size-11 shrink-0 items-center justify-center rounded-lg",
-              accent
+              accent,
             )}
           >
             <GraduationCap className="size-6" />
@@ -269,9 +267,7 @@ function InstructorCard({
         </div>
         <CardAction>
           <div className="flex items-center gap-2">
-            <Badge
-              variant={instructor.status === "aktiv" ? "secondary" : "outline"}
-            >
+            <Badge variant={instructor.status === "aktiv" ? "secondary" : "outline"}>
               {instructor.status === "aktiv" ? "Aktiv" : "Inaktiv"}
             </Badge>
             <Button
@@ -336,9 +332,7 @@ export function Fahrlehrer() {
       setEditingId(null);
       toast.success(success);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Speichern fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Speichern fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
@@ -348,13 +342,13 @@ export function Fahrlehrer() {
     if (editingId === null) return;
     const name = `${draft.firstName} ${draft.lastName}`.trim();
     const confirmed = window.confirm(
-      `${name || "Diese/n Fahrlehrer/in"} wirklich löschen? Zugeordnete Fahrschüler werden auf „Nicht zugeteilt“ gesetzt.`
+      `${name || "Diese/n Fahrlehrer/in"} wirklich löschen? Zugeordnete Fahrschüler werden auf „Nicht zugeteilt“ gesetzt.`,
     );
     if (!confirmed) return;
 
     await save(
       () => deleteInstructor(editingId),
-      "Fahrlehrer/in gelöscht. Zugeordnete Fahrschüler wurden aktualisiert."
+      "Fahrlehrer/in gelöscht. Zugeordnete Fahrschüler wurden aktualisiert.",
     );
   };
 
@@ -395,11 +389,9 @@ export function Fahrlehrer() {
         draft={draft}
         open={creating}
         saving={saving}
-        onOpenChange={open => !open && setCreating(false)}
+        onOpenChange={(open) => !open && setCreating(false)}
         onChange={setDraft}
-        onSave={() =>
-          save(() => createInstructor(draft), "Fahrlehrer/in angelegt.")
-        }
+        onSave={() => save(() => createInstructor(draft), "Fahrlehrer/in angelegt.")}
       />
 
       <InstructorDialog
@@ -408,13 +400,10 @@ export function Fahrlehrer() {
         draft={draft}
         open={editingId !== null}
         saving={saving}
-        onOpenChange={open => !open && setEditingId(null)}
+        onOpenChange={(open) => !open && setEditingId(null)}
         onChange={setDraft}
         onSave={() =>
-          save(
-            () => updateInstructor(editingId!, draft),
-            "Änderungen gespeichert."
-          )
+          save(() => updateInstructor(editingId!, draft), "Änderungen gespeichert.")
         }
         onDelete={removeEditingInstructor}
       />

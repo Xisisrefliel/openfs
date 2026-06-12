@@ -37,8 +37,7 @@ export function parseEuroToCents(input: string): number | null {
   if (!cleaned) return null;
   // German format only: optional dot thousand groups, comma decimals.
   const valid =
-    /^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(cleaned) ||
-    /^\d+(,\d{1,2})?$/.test(cleaned);
+    /^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(cleaned) || /^\d+(,\d{1,2})?$/.test(cleaned);
   if (!valid) return null;
   const [eurosPart, centsPart = ""] = cleaned.replace(/\./g, "").split(",");
   const euros = Number(eurosPart);

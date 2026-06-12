@@ -36,8 +36,7 @@ const VALID = {
   openingHours: "Mo–Fr 14–18 Uhr",
 };
 
-const mainBranch = (branches: Branch[]) =>
-  branches.filter(branch => branch.isMain);
+const mainBranch = (branches: Branch[]) => branches.filter((branch) => branch.isMain);
 
 /* ================================================================== */
 /* ensure + seed                                                       */
@@ -58,7 +57,7 @@ describe("ensureBranchTables", () => {
 
   test("does not re-seed once rows exist (even after deletes)", () => {
     const extra = createBranch(db, VALID);
-    const seeded = listBranches(db).filter(branch => branch.id !== extra.id);
+    const seeded = listBranches(db).filter((branch) => branch.id !== extra.id);
     for (const branch of seeded) deleteBranch(db, branch.id);
     ensureBranchTables(db);
     expect(listBranches(db)).toHaveLength(1);
@@ -100,32 +99,32 @@ describe("createBranch", () => {
 
   test("missing name → ValidationError 'Name ist ein Pflichtfeld.'", () => {
     expect(() => createBranch(db, { ...VALID, name: "   " })).toThrow(
-      "Name ist ein Pflichtfeld."
+      "Name ist ein Pflichtfeld.",
     );
   });
 
   test("missing address → ValidationError 'Adresse ist ein Pflichtfeld.'", () => {
     expect(() => createBranch(db, { ...VALID, address: "" })).toThrow(
-      "Adresse ist ein Pflichtfeld."
+      "Adresse ist ein Pflichtfeld.",
     );
   });
 
   test("invalid status → ValidationError", () => {
-    expect(() =>
-      createBranch(db, { ...VALID, status: "zu" as never })
-    ).toThrow("Status muss 'offen' oder 'geschlossen' sein.");
+    expect(() => createBranch(db, { ...VALID, status: "zu" as never })).toThrow(
+      "Status muss 'offen' oder 'geschlossen' sein.",
+    );
   });
 
   test("non-string text field → ValidationError", () => {
     expect(() => createBranch(db, { ...VALID, phone: 42 as never })).toThrow(
-      ValidationError
+      ValidationError,
     );
   });
 
   test("non-boolean isMain → ValidationError", () => {
-    expect(() =>
-      createBranch(db, { ...VALID, isMain: "ja" as never })
-    ).toThrow("Feld 'isMain' muss true oder false sein.");
+    expect(() => createBranch(db, { ...VALID, isMain: "ja" as never })).toThrow(
+      "Feld 'isMain' muss true oder false sein.",
+    );
   });
 
   test("status 'geschlossen' is accepted", () => {
@@ -150,14 +149,14 @@ describe("updateBranch", () => {
   test("invalid update is rejected and leaves the row untouched", () => {
     const created = createBranch(db, VALID);
     expect(() => updateBranch(db, created.id, { name: "  " })).toThrow(
-      "Name ist ein Pflichtfeld."
+      "Name ist ein Pflichtfeld.",
     );
     expect(getBranch(db, created.id).name).toBe(VALID.name);
   });
 
   test("update on missing id → ValidationError 'Standort nicht gefunden.'", () => {
     expect(() => updateBranch(db, 999999, { name: "x" })).toThrow(
-      "Standort nicht gefunden."
+      "Standort nicht gefunden.",
     );
   });
 });
@@ -222,7 +221,7 @@ describe("deleteBranch", () => {
     const [first, second] = listBranches(db);
     deleteBranch(db, first!.id);
     expect(() => deleteBranch(db, second!.id)).toThrow(
-      "Der letzte Standort kann nicht gelöscht werden."
+      "Der letzte Standort kann nicht gelöscht werden.",
     );
     expect(listBranches(db)).toHaveLength(1);
   });

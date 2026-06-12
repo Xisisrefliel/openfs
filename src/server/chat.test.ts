@@ -59,7 +59,7 @@ describe("ensureChatTables", () => {
 
   test("seed links student ids when the students table has rows", () => {
     const conversations = listConversations(db);
-    expect(conversations.some(c => c.studentId !== null)).toBe(true);
+    expect(conversations.some((c) => c.studentId !== null)).toBe(true);
   });
 
   test("works on a bare DB without a students table (plain names)", () => {
@@ -67,15 +67,15 @@ describe("ensureChatTables", () => {
     ensureChatTables(bare);
     const conversations = listConversations(bare);
     expect(conversations).toHaveLength(4);
-    expect(conversations.every(c => c.studentId === null)).toBe(true);
-    expect(conversations.every(c => c.studentName.length > 0)).toBe(true);
+    expect(conversations.every((c) => c.studentId === null)).toBe(true);
+    expect(conversations.every((c) => c.studentName.length > 0)).toBe(true);
   });
 
   test("conversations are ordered by last_message_at desc", () => {
     const conversations = listConversations(db);
     for (let i = 1; i < conversations.length; i++) {
       expect(
-        conversations[i - 1]!.lastMessageAt! >= conversations[i]!.lastMessageAt!
+        conversations[i - 1]!.lastMessageAt! >= conversations[i]!.lastMessageAt!,
       ).toBe(true);
     }
   });
@@ -83,7 +83,7 @@ describe("ensureChatTables", () => {
 
 describe("sendMessage", () => {
   test("appends a 'schule' message, bumps last_message_at and resets unread", () => {
-    const target = listConversations(db).find(c => c.unread > 0)!;
+    const target = listConversations(db).find((c) => c.unread > 0)!;
     expect(target).toBeDefined();
     const before = listMessages(db, target.id).length;
 
@@ -118,7 +118,7 @@ describe("sendMessage", () => {
 
 describe("markRead", () => {
   test("sets unread to 0", () => {
-    const target = listConversations(db).find(c => c.unread > 0)!;
+    const target = listConversations(db).find((c) => c.unread > 0)!;
     const updated = markRead(db, target.id);
     expect(updated.unread).toBe(0);
     expect(getConversation(db, target.id).unread).toBe(0);
@@ -177,16 +177,14 @@ describe("createConversation", () => {
   });
 
   test("missing name → ValidationError", () => {
-    expect(() => createConversation(db, { student_name: "  " })).toThrow(
-      ValidationError
-    );
+    expect(() => createConversation(db, { student_name: "  " })).toThrow(ValidationError);
     expect(() => createConversation(db, {})).toThrow(ValidationError);
   });
 
   test("invalid student_id → ValidationError", () => {
-    expect(() =>
-      createConversation(db, { student_id: -1, student_name: "X Y" })
-    ).toThrow(ValidationError);
+    expect(() => createConversation(db, { student_id: -1, student_name: "X Y" })).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -200,7 +198,7 @@ describe("deleteConversation", () => {
     expect(() => getConversation(db, first!.id)).toThrow(ValidationError);
     const orphaned = db
       .query<{ n: number }, [number]>(
-        "SELECT count(*) AS n FROM chat_messages WHERE conversation_id = ?"
+        "SELECT count(*) AS n FROM chat_messages WHERE conversation_id = ?",
       )
       .get(first!.id)!.n;
     expect(orphaned).toBe(0);
@@ -276,7 +274,7 @@ describe("orphaned thread dedup regression", () => {
     deleteStudent(db, student.id);
 
     // Restore from archive.
-    const entry = listArchive(db).find(e => e.entity === "student")!;
+    const entry = listArchive(db).find((e) => e.entity === "student")!;
     expect(entry).toBeDefined();
     restoreArchived(db, entry.id);
 

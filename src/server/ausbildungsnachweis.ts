@@ -78,13 +78,13 @@ function toAttestation(row: AttestationRow): Attestation {
 
 export function getAttestationForEvent(
   db: Database,
-  eventId: number
+  eventId: number,
 ): Attestation | null {
   const row = db
     .query<AttestationRow, [number]>(
       `SELECT id, event_id, student_id, instructor, content, duration_min,
               signature_data_url, signed_at
-       FROM lesson_attestations WHERE event_id = ?`
+       FROM lesson_attestations WHERE event_id = ?`,
     )
     .get(eventId);
   return row ? toAttestation(row) : null;
@@ -92,14 +92,14 @@ export function getAttestationForEvent(
 
 export function listAttestationsForStudent(
   db: Database,
-  studentId: number
+  studentId: number,
 ): Attestation[] {
   return db
     .query<AttestationRow, [number]>(
       `SELECT id, event_id, student_id, instructor, content, duration_min,
               signature_data_url, signed_at
        FROM lesson_attestations WHERE student_id = ?
-       ORDER BY signed_at DESC`
+       ORDER BY signed_at DESC`,
     )
     .all(studentId)
     .map(toAttestation);
@@ -124,36 +124,31 @@ export type CreateAttestationInput = {
 
 export function createAttestation(
   db: Database,
-  input: CreateAttestationInput
+  input: CreateAttestationInput,
 ): Attestation {
   /* ── event must exist ─────────────────────────────────────────── */
   const event = db
-    .query<
-      { id: number; type: string; student_id: number | null },
-      [number]
-    >(
+    .query<{ id: number; type: string; student_id: number | null }, [number]>(
       `SELECT ce.id, ce.type, ce.student_id
-       FROM calendar_events ce WHERE ce.id = ?`
+       FROM calendar_events ce WHERE ce.id = ?`,
     )
     .get(input.eventId);
 
   if (!event) {
-    throw new ValidationError(
-      `Termin mit ID ${input.eventId} existiert nicht.`
-    );
+    throw new ValidationError(`Termin mit ID ${input.eventId} existiert nicht.`);
   }
 
   /* ── event must be type "Praktisch" ───────────────────────────── */
   if (event.type !== "Praktisch") {
     throw new ValidationError(
-      "Ein Ausbildungsnachweis kann nur für Fahrstunden (Typ 'Praktisch') erstellt werden."
+      "Ein Ausbildungsnachweis kann nur für Fahrstunden (Typ 'Praktisch') erstellt werden.",
     );
   }
 
   /* ── event student_id must match ──────────────────────────────── */
   if (event.student_id == null || event.student_id !== input.studentId) {
     throw new ValidationError(
-      "Der Fahrschüler des Termins stimmt nicht mit dem angegebenen Fahrschüler überein."
+      "Der Fahrschüler des Termins stimmt nicht mit dem angegebenen Fahrschüler überein.",
     );
   }
 
@@ -161,36 +156,31 @@ export function createAttestation(
   const existing = getAttestationForEvent(db, input.eventId);
   if (existing) {
     throw new ValidationError(
-      "Für diesen Termin existiert bereits ein Ausbildungsnachweis."
+      "Für diesen Termin existiert bereits ein Ausbildungsnachweis.",
     );
   }
 
   /* ── duration must be a positive integer ─────────────────────── */
-  if (
-    !Number.isInteger(input.durationMin) ||
-    input.durationMin <= 0
-  ) {
-    throw new ValidationError(
-      "Die Dauer muss eine positive ganze Zahl in Minuten sein."
-    );
+  if (!Number.isInteger(input.durationMin) || input.durationMin <= 0) {
+    throw new ValidationError("Die Dauer muss eine positive ganze Zahl in Minuten sein.");
   }
 
   /* ── signature data-URL ───────────────────────────────────────── */
   if (!input.signatureDataUrl.startsWith(SIG_PREFIX)) {
     throw new ValidationError(
-      "Die Unterschrift muss eine PNG-Datei im Format 'data:image/png;base64,...' sein."
+      "Die Unterschrift muss eine PNG-Datei im Format 'data:image/png;base64,...' sein.",
     );
   }
   if (input.signatureDataUrl.length > SIG_MAX_LEN) {
     throw new ValidationError(
-      `Die Unterschrift darf maximal ${SIG_MAX_LEN} Zeichen groß sein.`
+      `Die Unterschrift darf maximal ${SIG_MAX_LEN} Zeichen groß sein.`,
     );
   }
 
   /* ── content length ───────────────────────────────────────────── */
   if (input.content.length > CONTENT_MAX_LEN) {
     throw new ValidationError(
-      `Der Inhalt darf maximal ${CONTENT_MAX_LEN} Zeichen lang sein.`
+      `Der Inhalt darf maximal ${CONTENT_MAX_LEN} Zeichen lang sein.`,
     );
   }
 
@@ -200,7 +190,7 @@ export function createAttestation(
       `INSERT INTO lesson_attestations
          (event_id, student_id, instructor, content, duration_min, signature_data_url)
        VALUES (?, ?, ?, ?, ?, ?)
-       RETURNING id`
+       RETURNING id`,
     )
     .get(
       input.eventId,
@@ -208,7 +198,7 @@ export function createAttestation(
       input.instructor.trim(),
       input.content.trim(),
       input.durationMin,
-      input.signatureDataUrl
+      input.signatureDataUrl,
     )!;
 
   return getAttestationForEvent(db, input.eventId)!;
@@ -239,42 +229,46 @@ export function attestationRoutes(db: Database) {
     },
 
     "/api/calendar-events/:id/attestation": {
-      GET: handle(async (
-        req: BunRequest<"/api/calendar-events/:id/attestation">
-      ): Promise<Response> => {
-        const id = Number(req.params.id);
-        if (!Number.isInteger(id) || id <= 0) return err("Ungültige ID.");
-        const attestation = getAttestationForEvent(db, id);
-        if (!attestation) return err("Kein Ausbildungsnachweis gefunden.", 404);
-        return json({ attestation });
-      }),
+      GET: handle(
+        async (
+          req: BunRequest<"/api/calendar-events/:id/attestation">,
+        ): Promise<Response> => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id) || id <= 0) return err("Ungültige ID.");
+          const attestation = getAttestationForEvent(db, id);
+          if (!attestation) return err("Kein Ausbildungsnachweis gefunden.", 404);
+          return json({ attestation });
+        },
+      ),
 
-      POST: handle(async (
-        req: BunRequest<"/api/calendar-events/:id/attestation">
-      ): Promise<Response> => {
-        const eventId = Number(req.params.id);
-        if (!Number.isInteger(eventId) || eventId <= 0) return err("Ungültige ID.");
-        let body: Record<string, unknown>;
-        try {
-          body = (await req.json()) as Record<string, unknown>;
-        } catch {
-          return err("Ungültiger JSON-Body.");
-        }
-        try {
-          const attestation = createAttestation(db, {
-            eventId,
-            studentId: body.studentId as number,
-            instructor: String(body.instructor ?? ""),
-            content: String(body.content ?? ""),
-            durationMin: body.durationMin as number,
-            signatureDataUrl: String(body.signatureDataUrl ?? ""),
-          });
-          return json({ attestation }, 201);
-        } catch (e) {
-          if (e instanceof ValidationError) return err(e.message);
-          throw e;
-        }
-      }),
+      POST: handle(
+        async (
+          req: BunRequest<"/api/calendar-events/:id/attestation">,
+        ): Promise<Response> => {
+          const eventId = Number(req.params.id);
+          if (!Number.isInteger(eventId) || eventId <= 0) return err("Ungültige ID.");
+          let body: Record<string, unknown>;
+          try {
+            body = (await req.json()) as Record<string, unknown>;
+          } catch {
+            return err("Ungültiger JSON-Body.");
+          }
+          try {
+            const attestation = createAttestation(db, {
+              eventId,
+              studentId: body.studentId as number,
+              instructor: String(body.instructor ?? ""),
+              content: String(body.content ?? ""),
+              durationMin: body.durationMin as number,
+              signatureDataUrl: String(body.signatureDataUrl ?? ""),
+            });
+            return json({ attestation }, 201);
+          } catch (e) {
+            if (e instanceof ValidationError) return err(e.message);
+            throw e;
+          }
+        },
+      ),
     },
   } as const;
 }

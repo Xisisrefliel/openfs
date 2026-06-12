@@ -50,7 +50,11 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useStatistics, type ExamTypeStatistics, type Statistics } from "@/hooks/use-statistics";
+import {
+  useStatistics,
+  type ExamTypeStatistics,
+  type Statistics,
+} from "@/hooks/use-statistics";
 
 type IconCmp = React.ComponentType<{ className?: string }>;
 
@@ -102,7 +106,7 @@ function KpiGrid({ stats }: { stats: Statistics }) {
     {
       label: "Termine gesamt",
       value: String(stats.lessons.total),
-      hint: `${stats.lessons.byType.find(t => t.type === "Praktisch")?.count ?? 0} praktisch`,
+      hint: `${stats.lessons.byType.find((t) => t.type === "Praktisch")?.count ?? 0} praktisch`,
       Icon: CalendarDays,
       iconClass: "bg-amber-500/10 text-amber-600",
     },
@@ -134,7 +138,12 @@ function KpiGrid({ stats }: { stats: Statistics }) {
       {kpis.map(({ label, value, hint, Icon, iconClass }) => (
         <Card key={label} size="sm" className={cn(statCardClass, "h-full")}>
           <CardHeader>
-            <div className={cn("flex size-9 items-center justify-center rounded-lg", iconClass)}>
+            <div
+              className={cn(
+                "flex size-9 items-center justify-center rounded-lg",
+                iconClass,
+              )}
+            >
               <Icon className="size-[18px]" />
             </div>
             <CardAction>
@@ -172,7 +181,12 @@ function ChartCard({
     <Card className={statCardClass}>
       <CardHeader className={statCardHeaderClass}>
         <CardTitle className="flex items-center gap-2">
-          <span className={cn("flex size-6 items-center justify-center rounded-md", iconClass)}>
+          <span
+            className={cn(
+              "flex size-6 items-center justify-center rounded-md",
+              iconClass,
+            )}
+          >
             <Icon className="size-3.5" />
           </span>
           {title}
@@ -209,11 +223,11 @@ const registrationsConfig = {
 function RegistrationsChart({ stats }: { stats: Statistics }) {
   const data = useMemo(
     () =>
-      stats.students.registrationsPerMonth.map(row => ({
+      stats.students.registrationsPerMonth.map((row) => ({
         month: formatMonth(row.month),
         count: row.count,
       })),
-    [stats]
+    [stats],
   );
 
   return (
@@ -224,7 +238,10 @@ function RegistrationsChart({ stats }: { stats: Statistics }) {
       iconClass="bg-indigo-500/10 text-indigo-600"
     >
       {data.length === 0 ? (
-        <ChartEmpty Icon={GraduationCap} description="Noch keine Anmeldungen mit Datum erfasst." />
+        <ChartEmpty
+          Icon={GraduationCap}
+          description="Noch keine Anmeldungen mit Datum erfasst."
+        />
       ) : (
         <ChartContainer config={registrationsConfig} className={chartHeightClass}>
           <BarChart data={data} margin={{ top: 8, left: 0, right: 0, bottom: 0 }}>
@@ -248,11 +265,11 @@ const revenueConfig = {
 function RevenueChart({ stats }: { stats: Statistics }) {
   const data = useMemo(
     () =>
-      stats.revenue.perMonth.map(row => ({
+      stats.revenue.perMonth.map((row) => ({
         month: formatMonth(row.month),
         euro: Math.round(row.cents) / 100,
       })),
-    [stats]
+    [stats],
   );
 
   return (
@@ -274,7 +291,7 @@ function RevenueChart({ stats }: { stats: Statistics }) {
               content={
                 <ChartTooltipContent
                   hideLabel
-                  formatter={value => (
+                  formatter={(value) => (
                     <div className="flex w-full items-center justify-between gap-3">
                       <span className="text-muted-foreground">Umsatz</span>
                       <span className="font-mono font-medium tabular-nums">
@@ -323,7 +340,7 @@ function LessonTypesChart({ stats }: { stats: Statistics }) {
         count: row.count,
         fill: TYPE_COLORS[index % TYPE_COLORS.length],
       })),
-    [stats]
+    [stats],
   );
 
   const config = useMemo(() => {
@@ -348,9 +365,18 @@ function LessonTypesChart({ stats }: { stats: Statistics }) {
       ) : (
         <ChartContainer config={config} className={cn(chartHeightClass, "aspect-auto")}>
           <PieChart>
-            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel nameKey="type" />} />
-            <Pie data={data} dataKey="count" nameKey="type" innerRadius={50} strokeWidth={4}>
-              {data.map(entry => (
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideLabel nameKey="type" />}
+            />
+            <Pie
+              data={data}
+              dataKey="count"
+              nameKey="type"
+              innerRadius={50}
+              strokeWidth={4}
+            >
+              {data.map((entry) => (
                 <Cell key={entry.type} fill={entry.fill} />
               ))}
             </Pie>
@@ -374,12 +400,12 @@ const utilizationConfig = {
 function UtilizationChart({ stats }: { stats: Statistics }) {
   const data = useMemo(
     () =>
-      stats.instructors.utilization.map(row => ({
+      stats.instructors.utilization.map((row) => ({
         instructor: row.instructor,
         hours: Math.round((row.minutes / 60) * 10) / 10,
         events: row.events,
       })),
-    [stats]
+    [stats],
   );
 
   return (
@@ -396,7 +422,10 @@ function UtilizationChart({ stats }: { stats: Statistics }) {
       {data.length === 0 ? (
         <ChartEmpty Icon={UserRound} description="Noch keine Termine zugeteilt." />
       ) : (
-        <ChartContainer config={utilizationConfig} className={cn(chartHeightClass, "aspect-auto")}>
+        <ChartContainer
+          config={utilizationConfig}
+          className={cn(chartHeightClass, "aspect-auto")}
+        >
           <BarChart
             data={data}
             layout="vertical"
@@ -447,10 +476,7 @@ function ExamTypeRow({ row }: { row: ExamTypeStatistics }) {
       ? "–"
       : `${Math.round(row.firstAttemptPassRate * 100)} %`;
 
-  const label =
-    row.type === "Theorieprüfung"
-      ? "Theorieprüfung"
-      : "Praktische Prüfung";
+  const label = row.type === "Theorieprüfung" ? "Theorieprüfung" : "Praktische Prüfung";
 
   return (
     <div className="grid grid-cols-[1fr_repeat(4,auto)] items-center gap-x-6 gap-y-0 py-2">
@@ -459,7 +485,8 @@ function ExamTypeRow({ row }: { row: ExamTypeStatistics }) {
         <span className="text-foreground tabular-nums">{row.bestanden}</span> Bestanden
       </span>
       <span className="text-right text-sm tabular-nums text-muted-foreground">
-        <span className="text-foreground tabular-nums">{row.nicht_bestanden}</span> Nicht bestanden
+        <span className="text-foreground tabular-nums">{row.nicht_bestanden}</span> Nicht
+        bestanden
       </span>
       <span className="text-right text-sm tabular-nums text-muted-foreground">
         <span className="text-foreground tabular-nums">{row.offen}</span> Offen
@@ -497,7 +524,7 @@ function ExamsPanel({ stats }: { stats: Statistics }) {
           </p>
         ) : (
           <div className="divide-y divide-border/60">
-            {stats.exams.byType.map(row => (
+            {stats.exams.byType.map((row) => (
               <ExamTypeRow key={row.type} row={row} />
             ))}
           </div>

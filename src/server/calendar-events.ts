@@ -117,7 +117,7 @@ const SELECT = `
 
 export function listCalendarEvents(
   db: Database,
-  filter?: { from?: string; to?: string }
+  filter?: { from?: string; to?: string },
 ): CalendarEvent[] {
   const clauses: string[] = [];
   const params: string[] = [];
@@ -131,17 +131,13 @@ export function listCalendarEvents(
   }
   const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
   return db
-    .query<CalendarEventRow, string[]>(
-      `${SELECT}${where} ORDER BY ce.date, ce.start`
-    )
+    .query<CalendarEventRow, string[]>(`${SELECT}${where} ORDER BY ce.date, ce.start`)
     .all(...params)
     .map(toEvent);
 }
 
 export function getCalendarEvent(db: Database, id: number): CalendarEvent {
-  const row = db
-    .query<CalendarEventRow, [number]>(`${SELECT} WHERE ce.id = ?`)
-    .get(id);
+  const row = db.query<CalendarEventRow, [number]>(`${SELECT} WHERE ce.id = ?`).get(id);
   if (!row) throw new ValidationError("Termin nicht gefunden.");
   return toEvent(row);
 }
@@ -170,11 +166,11 @@ const EMPTY: CalendarEventInput = {
 function normalize(
   db: Database,
   input: Partial<CalendarEventInput>,
-  current: CalendarEventInput
+  current: CalendarEventInput,
 ): CalendarEventInput {
   const str = (
     key: keyof Omit<CalendarEventInput, "tentative" | "studentId">,
-    fallback: string
+    fallback: string,
   ): string => {
     const value = input[key];
     if (value === undefined) return fallback;
@@ -228,11 +224,12 @@ function normalize(
       if (typeof raw !== "number" || !Number.isInteger(raw) || raw <= 0) {
         throw new ValidationError("Feld 'studentId' muss eine positive ganze Zahl sein.");
       }
-      const exists = db
-        .query<{ n: number }, [number]>(
-          "SELECT count(*) AS n FROM students WHERE id = ?"
-        )
-        .get(raw)!.n > 0;
+      const exists =
+        db
+          .query<{ n: number }, [number]>(
+            "SELECT count(*) AS n FROM students WHERE id = ?",
+          )
+          .get(raw)!.n > 0;
       if (!exists) {
         throw new ValidationError(`Fahrschüler mit ID ${raw} nicht gefunden.`);
       }
@@ -257,14 +254,29 @@ function normalize(
 
 export function createCalendarEvent(
   db: Database,
-  input: Partial<CalendarEventInput>
+  input: Partial<CalendarEventInput>,
 ): CalendarEvent {
   const data = normalize(db, input, EMPTY);
   const row = db
-    .query<{ id: number }, [string, string, string, string, string, string, string, string, string, number, number | null]>(
+    .query<
+      { id: number },
+      [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        number,
+        number | null,
+      ]
+    >(
       `INSERT INTO calendar_events
          (date, start, "end", title, subtitle, location, instructor, vehicle, type, tentative, student_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     .get(
       data.date,
@@ -277,7 +289,7 @@ export function createCalendarEvent(
       data.vehicle ?? "",
       data.type,
       data.tentative ? 1 : 0,
-      data.studentId ?? null
+      data.studentId ?? null,
     )!;
   return getCalendarEvent(db, row.id);
 }
@@ -285,7 +297,7 @@ export function createCalendarEvent(
 export function updateCalendarEvent(
   db: Database,
   id: number,
-  input: Partial<CalendarEventInput>
+  input: Partial<CalendarEventInput>,
 ): CalendarEvent {
   const current = getCalendarEvent(db, id);
   const data = normalize(db, input, current);
@@ -293,7 +305,7 @@ export function updateCalendarEvent(
     `UPDATE calendar_events
      SET date = ?, start = ?, "end" = ?, title = ?, subtitle = ?, location = ?,
          instructor = ?, vehicle = ?, type = ?, tentative = ?, student_id = ?
-     WHERE id = ?`
+     WHERE id = ?`,
   ).run(
     data.date,
     data.start,
@@ -306,7 +318,7 @@ export function updateCalendarEvent(
     data.type,
     data.tentative ? 1 : 0,
     data.studentId ?? null,
-    id
+    id,
   );
   return getCalendarEvent(db, id);
 }
@@ -317,13 +329,14 @@ export function updateCalendarEvent(
 export function markEventBilled(
   db: Database,
   eventId: number,
-  transactionId: number
+  transactionId: number,
 ): CalendarEvent {
   const event = getCalendarEvent(db, eventId);
   if (!event) throw new ValidationError("Termin nicht gefunden.");
-  db.prepare(
-    "UPDATE calendar_events SET billed_transaction_id = ? WHERE id = ?"
-  ).run(transactionId, eventId);
+  db.prepare("UPDATE calendar_events SET billed_transaction_id = ? WHERE id = ?").run(
+    transactionId,
+    eventId,
+  );
   return getCalendarEvent(db, eventId);
 }
 
@@ -333,9 +346,7 @@ export function deleteCalendarEvent(db: Database, id: number): void {
   // Guard: block deletion of billed events unless the linked transaction
   // has been storniert (billedActive = true means it is still active).
   if (event.billedTransactionId != null && event.billedActive) {
-    throw new ValidationError(
-      "Termin ist abgerechnet — zuerst stornieren."
-    );
+    throw new ValidationError("Termin ist abgerechnet — zuerst stornieren.");
   }
 
   // Guard: attestations are immutable compliance records referencing the
@@ -345,23 +356,18 @@ export function deleteCalendarEvent(db: Database, id: number): void {
     const attested =
       db
         .query<{ n: number }, [number]>(
-          "SELECT count(*) AS n FROM lesson_attestations WHERE event_id = ?"
+          "SELECT count(*) AS n FROM lesson_attestations WHERE event_id = ?",
         )
         .get(id)!.n > 0;
     if (attested) {
       throw new ValidationError(
-        "Termin hat einen Ausbildungsnachweis und kann nicht gelöscht werden."
+        "Termin hat einen Ausbildungsnachweis und kann nicht gelöscht werden.",
       );
     }
   }
 
   const remove = db.transaction(() => {
-    archiveRow(
-      db,
-      "calendar_event",
-      id,
-      `${event.title} · ${event.date} ${event.start}`
-    );
+    archiveRow(db, "calendar_event", id, `${event.title} · ${event.date} ${event.start}`);
     db.prepare("DELETE FROM calendar_events WHERE id = ?").run(id);
   });
   remove();
@@ -374,21 +380,22 @@ export function deleteCalendarEvent(db: Database, id: number): void {
 export function recordExamResult(
   db: Database,
   eventId: number,
-  result: "bestanden" | "nicht_bestanden" | null
+  result: "bestanden" | "nicht_bestanden" | null,
 ): CalendarEvent {
   const event = getCalendarEvent(db, eventId);
   if (!EXAM_TYPES.includes(event.type)) {
     throw new ValidationError(
-      "Prüfungsergebnis kann nur für Prüfungs-Termine gespeichert werden."
+      "Prüfungsergebnis kann nur für Prüfungs-Termine gespeichert werden.",
     );
   }
   if (result !== null && result !== "bestanden" && result !== "nicht_bestanden") {
     throw new ValidationError(
-      "Ergebnis muss 'bestanden', 'nicht_bestanden' oder null sein."
+      "Ergebnis muss 'bestanden', 'nicht_bestanden' oder null sein.",
     );
   }
-  db.prepare(
-    "UPDATE calendar_events SET exam_result = ? WHERE id = ?"
-  ).run(result, eventId);
+  db.prepare("UPDATE calendar_events SET exam_result = ? WHERE id = ?").run(
+    result,
+    eventId,
+  );
   return getCalendarEvent(db, eventId);
 }

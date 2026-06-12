@@ -24,47 +24,44 @@ export type Branch = {
 export type BranchInput = Omit<Branch, "id" | "createdAt">;
 
 export async function fetchBranches(): Promise<Branch[]> {
-  const data = await parseOrThrow<{ branches: Branch[] }>(
-    await fetch("/api/branches")
-  );
+  const data = await parseOrThrow<{ branches: Branch[] }>(await fetch("/api/branches"));
   return data.branches;
 }
 
-export async function createBranch(
-  input: Partial<BranchInput>
-): Promise<Branch> {
+export async function createBranch(input: Partial<BranchInput>): Promise<Branch> {
   return parseOrThrow<Branch>(
     await fetch("/api/branches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function updateBranch(
   id: number,
-  input: Partial<BranchInput>
+  input: Partial<BranchInput>,
 ): Promise<Branch> {
   return parseOrThrow<Branch>(
     await fetch(`/api/branches/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function deleteBranch(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/branches/${id}`, { method: "DELETE" })
+    await fetch(`/api/branches/${id}`, { method: "DELETE" }),
   );
 }
 
 export function useBranches() {
-  const { items: branches, loading, refresh } = useFetchList(
-    fetchBranches,
-    "Standorte konnten nicht geladen werden"
-  );
+  const {
+    items: branches,
+    loading,
+    refresh,
+  } = useFetchList(fetchBranches, "Standorte konnten nicht geladen werden");
   return { branches, loading, refresh };
 }

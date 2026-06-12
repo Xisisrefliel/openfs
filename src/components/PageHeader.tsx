@@ -19,7 +19,7 @@ export function PageHeader({ children, center, end, className }: PageHeaderProps
     <header
       className={cn(
         "sticky top-0 z-30 flex h-11 w-full shrink-0 items-center gap-3 rounded-t-lg rounded-b-sm border border-border/70 bg-background px-3 2xl:h-12 2xl:px-4",
-        className
+        className,
       )}
     >
       {/* Animated spacer — widens in lockstep with the sidebar collapse
@@ -29,7 +29,7 @@ export function PageHeader({ children, center, end, className }: PageHeaderProps
         aria-hidden
         className={cn(
           "-ml-3 h-px shrink-0 transition-[width] duration-300 ease-drawer motion-reduce:transition-none",
-          shellControlsOverlap ? "w-28" : "w-0"
+          shellControlsOverlap ? "w-28" : "w-0",
         )}
       />
       {children}

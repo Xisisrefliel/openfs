@@ -32,11 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -49,7 +45,7 @@ import { cn } from "@/lib/utils";
 
 const NO_VEHICLE = "__none__";
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) =>
-  String(hour).padStart(2, "0")
+  String(hour).padStart(2, "0"),
 );
 const MINUTE_OPTIONS = ["00", "15", "30", "45"];
 
@@ -77,9 +73,7 @@ const formatTimeValue = (minutes: number) => {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 };
 
-const scrollTimeListWithWheel = (
-  event: React.WheelEvent<HTMLDivElement>
-) => {
+const scrollTimeListWithWheel = (event: React.WheelEvent<HTMLDivElement>) => {
   if (!event.deltaY) return;
 
   event.currentTarget.scrollTop += event.deltaY;
@@ -94,8 +88,7 @@ const keepDialogOpenForFloatingContent = (event: Event) => {
   const target = event.target;
   if (
     document.querySelector(floatingContentSelector) ||
-    (target instanceof Element &&
-      target.closest(floatingContentSelector))
+    (target instanceof Element && target.closest(floatingContentSelector))
   ) {
     event.preventDefault();
   }
@@ -132,7 +125,7 @@ function DatePickerField({
           required
           selected={selected}
           month={selected}
-          onSelect={date => {
+          onSelect={(date) => {
             onChange(toISODate(date));
             setOpen(false);
           }}
@@ -140,15 +133,13 @@ function DatePickerField({
           showOutsideDays
           className="p-0"
           formatters={{
-            formatCaption: date =>
+            formatCaption: (date) =>
               date.toLocaleDateString("de-DE", {
                 month: "long",
                 year: "numeric",
               }),
-            formatWeekdayName: date =>
-              date
-                .toLocaleDateString("de-DE", { weekday: "short" })
-                .slice(0, 2),
+            formatWeekdayName: (date) =>
+              date.toLocaleDateString("de-DE", { weekday: "short" }).slice(0, 2),
           }}
         />
       </PopoverContent>
@@ -197,9 +188,7 @@ function TimePickerField({
       <PopoverContent align="start" className="w-72 p-2.5">
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Uhrzeit
-            </span>
+            <span className="text-xs font-medium text-muted-foreground">Uhrzeit</span>
             <span className="text-lg font-medium tabular-nums">
               {hour}:{minute}
             </span>
@@ -217,7 +206,7 @@ function TimePickerField({
                 onWheel={scrollTimeListWithWheel}
               >
                 <div className="flex flex-col gap-1 p-1">
-                  {HOUR_OPTIONS.map(option => (
+                  {HOUR_OPTIONS.map((option) => (
                     <Button
                       key={option}
                       ref={option === hour ? selectedHourRef : undefined}
@@ -229,7 +218,7 @@ function TimePickerField({
                       className={cn(
                         "h-8 justify-center rounded-md px-2 text-base font-normal tabular-nums",
                         option === hour &&
-                          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
                       )}
                       onClick={() => setTime(option, minute)}
                     >
@@ -255,7 +244,7 @@ function TimePickerField({
                 onWheel={scrollTimeListWithWheel}
               >
                 <div className="flex flex-col gap-1 p-1">
-                  {MINUTE_OPTIONS.map(option => (
+                  {MINUTE_OPTIONS.map((option) => (
                     <Button
                       key={option}
                       type="button"
@@ -266,7 +255,7 @@ function TimePickerField({
                       className={cn(
                         "h-8 justify-center rounded-md px-2 text-base font-normal tabular-nums",
                         option === minute &&
-                          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
                       )}
                       onClick={() => setTime(hour, option)}
                     >
@@ -321,9 +310,9 @@ export function EventEditDialog({
   if (!event || !draft) return null;
 
   const update = <K extends keyof CalEvent>(key: K, value: CalEvent[K]) =>
-    setDraft(current => (current ? { ...current, [key]: value } : current));
+    setDraft((current) => (current ? { ...current, [key]: value } : current));
   const applyPreset = (preset: EventPreset) => {
-    setDraft(current => {
+    setDraft((current) => {
       if (!current) return current;
       const startMinutes = toMinutes(current.start);
 
@@ -337,7 +326,7 @@ export function EventEditDialog({
   };
 
   const updateStartTime = (value: string) => {
-    setDraft(current => {
+    setDraft((current) => {
       if (!current) return current;
 
       const nextStartMinutes = toMinutes(value);
@@ -399,9 +388,7 @@ export function EventEditDialog({
                 <CalendarClock />
               </div>
               <div className="flex flex-col gap-1">
-                <DialogTitle className="text-xl">
-                  {draft.title || "Termin"}
-                </DialogTitle>
+                <DialogTitle className="text-xl">{draft.title || "Termin"}</DialogTitle>
                 <DialogDescription>
                   {dateLabel} · {draft.start}–{draft.end}
                 </DialogDescription>
@@ -412,12 +399,7 @@ export function EventEditDialog({
                 <Check data-icon="inline-start" />
                 Speichern
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={cancel}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={cancel}>
                 <X data-icon="inline-start" />
                 Abbrechen
               </Button>
@@ -431,7 +413,7 @@ export function EventEditDialog({
               <Field className="sm:col-span-2">
                 <FieldLabel>Schnellauswahl</FieldLabel>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {eventPresets.map(preset => (
+                  {eventPresets.map((preset) => (
                     <Button
                       key={preset.label}
                       type="button"
@@ -451,7 +433,7 @@ export function EventEditDialog({
                 <Input
                   id="event-title"
                   value={draft.title}
-                  onChange={e => update("title", e.target.value)}
+                  onChange={(e) => update("title", e.target.value)}
                 />
               </Field>
 
@@ -459,14 +441,14 @@ export function EventEditDialog({
                 <FieldLabel htmlFor="event-type">Ereignistyp</FieldLabel>
                 <Select
                   value={draft.type}
-                  onValueChange={value => update("type", value as EventType)}
+                  onValueChange={(value) => update("type", value as EventType)}
                 >
                   <SelectTrigger id="event-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      {eventTypeOptions.map(option => (
+                      {eventTypeOptions.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
                         </SelectItem>
@@ -481,7 +463,7 @@ export function EventEditDialog({
                 <DatePickerField
                   id="event-date"
                   value={draft.date}
-                  onChange={value => update("date", value)}
+                  onChange={(value) => update("date", value)}
                 />
               </Field>
 
@@ -499,7 +481,7 @@ export function EventEditDialog({
                 <TimePickerField
                   id="event-end"
                   value={draft.end}
-                  onChange={value => update("end", value)}
+                  onChange={(value) => update("end", value)}
                 />
               </Field>
 
@@ -523,9 +505,7 @@ export function EventEditDialog({
                     }
                     update("subtitle", value || undefined);
                   }}
-                  onValueChange={value =>
-                    update("subtitle", value ?? undefined)
-                  }
+                  onValueChange={(value) => update("subtitle", value ?? undefined)}
                   autoHighlight
                 >
                   <ComboboxInput
@@ -551,7 +531,7 @@ export function EventEditDialog({
                 <FieldLabel htmlFor="event-instructor">Fahrlehrer/in</FieldLabel>
                 <Select
                   value={draft.instructor}
-                  onValueChange={value => update("instructor", value)}
+                  onValueChange={(value) => update("instructor", value)}
                 >
                   <SelectTrigger id="event-instructor">
                     <SelectValue />
@@ -561,7 +541,7 @@ export function EventEditDialog({
                       {(instructorOptions.includes(draft.instructor)
                         ? instructorOptions
                         : [draft.instructor, ...instructorOptions]
-                      ).map(option => (
+                      ).map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
                         </SelectItem>
@@ -575,7 +555,7 @@ export function EventEditDialog({
                 <FieldLabel htmlFor="event-vehicle">Fahrzeug</FieldLabel>
                 <Select
                   value={draft.vehicle ?? NO_VEHICLE}
-                  onValueChange={value =>
+                  onValueChange={(value) =>
                     update("vehicle", value === NO_VEHICLE ? undefined : value)
                   }
                 >
@@ -585,7 +565,7 @@ export function EventEditDialog({
                   <SelectContent>
                     <SelectGroup>
                       <SelectItem value={NO_VEHICLE}>Kein Fahrzeug</SelectItem>
-                      {selectableVehicleOptions.map(option => (
+                      {selectableVehicleOptions.map((option) => (
                         <SelectItem key={option} value={option}>
                           {option}
                         </SelectItem>
@@ -600,18 +580,14 @@ export function EventEditDialog({
                 <Input
                   id="event-location"
                   value={draft.location ?? ""}
-                  onChange={e =>
-                    update("location", e.target.value || undefined)
-                  }
+                  onChange={(e) => update("location", e.target.value || undefined)}
                 />
               </Field>
 
               <label className="flex cursor-pointer items-center gap-2.5 text-sm sm:col-span-2">
                 <Checkbox
                   checked={draft.tentative ?? false}
-                  onCheckedChange={checked =>
-                    update("tentative", checked === true)
-                  }
+                  onCheckedChange={(checked) => update("tentative", checked === true)}
                 />
                 Vorläufig (unbestätigt)
               </label>

@@ -63,8 +63,7 @@ function filterFromUrl(url: string): ListFilter {
     from: params.get("from") ?? undefined,
     to: params.get("to") ?? undefined,
     q: params.get("q")?.trim() || undefined,
-    status:
-      status === "active" || status === "storniert" ? status : "all",
+    status: status === "active" || status === "storniert" ? status : "all",
   };
 }
 
@@ -102,8 +101,7 @@ export function instructorRoutes(db: Database) {
 export function studentRoutes(db: Database) {
   return {
     "/api/students": {
-      GET: (req: BunRequest) =>
-        handle(() => json({ students: listStudents(db) }))(),
+      GET: (req: BunRequest) => handle(() => json({ students: listStudents(db) }))(),
       POST: (req: BunRequest) =>
         handle(async () => json(createStudent(db, await req.json()), 201))(),
     },
@@ -133,8 +131,7 @@ export function studentRoutes(db: Database) {
 export function pricePlanRoutes(db: Database) {
   return {
     "/api/price-plans": {
-      GET: (req: BunRequest) =>
-        handle(() => json({ plans: listPricePlans(db) }))(),
+      GET: (req: BunRequest) => handle(() => json({ plans: listPricePlans(db) }))(),
       POST: (req: BunRequest) =>
         handle(async () => json(createPricePlan(db, await req.json()), 201))(),
     },
@@ -175,8 +172,8 @@ export function vehicleRoutes(db: Database) {
     "/api/vehicles": {
       GET: () => handle(() => json({ vehicles: listVehicles(db) }))(),
       POST: (req: BunRequest) =>
-        handle(async () => 
-          json(createVehicle(db, (await req.json()) as Partial<VehicleInput>), 201)
+        handle(async () =>
+          json(createVehicle(db, (await req.json()) as Partial<VehicleInput>), 201),
         )(),
     },
 
@@ -218,8 +215,8 @@ export function calendarEventRoutes(db: Database) {
         handle(async () =>
           json(
             createCalendarEvent(db, (await req.json()) as Partial<CalendarEventInput>),
-            201
-          )
+            201,
+          ),
         )(),
     },
 
@@ -231,7 +228,11 @@ export function calendarEventRoutes(db: Database) {
             throw new ValidationError("Ungültige Termin-ID.");
           }
           return json(
-            updateCalendarEvent(db, id, (await req.json()) as Partial<CalendarEventInput>)
+            updateCalendarEvent(
+              db,
+              id,
+              (await req.json()) as Partial<CalendarEventInput>,
+            ),
           );
         })(),
       DELETE: (req: BunRequest<"/api/calendar-events/:id">) =>
@@ -257,34 +258,40 @@ export function calendarEventRoutes(db: Database) {
           const event = getCalendarEvent(db, id);
           if (event.type !== "Praktisch") {
             throw new ValidationError(
-              "Nur praktische Fahrstunden können abgerechnet werden."
+              "Nur praktische Fahrstunden können abgerechnet werden.",
             );
           }
           if (event.studentId == null) {
             throw new ValidationError(
-              "Kein Fahrschüler verknüpft — Termin kann nicht abgerechnet werden."
+              "Kein Fahrschüler verknüpft — Termin kann nicht abgerechnet werden.",
             );
           }
           if (event.billedActive) {
             throw new ValidationError(
-              "Termin ist bereits abgerechnet. Zuerst stornieren um neu abzurechnen."
+              "Termin ist bereits abgerechnet. Zuerst stornieren um neu abzurechnen.",
             );
           }
 
           const body = await req.json();
 
           if (
-            !(body && typeof body === "object" &&
-              (body as { type?: unknown }).type === "guthaben_uebertragung")
+            !(
+              body &&
+              typeof body === "object" &&
+              (body as { type?: unknown }).type === "guthaben_uebertragung"
+            )
           ) {
             throw new ValidationError(
-              "Abrechnung muss vom Typ 'guthaben_uebertragung' sein."
+              "Abrechnung muss vom Typ 'guthaben_uebertragung' sein.",
             );
           }
 
           // Wrap BOTH writes atomically: if markEventBilled fails,
           // the transaction row is rolled back (savepoint nesting).
-          let result!: { transaction: ReturnType<typeof createTransaction>; event: ReturnType<typeof getCalendarEvent> };
+          let result!: {
+            transaction: ReturnType<typeof createTransaction>;
+            event: ReturnType<typeof getCalendarEvent>;
+          };
           const bill = db.transaction(() => {
             const tx = createTransaction(db, body);
             const updated = markEventBilled(db, id, tx.id);
@@ -307,13 +314,13 @@ export function calendarEventRoutes(db: Database) {
           const raw = body?.result;
           if (raw !== null && raw !== "bestanden" && raw !== "nicht_bestanden") {
             throw new ValidationError(
-              "Ergebnis muss 'bestanden', 'nicht_bestanden' oder null sein."
+              "Ergebnis muss 'bestanden', 'nicht_bestanden' oder null sein.",
             );
           }
           const updated = recordExamResult(
             db,
             id,
-            raw as "bestanden" | "nicht_bestanden" | null
+            raw as "bestanden" | "nicht_bestanden" | null,
           );
           return json(updated);
         })(),
@@ -332,8 +339,7 @@ export function archiveRoutes(db: Database) {
 
   return {
     "/api/archive": {
-      GET: (req: BunRequest) =>
-        handle(() => json({ items: listArchive(db) }))(),
+      GET: (req: BunRequest) => handle(() => json({ items: listArchive(db) }))(),
     },
 
     "/api/archive/:id/restore": {
@@ -359,8 +365,7 @@ export function accountingRoutes(db: Database) {
     },
 
     "/api/accounting/accounts": {
-      GET: (req: BunRequest) =>
-        handle(() => json({ accounts: listAccounts(db) }))(),
+      GET: (req: BunRequest) => handle(() => json({ accounts: listAccounts(db) }))(),
     },
 
     "/api/accounting/accounts/:number": {
@@ -398,7 +403,7 @@ export function accountingRoutes(db: Database) {
             db,
             id,
             typeof body.reason === "string" ? body.reason : "",
-            today
+            today,
           );
           return json(created, 201);
         })(),

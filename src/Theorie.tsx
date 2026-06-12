@@ -127,9 +127,7 @@ function SortableHead({
   return (
     <TableHead
       className={className}
-      aria-sort={
-        isActive ? (direction === "asc" ? "ascending" : "descending") : "none"
-      }
+      aria-sort={isActive ? (direction === "asc" ? "ascending" : "descending") : "none"}
     >
       <Button
         type="button"
@@ -159,17 +157,15 @@ export function Theorie() {
     const normalizedQuery = query.trim().toLowerCase();
 
     return learners
-      .filter(student => {
+      .filter((student) => {
         const matchesQuery =
           normalizedQuery.length === 0 ||
           [student.name, student.phone, student.className]
             .join(" ")
             .toLowerCase()
             .includes(normalizedQuery);
-        const matchesClass =
-          classFilter === "all" || student.className === classFilter;
-        const matchesStatus =
-          statusFilter === "all" || student.status === statusFilter;
+        const matchesClass = classFilter === "all" || student.className === classFilter;
+        const matchesStatus = statusFilter === "all" || student.status === statusFilter;
 
         return matchesQuery && matchesClass && matchesStatus;
       })
@@ -191,7 +187,7 @@ export function Theorie() {
 
   const handleSort = (key: SortKey) => {
     if (key === sortKey) {
-      setSortDirection(current => (current === "asc" ? "desc" : "asc"));
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
       return;
     }
 
@@ -212,7 +208,7 @@ export function Theorie() {
           <>
             <Input
               value={query}
-              onChange={event => setQuery(event.target.value)}
+              onChange={(event) => setQuery(event.target.value)}
               placeholder="Suchen…"
               className="hidden w-44 sm:flex lg:w-60"
             />
@@ -321,13 +317,13 @@ export function Theorie() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLearners.map(student => (
+                {filteredLearners.map((student) => (
                   <TableRow
                     key={student.id}
                     tabIndex={0}
                     className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
                     onClick={() => openStudent(student.id)}
-                    onKeyDown={event => {
+                    onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
                         openStudent(student.id);
@@ -341,7 +337,9 @@ export function Theorie() {
                     <TableCell>
                       <Badge variant="outline">{student.className}</Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{student.lastLogin}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {student.lastLogin}
+                    </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
                       {student.createdAt}
                     </TableCell>
@@ -359,14 +357,17 @@ export function Theorie() {
                       <Badge variant="outline" className="gap-1.5 font-normal">
                         <span
                           aria-hidden
-                          className={cn("size-1.5 rounded-full", statusDot[student.status])}
+                          className={cn(
+                            "size-1.5 rounded-full",
+                            statusDot[student.status],
+                          )}
                         />
                         {student.status}
                       </Badge>
                     </TableCell>
                     {/* Row click navigates; keep the action buttons from
                         triggering it. */}
-                    <TableCell onClick={event => event.stopPropagation()}>
+                    <TableCell onClick={(event) => event.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button
                           type="button"

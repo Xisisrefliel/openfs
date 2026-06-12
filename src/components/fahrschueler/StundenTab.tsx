@@ -36,12 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -141,7 +136,12 @@ function NachweisDialog({ open, event, student, onClose, onSaved }: NachweisDial
   };
 
   return (
-    <Dialog open={open} onOpenChange={open => { if (!open) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Ausbildungsnachweis erfassen</DialogTitle>
@@ -155,7 +155,9 @@ function NachweisDialog({ open, event, student, onClose, onSaved }: NachweisDial
             </div>
             <div>
               <span className="font-medium text-foreground">Dauer</span>
-              <div>{durationMin} Min ({event.start} – {event.end})</div>
+              <div>
+                {durationMin} Min ({event.start} – {event.end})
+              </div>
             </div>
             <div>
               <span className="font-medium text-foreground">Fahrlehrer</span>
@@ -173,7 +175,7 @@ function NachweisDialog({ open, event, student, onClose, onSaved }: NachweisDial
               id="nachweis-content"
               placeholder="z.B. Stadtfahrt, Autobahn, Einparken…"
               value={content}
-              onChange={e => setContent(e.target.value)}
+              onChange={(e) => setContent(e.target.value)}
               rows={3}
               maxLength={2000}
               className="resize-none text-sm"
@@ -182,10 +184,7 @@ function NachweisDialog({ open, event, student, onClose, onSaved }: NachweisDial
 
           <div className="flex flex-col gap-1.5">
             <Label>Unterschrift Fahrschüler</Label>
-            <SignaturePad
-              ref={sigRef}
-              onChange={setSigHasStrokes}
-            />
+            <SignaturePad ref={sigRef} onChange={setSigHasStrokes} />
           </div>
         </div>
 
@@ -193,10 +192,7 @@ function NachweisDialog({ open, event, student, onClose, onSaved }: NachweisDial
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Abbrechen
           </Button>
-          <Button
-            onClick={() => void handleSave()}
-            disabled={!canSave}
-          >
+          <Button onClick={() => void handleSave()} disabled={!canSave}>
             {saving ? "Speichern…" : "Unterschreiben & speichern"}
           </Button>
         </DialogFooter>
@@ -217,7 +213,12 @@ type NachweisViewDialogProps = {
 
 function NachweisViewDialog({ open, attestation, onClose }: NachweisViewDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={open => { if (!open) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Ausbildungsnachweis</DialogTitle>
@@ -260,7 +261,9 @@ function NachweisViewDialog({ open, attestation, onClose }: NachweisViewDialogPr
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Schließen</Button>
+          <Button variant="outline" onClick={onClose}>
+            Schließen
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -279,7 +282,9 @@ export function StundenTab({ student }: { student: StudentRecord }) {
   const [nachweisTarget, setNachweisTarget] = useState<CalEvent | null>(null);
   const [viewAttestation, setViewAttestation] = useState<Attestation | null>(null);
   // Map of event id (string) → Attestation (or null = checked, none found)
-  const [attestationMap, setAttestationMap] = useState<Map<string, Attestation | null>>(new Map());
+  const [attestationMap, setAttestationMap] = useState<Map<string, Attestation | null>>(
+    new Map(),
+  );
   const [loadingAttestations, setLoadingAttestations] = useState(false);
 
   const fullName = `${student.firstName} ${student.lastName}`;
@@ -289,30 +294,28 @@ export function StundenTab({ student }: { student: StudentRecord }) {
   const accounts = useApi(accountingApi.accounts, []);
 
   const studentPlan = useMemo(
-    () => plans.find(p => p.id === student.pricePlanId),
-    [plans, student.pricePlanId]
+    () => plans.find((p) => p.id === student.pricePlanId),
+    [plans, student.pricePlanId],
   );
 
   const studentEvents = useMemo(
     () =>
       allEvents
-        .filter(event =>
+        .filter((event) =>
           event.studentId != null
             ? event.studentId === student.id
-            : event.subtitle === fullName
+            : event.subtitle === fullName,
         )
         .toSorted((left, right) =>
-          `${left.date} ${left.start}`.localeCompare(`${right.date} ${right.start}`)
+          `${left.date} ${left.start}`.localeCompare(`${right.date} ${right.start}`),
         ),
-    [allEvents, fullName, student.id]
+    [allEvents, fullName, student.id],
   );
 
   const events = useMemo(
     () =>
-      studentEvents.filter(
-        event => typeFilter === "alle" || event.type === typeFilter
-      ),
-    [studentEvents, typeFilter]
+      studentEvents.filter((event) => typeFilter === "alle" || event.type === typeFilter),
+    [studentEvents, typeFilter],
   );
 
   /* Billable-but-unbilled lessons — same predicate as the per-lesson
@@ -320,12 +323,12 @@ export function StundenTab({ student }: { student: StudentRecord }) {
   const openLessons = useMemo(
     () =>
       studentEvents.filter(
-        event =>
+        (event) =>
           isFahrstunde(event) &&
           billingState(event) === "open" &&
-          event.studentId != null
+          event.studentId != null,
       ),
-    [studentEvents]
+    [studentEvents],
   );
 
   /* Bulk-load attestations for this student's practical events. */
@@ -350,7 +353,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
   }, [refreshAttestations]);
 
   const studentRef = useMemo((): StudentRef | null => {
-    const found = students.find(s => s.id === student.id);
+    const found = students.find((s) => s.id === student.id);
     if (!found) return null;
     return {
       customerNo: found.customerNumber,
@@ -386,7 +389,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
   const buildBatchBillInput = (
     event: CalEvent,
     ref: StudentRef,
-    priceCents: number
+    priceCents: number,
   ): CreateTransactionInput => {
     const durationMin = toMinutes(event.end) - toMinutes(event.start);
     return {
@@ -411,7 +414,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
       try {
         await billCalendarEvent(
           lesson.id,
-          buildBatchBillInput(lesson, studentRef, resolved.priceCents)
+          buildBatchBillInput(lesson, studentRef, resolved.priceCents),
         );
         billed += 1;
       } catch (err) {
@@ -426,7 +429,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
     setBatchBillOpen(false);
     if (failure) {
       toast.error(
-        `${billed} von ${lessons.length} abgerechnet — Fehler bei ${formatDate(failure.date)}: ${failure.message}`
+        `${billed} von ${lessons.length} abgerechnet — Fehler bei ${formatDate(failure.date)}: ${failure.message}`,
       );
     } else {
       toast.success(`${billed} Fahrstunden abgerechnet.`);
@@ -444,7 +447,9 @@ export function StundenTab({ student }: { student: StudentRecord }) {
 
   const handleNachweisCaptureDone = async (attestation: Attestation) => {
     setNachweisTarget(null);
-    setAttestationMap(prev => new Map(prev).set(String(attestation.eventId), attestation));
+    setAttestationMap((prev) =>
+      new Map(prev).set(String(attestation.eventId), attestation),
+    );
   };
 
   return (
@@ -453,7 +458,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
         <div className="flex flex-wrap items-center gap-2">
           <Select
             value={typeFilter}
-            onValueChange={value => setTypeFilter(value as TypeFilter)}
+            onValueChange={(value) => setTypeFilter(value as TypeFilter)}
           >
             <SelectTrigger className="w-48" size="sm">
               <SelectValue />
@@ -461,7 +466,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
             <SelectContent>
               <SelectGroup>
                 <SelectItem value="alle">Alle Stunden</SelectItem>
-                {eventTypeOptions.map(type => (
+                {eventTypeOptions.map((type) => (
                   <SelectItem key={type} value={type}>
                     {type}
                   </SelectItem>
@@ -472,11 +477,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
 
           <div className="ml-auto flex items-center gap-2">
             {openLessons.length >= 2 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setBatchBillOpen(true)}
-              >
+              <Button variant="outline" size="sm" onClick={() => setBatchBillOpen(true)}>
                 <Receipt className="mr-1 size-3.5" />
                 Alle offenen abrechnen ({openLessons.length})
               </Button>
@@ -520,14 +521,13 @@ export function StundenTab({ student }: { student: StudentRecord }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {events.map(event => {
+                {events.map((event) => {
                   const isPraktisch = isFahrstunde(event);
                   const state = isPraktisch ? billingState(event) : null;
                   const hasStudent = event.studentId != null;
                   const canBill = isPraktisch && state === "open" && hasStudent;
-                  const billDisabledReason = isPraktisch && !hasStudent
-                    ? "Kein Fahrschüler verknüpft"
-                    : null;
+                  const billDisabledReason =
+                    isPraktisch && !hasStudent ? "Kein Fahrschüler verknüpft" : null;
 
                   const attestation = attestationMap.get(event.id);
                   const nachweisChecked = attestationMap.has(event.id);
@@ -672,7 +672,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
             event={nachweisTarget}
             student={student}
             onClose={() => setNachweisTarget(null)}
-            onSaved={att => void handleNachweisCaptureDone(att)}
+            onSaved={(att) => void handleNachweisCaptureDone(att)}
           />
         )}
 

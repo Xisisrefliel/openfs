@@ -39,7 +39,7 @@ function insertStudent(target: Database, firstName: string, lastName: string) {
   const row = target
     .query<{ id: number }, [string, string, string, string]>(
       `INSERT INTO students (first_name, last_name, contract_number, customer_number)
-       VALUES (?, ?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?, ?) RETURNING id`,
     )
     .get(firstName, lastName, `V-${studentCounter}`, `K-${studentCounter}`)!;
   return row.id;
@@ -89,14 +89,12 @@ describe("ensureTheoryGroupTables", () => {
     fresh
       .prepare(
         `INSERT INTO instructors (first_name, last_name, status)
-         VALUES ('Maria', 'Schmidt', 'aktiv')`
+         VALUES ('Maria', 'Schmidt', 'aktiv')`,
       )
       .run();
     ensureTheoryGroupTables(fresh);
     const groups = listTheoryGroups(fresh);
-    expect(groups.every(group => group.instructor === "Maria Schmidt")).toBe(
-      true
-    );
+    expect(groups.every((group) => group.instructor === "Maria Schmidt")).toBe(true);
   });
 
   test("seed falls back to plain names when instructors table is empty", () => {
@@ -151,56 +149,56 @@ describe("createTheoryGroup", () => {
 
   test("empty name → ValidationError 'Name ist ein Pflichtfeld.'", () => {
     expect(() => createTheoryGroup(db, { ...VALID, name: "  " })).toThrow(
-      "Name ist ein Pflichtfeld."
+      "Name ist ein Pflichtfeld.",
     );
   });
 
   test("empty klass → ValidationError", () => {
     expect(() => createTheoryGroup(db, { ...VALID, klass: "" })).toThrow(
-      "Klasse ist ein Pflichtfeld."
+      "Klasse ist ein Pflichtfeld.",
     );
   });
 
   test("invalid weekday → ValidationError", () => {
-    expect(() =>
-      createTheoryGroup(db, { ...VALID, weekday: "Funday" })
-    ).toThrow(ValidationError);
+    expect(() => createTheoryGroup(db, { ...VALID, weekday: "Funday" })).toThrow(
+      ValidationError,
+    );
   });
 
   test("malformed time → ValidationError", () => {
     expect(() => createTheoryGroup(db, { ...VALID, time: "9:00" })).toThrow(
-      "Uhrzeit muss im Format HH:MM angegeben werden."
+      "Uhrzeit muss im Format HH:MM angegeben werden.",
     );
     expect(() => createTheoryGroup(db, { ...VALID, time: "25:00" })).toThrow(
-      ValidationError
+      ValidationError,
     );
   });
 
   test("invalid status → ValidationError", () => {
     expect(() =>
-      createTheoryGroup(db, { ...VALID, status: "pausiert" as never })
+      createTheoryGroup(db, { ...VALID, status: "pausiert" as never }),
     ).toThrow("Status muss 'aktiv' oder 'abgeschlossen' sein.");
   });
 
   test("capacity must be an integer >= 1", () => {
     expect(() => createTheoryGroup(db, { ...VALID, capacity: 0 })).toThrow(
-      "Kapazität muss eine ganze Zahl ab 1 sein."
+      "Kapazität muss eine ganze Zahl ab 1 sein.",
     );
-    expect(() =>
-      createTheoryGroup(db, { ...VALID, capacity: 1.5 as never })
-    ).toThrow(ValidationError);
+    expect(() => createTheoryGroup(db, { ...VALID, capacity: 1.5 as never })).toThrow(
+      ValidationError,
+    );
   });
 
   test("studentIds must be a list of valid student ids", () => {
-    expect(() =>
-      createTheoryGroup(db, { ...VALID, studentIds: "1,2" as never })
-    ).toThrow("Feld 'studentIds' muss eine Liste sein.");
-    expect(() =>
-      createTheoryGroup(db, { ...VALID, studentIds: [-1] })
-    ).toThrow(ValidationError);
-    expect(() =>
-      createTheoryGroup(db, { ...VALID, studentIds: [999999] })
-    ).toThrow("Fahrschüler/in mit ID 999999 nicht gefunden.");
+    expect(() => createTheoryGroup(db, { ...VALID, studentIds: "1,2" as never })).toThrow(
+      "Feld 'studentIds' muss eine Liste sein.",
+    );
+    expect(() => createTheoryGroup(db, { ...VALID, studentIds: [-1] })).toThrow(
+      ValidationError,
+    );
+    expect(() => createTheoryGroup(db, { ...VALID, studentIds: [999999] })).toThrow(
+      "Fahrschüler/in mit ID 999999 nicht gefunden.",
+    );
   });
 
   test("studentIds are de-duplicated and resolved to member names", () => {
@@ -224,22 +222,20 @@ describe("createTheoryGroup", () => {
       insertStudent(db, "C", "Drei"),
     ];
     expect(() =>
-      createTheoryGroup(db, { ...VALID, capacity: 2, studentIds: ids })
+      createTheoryGroup(db, { ...VALID, capacity: 2, studentIds: ids }),
     ).toThrow("Die Gruppe ist voll (max. 2 Teilnehmer).");
   });
 });
 
 describe("getTheoryGroup / listTheoryGroups", () => {
   test("missing id → ValidationError 'Theorie-Gruppe nicht gefunden.'", () => {
-    expect(() => getTheoryGroup(db, 999999)).toThrow(
-      "Theorie-Gruppe nicht gefunden."
-    );
+    expect(() => getTheoryGroup(db, 999999)).toThrow("Theorie-Gruppe nicht gefunden.");
   });
 
   test("list is ordered by name", () => {
     createTheoryGroup(db, { ...VALID, name: "Zeta" });
     createTheoryGroup(db, { ...VALID, name: "Alpha" });
-    const names = listTheoryGroups(db).map(group => group.name);
+    const names = listTheoryGroups(db).map((group) => group.name);
     expect(names).toEqual(["Alpha", "Zeta"]);
   });
 
@@ -274,7 +270,7 @@ describe("updateTheoryGroup", () => {
     const added = updateTheoryGroup(db, created.id, {
       studentIds: [anna, ben],
     });
-    expect(added.members.map(member => member.name)).toEqual([
+    expect(added.members.map((member) => member.name)).toEqual([
       "Anna Albers",
       "Ben Berger",
     ]);
@@ -292,9 +288,9 @@ describe("updateTheoryGroup", () => {
       capacity: 1,
       studentIds: [anna],
     });
-    expect(() =>
-      updateTheoryGroup(db, created.id, { studentIds: [anna, ben] })
-    ).toThrow("Die Gruppe ist voll (max. 1 Teilnehmer).");
+    expect(() => updateTheoryGroup(db, created.id, { studentIds: [anna, ben] })).toThrow(
+      "Die Gruppe ist voll (max. 1 Teilnehmer).",
+    );
   });
 
   test("shrinking capacity below current member count → ValidationError", () => {
@@ -305,22 +301,22 @@ describe("updateTheoryGroup", () => {
       capacity: 5,
       studentIds: [anna, ben],
     });
-    expect(() =>
-      updateTheoryGroup(db, created.id, { capacity: 1 })
-    ).toThrow("Die Gruppe ist voll (max. 1 Teilnehmer).");
+    expect(() => updateTheoryGroup(db, created.id, { capacity: 1 })).toThrow(
+      "Die Gruppe ist voll (max. 1 Teilnehmer).",
+    );
   });
 
   test("update on missing id → ValidationError", () => {
     expect(() => updateTheoryGroup(db, 999999, { name: "x" })).toThrow(
-      "Theorie-Gruppe nicht gefunden."
+      "Theorie-Gruppe nicht gefunden.",
     );
   });
 
   test("invalid update is rejected and leaves the row unchanged", () => {
     const created = createTheoryGroup(db, VALID);
-    expect(() =>
-      updateTheoryGroup(db, created.id, { time: "kaputt" })
-    ).toThrow(ValidationError);
+    expect(() => updateTheoryGroup(db, created.id, { time: "kaputt" })).toThrow(
+      ValidationError,
+    );
     expect(getTheoryGroup(db, created.id).time).toBe("18:00");
   });
 });
@@ -331,14 +327,12 @@ describe("deleteTheoryGroup", () => {
     deleteTheoryGroup(db, created.id);
     expect(listTheoryGroups(db)).toHaveLength(0);
     expect(() => getTheoryGroup(db, created.id)).toThrow(
-      "Theorie-Gruppe nicht gefunden."
+      "Theorie-Gruppe nicht gefunden.",
     );
   });
 
   test("delete on missing id → ValidationError", () => {
-    expect(() => deleteTheoryGroup(db, 999999)).toThrow(
-      "Theorie-Gruppe nicht gefunden."
-    );
+    expect(() => deleteTheoryGroup(db, 999999)).toThrow("Theorie-Gruppe nicht gefunden.");
   });
 });
 
@@ -369,15 +363,15 @@ describe("theoryGroupRoutes", () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(VALID),
-        })
-      )
+        }),
+      ),
     );
     expect(created.status).toBe(201);
     const createdBody = (await created.json()) as { id: number; name: string };
     expect(createdBody.name).toBe(VALID.name);
 
     const list = await routes["/api/theory-groups"].GET(
-      asReq(new Request("http://localhost/api/theory-groups"))
+      asReq(new Request("http://localhost/api/theory-groups")),
     );
     expect(list.status).toBe(200);
     const listBody = (await list.json()) as { groups: unknown[] };
@@ -388,8 +382,8 @@ describe("theoryGroupRoutes", () => {
         new Request("http://localhost/api/theory-groups/abc", {
           method: "DELETE",
         }),
-        { id: "abc" }
-      )
+        { id: "abc" },
+      ),
     );
     expect(bad.status).toBe(400);
     const badBody = (await bad.json()) as { error: string };
@@ -400,8 +394,8 @@ describe("theoryGroupRoutes", () => {
         new Request(`http://localhost/api/theory-groups/${createdBody.id}`, {
           method: "DELETE",
         }),
-        { id: String(createdBody.id) }
-      )
+        { id: String(createdBody.id) },
+      ),
     );
     expect(ok.status).toBe(200);
     expect(listTheoryGroups(db)).toHaveLength(0);
@@ -417,10 +411,9 @@ describe("theoryGroupRoutes", () => {
     setAttendance(db, group.id, "2026-06-09", [{ studentId: anna, attended: true }]);
 
     const res = await routes["/api/theory-groups/:id/attendance"].GET(
-      asReq(
-        new Request(`http://localhost/api/theory-groups/${group.id}/attendance`),
-        { id: String(group.id) }
-      )
+      asReq(new Request(`http://localhost/api/theory-groups/${group.id}/attendance`), {
+        id: String(group.id),
+      }),
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { sessions: unknown[] };
@@ -445,8 +438,8 @@ describe("theoryGroupRoutes", () => {
             entries: [{ studentId: ben, attended: true }],
           }),
         }),
-        { id: String(group.id) }
-      )
+        { id: String(group.id) },
+      ),
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { sessions: unknown[] };
@@ -471,8 +464,8 @@ describe("theoryGroupRoutes", () => {
             entries: [{ studentId: outsider, attended: true }],
           }),
         }),
-        { id: String(group.id) }
-      )
+        { id: String(group.id) },
+      ),
     );
     expect(res.status).toBe(400);
   });
@@ -497,8 +490,8 @@ describe("attendance domain", () => {
     expect(sessions).toHaveLength(1);
     expect(sessions[0]!.sessionDate).toBe("2026-06-09");
     expect(sessions[0]!.entries).toHaveLength(2);
-    const annaEntry = sessions[0]!.entries.find(e => e.studentId === anna);
-    const benEntry = sessions[0]!.entries.find(e => e.studentId === ben);
+    const annaEntry = sessions[0]!.entries.find((e) => e.studentId === anna);
+    const benEntry = sessions[0]!.entries.find((e) => e.studentId === ben);
     expect(annaEntry?.attended).toBe(true);
     expect(benEntry?.attended).toBe(false);
   });
@@ -518,7 +511,7 @@ describe("attendance domain", () => {
     // Verify only one DB row
     const rowCount = db
       .query<{ n: number }, [number, number, string]>(
-        "SELECT count(*) AS n FROM theory_attendance WHERE group_id = ? AND student_id = ? AND session_date = ?"
+        "SELECT count(*) AS n FROM theory_attendance WHERE group_id = ? AND student_id = ? AND session_date = ?",
       )
       .get(group.id, anna, "2026-06-09")!.n;
     expect(rowCount).toBe(1);
@@ -530,7 +523,9 @@ describe("attendance domain", () => {
     const group = createTheoryGroup(db, { ...VALID, studentIds: [anna] });
 
     expect(() =>
-      setAttendance(db, group.id, "2026-06-09", [{ studentId: outsider, attended: true }])
+      setAttendance(db, group.id, "2026-06-09", [
+        { studentId: outsider, attended: true },
+      ]),
     ).toThrow(ValidationError);
   });
 
@@ -539,18 +534,18 @@ describe("attendance domain", () => {
     const group = createTheoryGroup(db, { ...VALID, studentIds: [anna] });
 
     expect(() =>
-      setAttendance(db, group.id, "09-06-2026", [{ studentId: anna, attended: true }])
+      setAttendance(db, group.id, "09-06-2026", [{ studentId: anna, attended: true }]),
     ).toThrow("Datum muss im Format YYYY-MM-DD angegeben werden.");
 
     expect(() =>
-      setAttendance(db, group.id, "2026/06/09", [{ studentId: anna, attended: true }])
+      setAttendance(db, group.id, "2026/06/09", [{ studentId: anna, attended: true }]),
     ).toThrow(ValidationError);
   });
 
   test("unknown group → ValidationError", () => {
-    expect(() =>
-      setAttendance(db, 999999, "2026-06-09", [])
-    ).toThrow("Theorie-Gruppe nicht gefunden.");
+    expect(() => setAttendance(db, 999999, "2026-06-09", [])).toThrow(
+      "Theorie-Gruppe nicht gefunden.",
+    );
   });
 
   test("attendanceCounts correct across multiple dates", () => {
@@ -566,9 +561,7 @@ describe("attendance domain", () => {
       { studentId: anna, attended: true },
       { studentId: ben, attended: false },
     ]);
-    setAttendance(db, group.id, "2026-06-16", [
-      { studentId: anna, attended: true },
-    ]);
+    setAttendance(db, group.id, "2026-06-16", [{ studentId: anna, attended: true }]);
 
     const counts = attendanceCounts(db, group.id);
     expect(counts[anna]).toBe(3);
@@ -591,7 +584,7 @@ describe("attendance domain", () => {
 
     // But new attendance for removed member should be rejected
     expect(() =>
-      setAttendance(db, group.id, "2026-06-16", [{ studentId: anna, attended: true }])
+      setAttendance(db, group.id, "2026-06-16", [{ studentId: anna, attended: true }]),
     ).toThrow(ValidationError);
   });
 });

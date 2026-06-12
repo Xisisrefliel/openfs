@@ -83,11 +83,11 @@ const GRID_HEIGHT = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
 const NIGHT_START_MINUTES = 21 * 60 + 15;
 const HOUR_INTERVALS = Array.from(
   { length: END_HOUR - START_HOUR },
-  (_, i) => START_HOUR + i
+  (_, i) => START_HOUR + i,
 );
 const HOUR_MARKS = Array.from(
   { length: END_HOUR - START_HOUR + 1 },
-  (_, i) => START_HOUR + i
+  (_, i) => START_HOUR + i,
 );
 
 /* Demo "now" — anchored to the seeded week so the indicator lands sensibly. */
@@ -113,7 +113,7 @@ const nextEditableStartTime = () => {
   const minutes = clamp(
     now.getHours() * 60 + roundedMinutes,
     START_HOUR * 60,
-    END_HOUR * 60 - 45
+    END_HOUR * 60 - 45,
   );
 
   return formatMinutes(minutes);
@@ -195,10 +195,8 @@ const niederlassungOptions = ["Fahrschule Gül"];
 /* Date formatters                                                    */
 /* ------------------------------------------------------------------ */
 
-const monthLong = (date: Date) =>
-  date.toLocaleDateString("de-DE", { month: "long" });
-const monthShort = (date: Date) =>
-  date.toLocaleDateString("de-DE", { month: "short" });
+const monthLong = (date: Date) => date.toLocaleDateString("de-DE", { month: "long" });
+const monthShort = (date: Date) => date.toLocaleDateString("de-DE", { month: "short" });
 
 /* ------------------------------------------------------------------ */
 /* Side filter group                                                  */
@@ -221,7 +219,7 @@ function FilterGroup({
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return options;
-    return options.filter(option => option.toLowerCase().includes(normalized));
+    return options.filter((option) => option.toLowerCase().includes(normalized));
   }, [options, query]);
 
   return (
@@ -235,7 +233,7 @@ function FilterGroup({
         <ChevronDown
           className={cn(
             "size-4 text-muted-foreground transition-transform duration-200",
-            open && "rotate-180"
+            open && "rotate-180",
           )}
         />
       </CollapsibleTrigger>
@@ -244,13 +242,13 @@ function FilterGroup({
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
-            onChange={event => setQuery(event.target.value)}
+            onChange={(event) => setQuery(event.target.value)}
             placeholder="Suchen…"
             className="h-8 pl-8 text-sm"
           />
         </div>
         <div className="flex flex-col">
-          {filtered.map(option => (
+          {filtered.map((option) => (
             <label
               key={option}
               className="flex cursor-pointer items-center gap-2.5 rounded-md px-1 py-1.5 text-sm transition-colors hover:bg-muted"
@@ -304,25 +302,20 @@ function computeDragPosition(
   clientX: number,
   clientY: number,
   rect: DOMRect,
-  weekStart: Date
+  weekStart: Date,
 ): { date: string; start: string; end: string } {
-  const rawPointerMinutes =
-    ((clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60;
+  const rawPointerMinutes = ((clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60;
 
   if (dragging.mode === "move") {
     const dayWidth = rect.width / DAY_COUNT;
-    const day = clamp(
-      Math.floor((clientX - rect.left) / dayWidth),
-      0,
-      DAY_COUNT - 1
-    );
+    const day = clamp(Math.floor((clientX - rect.left) / dayWidth), 0, DAY_COUNT - 1);
     const rawStartMinutes =
       ((clientY - rect.top - dragging.pointerOffsetY) / HOUR_HEIGHT) * 60 +
       START_HOUR * 60;
     const startMinutes = clamp(
       snapMinutes(rawStartMinutes),
       START_HOUR * 60,
-      END_HOUR * 60 - dragging.duration
+      END_HOUR * 60 - dragging.duration,
     );
     const endMinutes = startMinutes + dragging.duration;
     return {
@@ -341,7 +334,7 @@ function computeDragPosition(
     const nextStartMinutes = clamp(
       pointerMinutes,
       START_HOUR * 60,
-      endMinutes - SNAP_MINUTES
+      endMinutes - SNAP_MINUTES,
     );
     return {
       date: dragging.date,
@@ -355,7 +348,7 @@ function computeDragPosition(
   const nextEndMinutes = clamp(
     pointerMinutes,
     startMinutes + SNAP_MINUTES,
-    END_HOUR * 60
+    END_HOUR * 60,
   );
   return {
     date: dragging.date,
@@ -380,12 +373,12 @@ function EventBlock({
   isDragging: boolean;
   onDragStart: (
     event: CalEvent,
-    pointerEvent: ReactPointerEvent<HTMLButtonElement>
+    pointerEvent: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
   onResizeStart: (
     event: CalEvent,
     edge: "start" | "end",
-    pointerEvent: ReactPointerEvent<HTMLElement>
+    pointerEvent: ReactPointerEvent<HTMLElement>,
   ) => void;
   onEdit: (event: CalEvent) => void;
   onDelete: (event: CalEvent) => void;
@@ -409,7 +402,7 @@ function EventBlock({
       dense={dense}
       isDragging={isDragging}
       theme={theme}
-      onPointerDown={pointerEvent => {
+      onPointerDown={(pointerEvent) => {
         if (pointerEvent.button !== 0) return;
         pointerEvent.preventDefault();
         pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
@@ -455,7 +448,7 @@ function WeekScrollbar({
     if (!grid) return;
 
     const updateHorizontalScroll = () => {
-      setScroll(previous =>
+      setScroll((previous) =>
         // Bail out when the horizontal metrics are unchanged — vertical
         // scrolling fires the same event but must not rerender anything.
         previous.clientWidth === grid.clientWidth &&
@@ -466,7 +459,7 @@ function WeekScrollbar({
               clientWidth: grid.clientWidth,
               scrollLeft: grid.scrollLeft,
               scrollWidth: grid.scrollWidth,
-            }
+            },
       );
     };
 
@@ -506,9 +499,7 @@ function WeekScrollbar({
       maxScroll;
   };
 
-  const handleThumbPointerDown = (
-    event: ReactPointerEvent<HTMLDivElement>
-  ) => {
+  const handleThumbPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     scrollToTrackPosition(event.clientX);
@@ -580,8 +571,15 @@ const DayColumn = memo(
     isToday: boolean;
     events: CalEvent[];
     draggingId: string | null;
-    onDragStart: (event: CalEvent, pointerEvent: ReactPointerEvent<HTMLButtonElement>) => void;
-    onResizeStart: (event: CalEvent, edge: "start" | "end", pointerEvent: ReactPointerEvent<HTMLElement>) => void;
+    onDragStart: (
+      event: CalEvent,
+      pointerEvent: ReactPointerEvent<HTMLButtonElement>,
+    ) => void;
+    onResizeStart: (
+      event: CalEvent,
+      edge: "start" | "end",
+      pointerEvent: ReactPointerEvent<HTMLElement>,
+    ) => void;
     onEdit: (event: CalEvent) => void;
     onDelete: (event: CalEvent) => void;
   }) {
@@ -590,11 +588,11 @@ const DayColumn = memo(
       <div
         className={cn(
           "relative h-full border-l border-border/70",
-          isToday && "bg-primary/[0.02]"
+          isToday && "bg-primary/[0.02]",
         )}
       >
         {/* Hour lines */}
-        {HOUR_INTERVALS.map(hour => (
+        {HOUR_INTERVALS.map((hour) => (
           <div
             key={hour}
             className="border-b border-border/60"
@@ -643,7 +641,7 @@ const DayColumn = memo(
     prev.onEdit === next.onEdit &&
     prev.onDelete === next.onDelete &&
     prev.events.length === next.events.length &&
-    prev.events.every((event, i) => event === next.events[i])
+    prev.events.every((event, i) => event === next.events[i]),
 );
 
 /* ------------------------------------------------------------------ */
@@ -678,11 +676,11 @@ export function Kalendar({
       Array.from(
         new Set(
           students
-            .map(student => `${student.firstName} ${student.lastName}`.trim())
-            .filter(Boolean)
-        )
+            .map((student) => `${student.firstName} ${student.lastName}`.trim())
+            .filter(Boolean),
+        ),
       ).toSorted((left, right) => left.localeCompare(right, "de")),
-    [students]
+    [students],
   );
   // Resolves the display name picked in the edit dialog back to the
   // student's id so saved events carry a reliable FK instead of relying
@@ -699,9 +697,7 @@ export function Kalendar({
   const [instructors, setInstructors] = useState<Set<string>>(new Set());
   const [niederlassungen, setNiederlassungen] = useState<Set<string>>(new Set());
   const [vehicles, setVehicles] = useState<Set<string>>(new Set());
-  const [types, setTypes] = useState<Set<string>>(
-    () => new Set(initialTypeFilter ?? [])
-  );
+  const [types, setTypes] = useState<Set<string>>(() => new Set(initialTypeFilter ?? []));
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalEvent | null>(null);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -738,7 +734,7 @@ export function Kalendar({
     if (dayRight > grid.clientWidth) {
       grid.scrollLeft = Math.min(
         dayIndex * dayWidth,
-        grid.scrollWidth - grid.clientWidth
+        grid.scrollWidth - grid.clientWidth,
       );
     }
   }, []);
@@ -761,10 +757,10 @@ export function Kalendar({
       rafId = null;
       const next = dragResultRef.current;
       if (!next) return;
-      setCalendarEvents(current =>
-        current.map(event =>
-          event.id === dragging.id ? { ...event, ...next } : event
-        )
+      setCalendarEvents((current) =>
+        current.map((event) =>
+          event.id === dragging.id ? { ...event, ...next } : event,
+        ),
       );
     };
 
@@ -793,12 +789,10 @@ export function Kalendar({
       // If dragResultRef is still null the user never moved (plain click) —
       // skip the PATCH so a tap on an event doesn't dirty the DB.
       if (dragResultRef.current !== null) {
-        void updateCalendarEvent(Number(dragging.id), dragResultRef.current).catch(
-          () => {
-            toast.error("Termin konnte nicht gespeichert werden.");
-            void refreshEvents();
-          }
-        );
+        void updateCalendarEvent(Number(dragging.id), dragResultRef.current).catch(() => {
+          toast.error("Termin konnte nicht gespeichert werden.");
+          void refreshEvents();
+        });
       }
       setDragging(null);
     };
@@ -820,26 +814,26 @@ export function Kalendar({
   const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
   const days = useMemo(
     () => Array.from({ length: DAY_COUNT }, (_, i) => addDays(weekStart, i)),
-    [weekStart]
+    [weekStart],
   );
 
-  const toggle =
-    (setter: Dispatch<SetStateAction<Set<string>>>) =>
-    (value: string) =>
-      setter(current => {
-        const next = new Set(current);
-        if (next.has(value)) next.delete(value);
-        else next.add(value);
-        return next;
-      });
+  const toggle = (setter: Dispatch<SetStateAction<Set<string>>>) => (value: string) =>
+    setter((current) => {
+      const next = new Set(current);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
 
   const visibleEvents = useMemo(() => {
-    return calendarEvents.filter(event => {
+    return calendarEvents.filter((event) => {
       if (instructors.size && !instructors.has(event.instructor)) return false;
-      if (niederlassungen.size && !(event.location && niederlassungen.has(event.location)))
+      if (
+        niederlassungen.size &&
+        !(event.location && niederlassungen.has(event.location))
+      )
         return false;
-      if (vehicles.size && !(event.vehicle && vehicles.has(event.vehicle)))
-        return false;
+      if (vehicles.size && !(event.vehicle && vehicles.has(event.vehicle))) return false;
       if (types.size && !types.has(event.type)) return false;
       return true;
     });
@@ -849,10 +843,7 @@ export function Kalendar({
   // one per day header (14 passes total at 7 columns). During a drag the
   // per-day arrays that don't contain the dragged event keep the same
   // object identity, which lets DayColumn's memo bail out cheaply.
-  const eventsByDay = useMemo(
-    () => groupEventsByDay(visibleEvents),
-    [visibleEvents]
-  );
+  const eventsByDay = useMemo(() => groupEventsByDay(visibleEvents), [visibleEvents]);
 
   const handleEventDragStart = useCallback(
     (event: CalEvent, pointerEvent: ReactPointerEvent<HTMLButtonElement>) => {
@@ -867,20 +858,22 @@ export function Kalendar({
         pointerOffsetY: pointerEvent.clientY - rect.top,
       });
     },
-    []
+    [],
   );
 
   const handleEventResizeStart = useCallback(
-    (event: CalEvent, edge: "start" | "end", pointerEvent: ReactPointerEvent<HTMLElement>) => {
+    (
+      event: CalEvent,
+      edge: "start" | "end",
+      pointerEvent: ReactPointerEvent<HTMLElement>,
+    ) => {
       pointerEvent.preventDefault();
       pointerEvent.stopPropagation();
       pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
       const edgeMinutes = toMinutes(edge === "start" ? event.start : event.end);
       const grid = dayGridRef.current;
       const pointerMinutes = grid
-        ? ((pointerEvent.clientY - grid.getBoundingClientRect().top) /
-            HOUR_HEIGHT) *
-            60 +
+        ? ((pointerEvent.clientY - grid.getBoundingClientRect().top) / HOUR_HEIGHT) * 60 +
           START_HOUR * 60
         : edgeMinutes;
       setDragging({
@@ -892,18 +885,18 @@ export function Kalendar({
         grabOffsetMinutes: pointerMinutes - edgeMinutes,
       });
     },
-    []
+    [],
   );
 
   const handleEventDelete = useCallback(
     (event: CalEvent) => {
-      setCalendarEvents(current => current.filter(item => item.id !== event.id));
+      setCalendarEvents((current) => current.filter((item) => item.id !== event.id));
       void deleteCalendarEvent(Number(event.id)).catch(() => {
         toast.error("Termin konnte nicht gelöscht werden.");
         void refreshEvents();
       });
     },
-    [refreshEvents]
+    [refreshEvents],
   );
 
   const handleEventEdit = useCallback((event: CalEvent) => {
@@ -927,7 +920,7 @@ export function Kalendar({
       end: formatMinutes(toMinutes(start) + preset.duration),
       title: preset.title,
       instructor: instructorOptions[0] ?? "Nicht zugeteilt",
-      vehicle: vehicleOptions.find(option => option !== "Nicht zugeteilt"),
+      vehicle: vehicleOptions.find((option) => option !== "Nicht zugeteilt"),
       type: preset.type,
     });
   };
@@ -940,7 +933,7 @@ export function Kalendar({
       end: formatMinutes(toMinutes(start) + 45),
       title: "Fahrstunde",
       instructor: instructorOptions[0] ?? "Nicht zugeteilt",
-      vehicle: vehicleOptions.find(option => option !== "Nicht zugeteilt"),
+      vehicle: vehicleOptions.find((option) => option !== "Nicht zugeteilt"),
       type: "Praktisch",
     });
   };
@@ -951,7 +944,7 @@ export function Kalendar({
   // set from the drop position.
   const handlePresetPointerDown = (
     preset: EventPreset,
-    pointerEvent: ReactPointerEvent<HTMLDivElement>
+    pointerEvent: ReactPointerEvent<HTMLDivElement>,
   ) => {
     if (pointerEvent.button !== 0) return;
     pointerEvent.preventDefault();
@@ -961,10 +954,7 @@ export function Kalendar({
 
     const handlePointerMove = (event: PointerEvent) => {
       event.preventDefault();
-      if (
-        !moved &&
-        Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < 6
-      ) {
+      if (!moved && Math.hypot(event.clientX - origin.x, event.clientY - origin.y) < 6) {
         return;
       }
       if (!moved) {
@@ -992,14 +982,14 @@ export function Kalendar({
       const day = clamp(
         Math.floor((event.clientX - rect.left) / dayWidth),
         0,
-        DAY_COUNT - 1
+        DAY_COUNT - 1,
       );
       const rawStartMinutes =
         ((event.clientY - rect.top) / HOUR_HEIGHT) * 60 + START_HOUR * 60;
       const startMinutes = clamp(
         snapMinutes(rawStartMinutes),
         START_HOUR * 60,
-        END_HOUR * 60 - preset.duration
+        END_HOUR * 60 - preset.duration,
       );
       placement = { day, startMinutes };
       setPresetDrag({ preset, day, startMinutes });
@@ -1015,18 +1005,14 @@ export function Kalendar({
       cleanup();
       if (!moved) {
         setCreateMenuOpen(false);
-        openPresetEditor(
-          preset,
-          toISODate(selected ?? TODAY),
-          nextEditableStartTime()
-        );
+        openPresetEditor(preset, toISODate(selected ?? TODAY), nextEditableStartTime());
         return;
       }
       if (placement) {
         openPresetEditor(
           preset,
           toISODate(addDays(weekStart, placement.day)),
-          formatMinutes(placement.startMinutes)
+          formatMinutes(placement.startMinutes),
         );
       }
     };
@@ -1049,8 +1035,8 @@ export function Kalendar({
 
     if (id === NEW_EVENT_ID) {
       void createCalendarEvent(payload)
-        .then(created => {
-          setCalendarEvents(current => [...current, created]);
+        .then((created) => {
+          setCalendarEvents((current) => [...current, created]);
           void refreshEvents();
         })
         .catch(() => {
@@ -1059,8 +1045,8 @@ export function Kalendar({
       return;
     }
 
-    setCalendarEvents(current =>
-      current.map(event => (event.id === id ? updates : event))
+    setCalendarEvents((current) =>
+      current.map((event) => (event.id === id ? updates : event)),
     );
     void updateCalendarEvent(Number(id), payload).catch(() => {
       toast.error("Termin konnte nicht gespeichert werden.");
@@ -1094,7 +1080,7 @@ export function Kalendar({
     const nextScrollLeft = clamp(
       grid.scrollLeft + horizontalDelta,
       0,
-      Math.max(grid.scrollWidth - grid.clientWidth, 0)
+      Math.max(grid.scrollWidth - grid.clientWidth, 0),
     );
 
     if (nextScrollLeft === grid.scrollLeft) return;
@@ -1116,7 +1102,7 @@ export function Kalendar({
               variant="ghost"
               size="icon-sm"
               aria-label="Vorherige Woche"
-              onClick={() => setAnchor(current => addDays(startOfWeek(current), -7))}
+              onClick={() => setAnchor((current) => addDays(startOfWeek(current), -7))}
             >
               <ChevronLeft />
             </Button>
@@ -1128,7 +1114,7 @@ export function Kalendar({
               variant="ghost"
               size="icon-sm"
               aria-label="Nächste Woche"
-              onClick={() => setAnchor(current => addDays(startOfWeek(current), 7))}
+              onClick={() => setAnchor((current) => addDays(startOfWeek(current), 7))}
             >
               <ChevronRight />
             </Button>
@@ -1145,12 +1131,7 @@ export function Kalendar({
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Fahrschüler" className="h-8 w-48 pl-8" />
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label="Drucken"
-          >
+          <Button type="button" variant="outline" size="icon-sm" aria-label="Drucken">
             <Printer />
           </Button>
           <DropdownMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
@@ -1165,19 +1146,17 @@ export function Kalendar({
               <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
                 Klicken oder in den Kalender ziehen
               </DropdownMenuLabel>
-              {eventPresets.map(preset => {
+              {eventPresets.map((preset) => {
                 const theme = calendarEventThemes[preset.type];
                 return (
                   <DropdownMenuItem
                     key={preset.label}
                     className="cursor-grab gap-2.5 active:cursor-grabbing"
-                    onPointerDown={pointerEvent =>
+                    onPointerDown={(pointerEvent) =>
                       handlePresetPointerDown(preset, pointerEvent)
                     }
                   >
-                    <span
-                      className={cn("size-2 shrink-0 rounded-full", theme.rail)}
-                    />
+                    <span className={cn("size-2 shrink-0 rounded-full", theme.rail)} />
                     <span className="flex-1 truncate">{preset.title}</span>
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {preset.duration} Min.
@@ -1205,8 +1184,8 @@ export function Kalendar({
               required
               selected={selected}
               month={weekStart}
-              onMonthChange={date => setAnchor(date)}
-              onSelect={date => {
+              onMonthChange={(date) => setAnchor(date)}
+              onSelect={(date) => {
                 setSelected(date);
                 setAnchor(date);
               }}
@@ -1214,12 +1193,12 @@ export function Kalendar({
               showOutsideDays
               className="mx-auto w-full p-0 [--cell-size:--spacing(8)]"
               formatters={{
-                formatCaption: date =>
+                formatCaption: (date) =>
                   date.toLocaleDateString("de-DE", {
                     month: "long",
                     year: "numeric",
                   }),
-                formatWeekdayName: date =>
+                formatWeekdayName: (date) =>
                   date.toLocaleDateString("de-DE", { weekday: "short" }).slice(0, 2),
               }}
             />
@@ -1276,7 +1255,7 @@ export function Kalendar({
             <div className="sticky top-0 z-30 flex min-w-[1324px] border-b border-border/70 bg-background">
               <div className="w-16 shrink-0" />
               <div className="grid flex-1 grid-cols-7">
-                {days.map(day => {
+                {days.map((day) => {
                   const today = isSameDay(day, TODAY);
                   const count = (eventsByDay.get(toISODate(day)) ?? NO_EVENTS).length;
                   return (
@@ -1284,7 +1263,7 @@ export function Kalendar({
                       key={day.toISOString()}
                       className={cn(
                         "flex items-center justify-center gap-1.5 border-l border-border/70 py-2 text-xs font-medium",
-                        today ? "text-foreground" : "text-muted-foreground"
+                        today ? "text-foreground" : "text-muted-foreground",
                       )}
                     >
                       <span className="capitalize">
@@ -1311,11 +1290,8 @@ export function Kalendar({
             {/* Time grid */}
             <div className="flex min-w-[1324px]">
               {/* Time gutter */}
-              <div
-                className="relative w-16 shrink-0"
-                style={{ height: GRID_HEIGHT }}
-              >
-                {HOUR_MARKS.map(hour => (
+              <div className="relative w-16 shrink-0" style={{ height: GRID_HEIGHT }}>
+                {HOUR_MARKS.map((hour) => (
                   <span
                     key={hour}
                     className="absolute right-3 -translate-y-1/2 text-xs font-medium text-muted-foreground tabular-nums"
@@ -1365,14 +1341,14 @@ export function Kalendar({
                         width: `calc(${100 / DAY_COUNT}% - 4px)`,
                         height: Math.max(
                           (presetDrag.preset.duration / 60) * HOUR_HEIGHT - 1,
-                          44
+                          44,
                         ),
                       }}
                     >
                       <span
                         className={cn(
                           "absolute inset-y-0 left-0 w-1",
-                          calendarEventThemes[presetDrag.preset.type].rail
+                          calendarEventThemes[presetDrag.preset.type].rail,
                         )}
                       />
                       <div className="flex h-full flex-col justify-center gap-0.5 py-1 pr-2 pl-3">
@@ -1382,14 +1358,14 @@ export function Kalendar({
                         <span className="text-[11px] text-muted-foreground tabular-nums">
                           {formatMinutes(presetDrag.startMinutes)}–
                           {formatMinutes(
-                            presetDrag.startMinutes + presetDrag.preset.duration
+                            presetDrag.startMinutes + presetDrag.preset.duration,
                           )}
                         </span>
                       </div>
                     </div>
                   )}
 
-                {days.map(day => {
+                {days.map((day) => {
                   const iso = toISODate(day);
                   return (
                     <DayColumn
@@ -1415,7 +1391,7 @@ export function Kalendar({
       <EventEditDialog
         event={editingEvent}
         open={editingEvent !== null}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) setEditingEvent(null);
         }}
         onSave={handleEventSave}

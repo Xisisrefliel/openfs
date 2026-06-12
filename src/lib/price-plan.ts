@@ -36,10 +36,10 @@ export type PricePlanRecord = PricePlanInput & { id: number };
  */
 export function resolveLessonPrice(
   plan: PricePlanRecord | undefined,
-  componentLabel = "Fahrübungsstunde"
+  componentLabel = "Fahrübungsstunde",
 ): { component: PriceComponent; priceCents: number } | null {
   if (!plan) return null;
-  const component = plan.components.find(c => c.label === componentLabel);
+  const component = plan.components.find((c) => c.label === componentLabel);
   if (!component) return null;
   if (component.priceCents == null) return null;
   return { component, priceCents: component.priceCents };

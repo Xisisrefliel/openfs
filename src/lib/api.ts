@@ -22,10 +22,7 @@ export async function parseOrThrow<T>(response: Response): Promise<T> {
  *  IMPORTANT: `fetcher` must be a stable reference (e.g. a module-level
  *  function like `fetchStudents`). Never pass an inline arrow from a
  *  component — that would cause a render loop via the useCallback dep. */
-export function useFetchList<T>(
-  fetcher: () => Promise<T[]>,
-  errorLabel: string
-) {
+export function useFetchList<T>(fetcher: () => Promise<T[]>, errorLabel: string) {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 

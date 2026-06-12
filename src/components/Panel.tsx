@@ -18,7 +18,7 @@ export const panelInteractiveClass =
 export const panelActionsClass = cn(
   "pointer-fine:opacity-0 pointer-fine:transition-opacity pointer-fine:duration-150",
   "group-hover/card:opacity-100 group-hover/card:duration-0",
-  "has-[:focus-visible]:opacity-100"
+  "has-[:focus-visible]:opacity-100",
 );
 
 /* Micro-label over value — the readout unit used across the app. */

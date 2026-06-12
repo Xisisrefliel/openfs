@@ -7,12 +7,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import type { Database } from "./sqlite";
 
 import { openDb } from "./db";
-import {
-  createTransaction,
-  listJournal,
-  listLedger,
-  ValidationError,
-} from "./engine";
+import { createTransaction, listJournal, listLedger, ValidationError } from "./engine";
 import {
   createStudent,
   deleteStudent,
@@ -27,11 +22,7 @@ import {
   type InstructorInput,
   type InstructorStatus,
 } from "./instructors";
-import {
-  createVehicle,
-  deleteVehicle,
-  listVehicles,
-} from "./vehicles";
+import { createVehicle, deleteVehicle, listVehicles } from "./vehicles";
 import {
   createPricePlan,
   deletePricePlan,
@@ -101,9 +92,7 @@ function makePricePlan(overrides: Record<string, unknown> = {}) {
   return {
     name: "Testpaket",
     guaranteedMonths: 6,
-    components: [
-      { label: "Fahrstunde", durationMin: 45, priceCents: 7500 },
-    ],
+    components: [{ label: "Fahrstunde", durationMin: 45, priceCents: 7500 }],
     ...overrides,
   };
 }
@@ -114,48 +103,51 @@ function makePricePlan(overrides: Record<string, unknown> = {}) {
 
 describe("students", () => {
   test("createStudent happy path: returns record with id and trimmed strings", () => {
-    const student = createStudent(db, makeStudent({ firstName: "  Max  ", lastName: "  Muster  " }));
+    const student = createStudent(
+      db,
+      makeStudent({ firstName: "  Max  ", lastName: "  Muster  " }),
+    );
     expect(student.id).toBeGreaterThan(0);
     expect(student.firstName).toBe("Max");
     expect(student.lastName).toBe("Muster");
   });
 
   test("createStudent: missing firstName → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ firstName: "" }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ firstName: "" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: missing lastName → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ lastName: "" }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ lastName: "" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: missing contractNumber → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ contractNumber: "" }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ contractNumber: "" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: missing customerNumber → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ customerNumber: "" }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ customerNumber: "" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: duplicate customerNumber → ValidationError with German message", () => {
     const base = makeStudent();
     createStudent(db, base);
-    expect(() =>
-      createStudent(db, { ...base, contractNumber: uniq("V-") })
-    ).toThrowError("Kunden- oder Vertragsnummer ist bereits vergeben.");
+    expect(() => createStudent(db, { ...base, contractNumber: uniq("V-") })).toThrowError(
+      "Kunden- oder Vertragsnummer ist bereits vergeben.",
+    );
   });
 
   test("createStudent: invalid status 'weg' → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ status: "weg" }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ status: "weg" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: valid status 'inaktiv' → persists", () => {
@@ -164,21 +156,21 @@ describe("students", () => {
   });
 
   test("createStudent: progress 101 → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ progress: 101 }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ progress: 101 }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: progress -1 → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ progress: -1 }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ progress: -1 }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: progress 'abc' → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ progress: "abc" }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ progress: "abc" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: progress 50.4 → rounds to 50", () => {
@@ -187,15 +179,15 @@ describe("students", () => {
   });
 
   test("createStudent: lessons not an array → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ lessons: "not-an-array" }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ lessons: "not-an-array" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: pricePlanId 0 → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ pricePlanId: 0 }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ pricePlanId: 0 }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createStudent: pricePlanId null → ok", () => {
@@ -221,13 +213,16 @@ describe("students", () => {
   });
 
   test("licenseDate: invalid format → ValidationError", () => {
-    expect(() =>
-      createStudent(db, makeStudent({ licenseDate: "15.06.2026" }))
-    ).toThrow(ValidationError);
+    expect(() => createStudent(db, makeStudent({ licenseDate: "15.06.2026" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("updateStudent: merges partial input — changing phone leaves name unchanged", () => {
-    const created = createStudent(db, makeStudent({ firstName: "Anna", lastName: "Schmidt" }));
+    const created = createStudent(
+      db,
+      makeStudent({ firstName: "Anna", lastName: "Schmidt" }),
+    );
     const updated = updateStudent(db, created.id, { phone: "0123456789" });
     expect(updated.phone).toBe("0123456789");
     expect(updated.firstName).toBe("Anna");
@@ -252,12 +247,15 @@ describe("students", () => {
 
   test("deleteStudent: accounting snapshot survives (ledger keeps student name, journal rows intact)", () => {
     // Create a student and a transaction that snapshots their data.
-    const student = createStudent(db, makeStudent({
-      firstName: "Accounting",
-      lastName: "Snapshot",
-      customerNumber: uniq("SNAP-C-"),
-      contractNumber: uniq("SNAP-V-"),
-    }));
+    const student = createStudent(
+      db,
+      makeStudent({
+        firstName: "Accounting",
+        lastName: "Snapshot",
+        customerNumber: uniq("SNAP-C-"),
+        contractNumber: uniq("SNAP-V-"),
+      }),
+    );
     const fullName = `${student.firstName} ${student.lastName}`;
     const studentPayload = {
       customerNo: student.customerNumber,
@@ -285,7 +283,7 @@ describe("students", () => {
 
     // The ledger snapshot must still carry the student's name.
     const ledger = listLedger(db, {});
-    const ledgerHasName = ledger.rows.some(row => row.studentName === fullName);
+    const ledgerHasName = ledger.rows.some((row) => row.studentName === fullName);
     expect(ledgerHasName).toBe(true);
 
     // The journal rows must still exist (no cascade delete).
@@ -320,14 +318,14 @@ describe("students", () => {
       .query<{ id: number }, []>("SELECT id FROM theory_groups LIMIT 1")
       .get()!;
     db.prepare(
-      "INSERT INTO theory_attendance (group_id, student_id, session_date) VALUES (?, ?, ?)"
+      "INSERT INTO theory_attendance (group_id, student_id, session_date) VALUES (?, ?, ?)",
     ).run(group.id, student.id, "2026-06-10");
 
     deleteStudent(db, student.id);
 
     const remaining = db
       .query<{ n: number }, [number]>(
-        "SELECT count(*) AS n FROM theory_attendance WHERE student_id = ?"
+        "SELECT count(*) AS n FROM theory_attendance WHERE student_id = ?",
       )
       .get(student.id)!.n;
     expect(remaining).toBe(0);
@@ -373,20 +371,20 @@ describe("instructors", () => {
   });
 
   test("createInstructor: missing firstName → ValidationError", () => {
-    expect(() =>
-      createInstructor(db, makeInstructor({ firstName: "" }))
-    ).toThrow(ValidationError);
+    expect(() => createInstructor(db, makeInstructor({ firstName: "" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createInstructor: missing lastName → ValidationError", () => {
-    expect(() =>
-      createInstructor(db, makeInstructor({ lastName: "" }))
-    ).toThrow(ValidationError);
+    expect(() => createInstructor(db, makeInstructor({ lastName: "" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createInstructor: bad status → ValidationError", () => {
     expect(() =>
-      createInstructor(db, makeInstructor({ status: "gekündigt" as InstructorStatus }))
+      createInstructor(db, makeInstructor({ status: "gekündigt" as InstructorStatus })),
     ).toThrow(ValidationError);
   });
 
@@ -400,7 +398,10 @@ describe("instructors", () => {
 
   test("deleteInstructor: re-assigns that instructor's students to 'Nicht zugeteilt'", () => {
     // Create an instructor and a student assigned to them.
-    const instructor = createInstructor(db, makeInstructor({ firstName: "Test", lastName: "Lehrer" }));
+    const instructor = createInstructor(
+      db,
+      makeInstructor({ firstName: "Test", lastName: "Lehrer" }),
+    );
     const fullName = `${instructor.firstName} ${instructor.lastName}`;
     const student = createStudent(db, makeStudent({ instructor: fullName }));
     expect(student.instructor).toBe(fullName);
@@ -426,35 +427,29 @@ describe("vehicles", () => {
   });
 
   test("createVehicle: missing model → ValidationError", () => {
-    expect(() =>
-      createVehicle(db, makeVehicle({ model: "" }))
-    ).toThrow(ValidationError);
+    expect(() => createVehicle(db, makeVehicle({ model: "" }))).toThrow(ValidationError);
   });
 
   test("createVehicle: missing plate → ValidationError", () => {
-    expect(() =>
-      createVehicle(db, makeVehicle({ plate: "" }))
-    ).toThrow(ValidationError);
+    expect(() => createVehicle(db, makeVehicle({ plate: "" }))).toThrow(ValidationError);
   });
 
   test("createVehicle: missing klass → ValidationError", () => {
-    expect(() =>
-      createVehicle(db, makeVehicle({ klass: "" }))
-    ).toThrow(ValidationError);
+    expect(() => createVehicle(db, makeVehicle({ klass: "" }))).toThrow(ValidationError);
   });
 
   test("createVehicle: bad status → ValidationError", () => {
-    expect(() =>
-      createVehicle(db, makeVehicle({ status: "defekt" }))
-    ).toThrow(ValidationError);
+    expect(() => createVehicle(db, makeVehicle({ status: "defekt" }))).toThrow(
+      ValidationError,
+    );
   });
 
   test("createVehicle: duplicate plate → ValidationError with German message", () => {
     const v = makeVehicle();
     createVehicle(db, v);
-    expect(() =>
-      createVehicle(db, { ...v })
-    ).toThrowError("Kennzeichen ist bereits vergeben.");
+    expect(() => createVehicle(db, { ...v })).toThrowError(
+      "Kennzeichen ist bereits vergeben.",
+    );
   });
 
   test("deleteVehicle: removes the row", () => {
@@ -482,9 +477,7 @@ describe("price plans", () => {
     const plan = createPricePlan(db, makePricePlan());
     const updated = updatePricePlan(db, plan.id, {
       name: "Neues Paket",
-      components: [
-        { label: "Intensivstunde", durationMin: 60, priceCents: 9000 },
-      ],
+      components: [{ label: "Intensivstunde", durationMin: 60, priceCents: 9000 }],
     });
     expect(updated.name).toBe("Neues Paket");
     expect(updated.components[0]!.label).toBe("Intensivstunde");
@@ -499,14 +492,14 @@ describe("price plans", () => {
   });
 
   test("createPricePlan: missing name → ValidationError", () => {
-    expect(() =>
-      createPricePlan(db, { ...makePricePlan(), name: "" })
-    ).toThrow(ValidationError);
+    expect(() => createPricePlan(db, { ...makePricePlan(), name: "" })).toThrow(
+      ValidationError,
+    );
   });
 
   test("createPricePlan: empty components → ValidationError", () => {
-    expect(() =>
-      createPricePlan(db, { ...makePricePlan(), components: [] })
-    ).toThrow(ValidationError);
+    expect(() => createPricePlan(db, { ...makePricePlan(), components: [] })).toThrow(
+      ValidationError,
+    );
   });
 });

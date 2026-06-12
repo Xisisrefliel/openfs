@@ -15,15 +15,16 @@ export type StudentBalanceRecord = {
 
 export async function fetchStudentBalances(): Promise<StudentBalanceRecord[]> {
   const data = await parseOrThrow<{ balances: StudentBalanceRecord[] }>(
-    await fetch("/api/student-balances")
+    await fetch("/api/student-balances"),
   );
   return data.balances;
 }
 
 export function useStudentBalances() {
-  const { items: balances, loading, refresh } = useFetchList(
-    fetchStudentBalances,
-    "Guthaben konnten nicht geladen werden"
-  );
+  const {
+    items: balances,
+    loading,
+    refresh,
+  } = useFetchList(fetchStudentBalances, "Guthaben konnten nicht geladen werden");
   return { balances, loading, refresh };
 }

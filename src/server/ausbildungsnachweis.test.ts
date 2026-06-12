@@ -18,16 +18,13 @@ import {
 
 let db: Database;
 
-const SIG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const SIG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 let studentSeq = 0;
 
 /** Inserts a minimal student, returns id. */
-function insertStudent(
-  target: Database,
-  firstName = "Lena",
-  lastName = "Braun"
-): number {
+function insertStudent(target: Database, firstName = "Lena", lastName = "Braun"): number {
   studentSeq += 1;
   const row = target
     .query<{ id: number }, [string, string, string, string]>(
@@ -35,7 +32,7 @@ function insertStudent(
          (first_name, last_name, birthday, phone, email, address, classes,
           driving_school, registration_date, contract_number, customer_number)
        VALUES (?, ?, '', '', '', '', 'B', 'Fahrschule', '01.01.2026', ?, ?)
-       RETURNING id`
+       RETURNING id`,
     )
     .get(firstName, lastName, `V-TEST-${studentSeq}`, `C${studentSeq}`)!;
   return row.id;
@@ -45,7 +42,7 @@ function insertStudent(
 function insertPraktischEvent(
   target: Database,
   studentId: number,
-  opts: { type?: string } = {}
+  opts: { type?: string } = {},
 ): number {
   const type = opts.type ?? "Praktisch";
   const row = target
@@ -53,7 +50,7 @@ function insertPraktischEvent(
       `INSERT INTO calendar_events
          (date, start, "end", title, instructor, type, student_id)
        VALUES ('2026-06-10', '09:00', '10:30', 'Fahrstunde', 'Köksal Gül', ?, ?)
-       RETURNING id`
+       RETURNING id`,
     )
     .get(type, studentId)!;
   return row.id;
@@ -121,8 +118,22 @@ describe("createAttestation — happy path", () => {
     const sid = insertStudent(db);
     const eid1 = insertPraktischEvent(db, sid);
     const eid2 = insertPraktischEvent(db, sid);
-    createAttestation(db, { eventId: eid1, studentId: sid, instructor: "", content: "", durationMin: 45, signatureDataUrl: SIG });
-    createAttestation(db, { eventId: eid2, studentId: sid, instructor: "", content: "", durationMin: 90, signatureDataUrl: SIG });
+    createAttestation(db, {
+      eventId: eid1,
+      studentId: sid,
+      instructor: "",
+      content: "",
+      durationMin: 45,
+      signatureDataUrl: SIG,
+    });
+    createAttestation(db, {
+      eventId: eid2,
+      studentId: sid,
+      instructor: "",
+      content: "",
+      durationMin: 90,
+      signatureDataUrl: SIG,
+    });
     const list = listAttestationsForStudent(db, sid);
     expect(list).toHaveLength(2);
   });
@@ -152,7 +163,7 @@ describe("createAttestation — duplicate rejected", () => {
         content: "",
         durationMin: 45,
         signatureDataUrl: SIG,
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -173,7 +184,7 @@ describe("createAttestation — wrong event type rejected", () => {
         content: "",
         durationMin: 45,
         signatureDataUrl: SIG,
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -195,7 +206,7 @@ describe("createAttestation — student mismatch rejected", () => {
         content: "",
         durationMin: 45,
         signatureDataUrl: SIG,
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -216,7 +227,7 @@ describe("createAttestation — bad data-url rejected", () => {
         content: "",
         durationMin: 45,
         signatureDataUrl: "data:image/jpeg;base64,/9j/4AAQ",
-      })
+      }),
     ).toThrow(ValidationError);
   });
 
@@ -231,7 +242,7 @@ describe("createAttestation — bad data-url rejected", () => {
         content: "",
         durationMin: 45,
         signatureDataUrl: "not-a-data-url",
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -254,7 +265,7 @@ describe("createAttestation — oversize signature rejected", () => {
         content: "",
         durationMin: 45,
         signatureDataUrl: oversized,
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -275,7 +286,7 @@ describe("createAttestation — invalid duration rejected", () => {
         content: "",
         durationMin: 0,
         signatureDataUrl: SIG,
-      })
+      }),
     ).toThrow(ValidationError);
   });
 
@@ -290,7 +301,7 @@ describe("createAttestation — invalid duration rejected", () => {
         content: "",
         durationMin: -5,
         signatureDataUrl: SIG,
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });

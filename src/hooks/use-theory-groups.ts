@@ -36,47 +36,48 @@ export type TheoryGroupInput = Omit<TheoryGroup, "id" | "members" | "createdAt">
 
 export async function fetchTheoryGroups(): Promise<TheoryGroup[]> {
   const data = await parseOrThrow<{ groups: TheoryGroup[] }>(
-    await fetch("/api/theory-groups")
+    await fetch("/api/theory-groups"),
   );
   return data.groups;
 }
 
 export async function createTheoryGroup(
-  input: Partial<TheoryGroupInput>
+  input: Partial<TheoryGroupInput>,
 ): Promise<TheoryGroup> {
   return parseOrThrow<TheoryGroup>(
     await fetch("/api/theory-groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function updateTheoryGroup(
   id: number,
-  input: Partial<TheoryGroupInput>
+  input: Partial<TheoryGroupInput>,
 ): Promise<TheoryGroup> {
   return parseOrThrow<TheoryGroup>(
     await fetch(`/api/theory-groups/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function deleteTheoryGroup(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/theory-groups/${id}`, { method: "DELETE" })
+    await fetch(`/api/theory-groups/${id}`, { method: "DELETE" }),
   );
 }
 
 export function useTheoryGroups() {
-  const { items: groups, loading, refresh } = useFetchList(
-    fetchTheoryGroups,
-    "Theorie-Gruppen konnten nicht geladen werden"
-  );
+  const {
+    items: groups,
+    loading,
+    refresh,
+  } = useFetchList(fetchTheoryGroups, "Theorie-Gruppen konnten nicht geladen werden");
   return { groups, loading, refresh };
 }
 
@@ -96,7 +97,7 @@ export type AttendanceSession = {
 
 export async function fetchAttendance(groupId: number): Promise<AttendanceSession[]> {
   const data = await parseOrThrow<{ sessions: AttendanceSession[] }>(
-    await fetch(`/api/theory-groups/${groupId}/attendance`)
+    await fetch(`/api/theory-groups/${groupId}/attendance`),
   );
   return data.sessions;
 }
@@ -104,14 +105,14 @@ export async function fetchAttendance(groupId: number): Promise<AttendanceSessio
 export async function putAttendance(
   groupId: number,
   sessionDate: string,
-  entries: AttendanceEntry[]
+  entries: AttendanceEntry[],
 ): Promise<AttendanceSession[]> {
   const data = await parseOrThrow<{ sessions: AttendanceSession[] }>(
     await fetch(`/api/theory-groups/${groupId}/attendance`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionDate, entries }),
-    })
+    }),
   );
   return data.sessions;
 }

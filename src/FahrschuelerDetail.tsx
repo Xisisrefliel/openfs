@@ -32,12 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -63,7 +58,7 @@ export function FahrschuelerDetail({
   const { vehicleOptions } = useVehicleOptions();
   const [tab, setTab] = useState<TabKey>("uebersicht");
 
-  const student = students.find(entry => entry.id === studentId) ?? null;
+  const student = students.find((entry) => entry.id === studentId) ?? null;
   const hasDebt = student?.balance.startsWith("-") ?? false;
 
   // The detail page is reached from several lists (/fahrschueler,
@@ -89,9 +84,7 @@ export function FahrschuelerDetail({
       await refresh();
       navigate("/fahrschueler");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     }
   };
 
@@ -126,7 +119,7 @@ export function FahrschuelerDetail({
             <ToggleGroup
               type="single"
               value={tab}
-              onValueChange={value => {
+              onValueChange={(value) => {
                 if (value) setTab(value as TabKey);
               }}
               variant="outline"
@@ -134,7 +127,7 @@ export function FahrschuelerDetail({
               spacing={0}
               aria-label="Fahrschüler Bereich"
             >
-              {tabs.map(item => (
+              {tabs.map((item) => (
                 <ToggleGroupItem
                   key={item.value}
                   value={item.value}
@@ -177,17 +170,14 @@ export function FahrschuelerDetail({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Fahrschüler/in löschen?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      {student.firstName} {student.lastName} wird endgültig
-                      gelöscht. Buchungen und Quittungen bleiben erhalten — sie
-                      enthalten eine eigene Kopie der Schülerdaten.
+                      {student.firstName} {student.lastName} wird endgültig gelöscht.
+                      Buchungen und Quittungen bleiben erhalten — sie enthalten eine
+                      eigene Kopie der Schülerdaten.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      onClick={handleDelete}
-                    >
+                    <AlertDialogAction variant="destructive" onClick={handleDelete}>
                       Endgültig löschen
                     </AlertDialogAction>
                   </AlertDialogFooter>

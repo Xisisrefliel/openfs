@@ -50,7 +50,7 @@ export function tableExists(db: Database, name: string): boolean {
   return (
     db
       .query<{ name: string }, [string]>(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
       )
       .get(name) !== null
   );
@@ -91,27 +91,29 @@ export function archiveRow(
   entity: ArchiveEntity,
   id: number,
   label: string,
-  links?: ArchiveLinks
+  links?: ArchiveLinks,
 ): void {
   const row = db
     .query<Record<string, unknown>, [number]>(
-      `SELECT * FROM ${TABLES[entity]} WHERE id = ?`
+      `SELECT * FROM ${TABLES[entity]} WHERE id = ?`,
     )
     .get(id);
   if (!row) throw new ValidationError("Eintrag nicht gefunden.");
   const payload: ArchivePayload = { row };
-  if (links && Object.values(links).some(ids => ids?.length)) {
+  if (links && Object.values(links).some((ids) => ids?.length)) {
     payload.links = links;
   }
-  db.prepare(
-    "INSERT INTO archive (entity, label, payload) VALUES (?, ?, ?)"
-  ).run(entity, label, JSON.stringify(payload));
+  db.prepare("INSERT INTO archive (entity, label, payload) VALUES (?, ?, ?)").run(
+    entity,
+    label,
+    JSON.stringify(payload),
+  );
 }
 
 export function listArchive(db: Database): ArchiveRecord[] {
   return db
     .query<ArchiveRow, []>(
-      "SELECT id, entity, label, payload, deleted_at FROM archive ORDER BY deleted_at DESC, id DESC"
+      "SELECT id, entity, label, payload, deleted_at FROM archive ORDER BY deleted_at DESC, id DESC",
     )
     .all()
     .map(toRecord);
@@ -120,7 +122,7 @@ export function listArchive(db: Database): ArchiveRecord[] {
 function getArchiveRow(db: Database, id: number): ArchiveRow {
   const row = db
     .query<ArchiveRow, [number]>(
-      "SELECT id, entity, label, payload, deleted_at FROM archive WHERE id = ?"
+      "SELECT id, entity, label, payload, deleted_at FROM archive WHERE id = ?",
     )
     .get(id);
   if (!row) throw new ValidationError("Archiveintrag nicht gefunden.");
@@ -134,7 +136,7 @@ function relink(
   db: Database,
   entity: ArchiveEntity,
   snapshot: Record<string, unknown>,
-  links: ArchiveLinks
+  links: ArchiveLinks,
 ): void {
   const idList = (ids: number[]) => ids.map(() => "?").join(", ");
 
@@ -144,17 +146,17 @@ function relink(
       const name = `${snapshot.first_name} ${snapshot.last_name}`.trim();
       db.prepare(
         `UPDATE students SET instructor = ?
-         WHERE instructor = '${UNASSIGNED}' AND id IN (${idList(ids)})`
+         WHERE instructor = '${UNASSIGNED}' AND id IN (${idList(ids)})`,
       ).run(name, ...ids);
     } else if (entity === "vehicle") {
       db.prepare(
         `UPDATE students SET vehicle = ?
-         WHERE vehicle = '${UNASSIGNED}' AND id IN (${idList(ids)})`
+         WHERE vehicle = '${UNASSIGNED}' AND id IN (${idList(ids)})`,
       ).run(String(snapshot.model), ...ids);
     } else if (entity === "price_plan") {
       db.prepare(
         `UPDATE students SET price_plan_id = ?
-         WHERE price_plan_id IS NULL AND id IN (${idList(ids)})`
+         WHERE price_plan_id IS NULL AND id IN (${idList(ids)})`,
       ).run(Number(snapshot.id), ...ids);
     }
   }
@@ -163,7 +165,7 @@ function relink(
     const ids = links.instructors;
     db.prepare(
       `UPDATE instructors SET vehicle = ?
-       WHERE vehicle = '${UNASSIGNED}' AND id IN (${idList(ids)})`
+       WHERE vehicle = '${UNASSIGNED}' AND id IN (${idList(ids)})`,
     ).run(String(snapshot.model), ...ids);
   }
 
@@ -173,13 +175,13 @@ function relink(
       const name = `${snapshot.first_name} ${snapshot.last_name}`.trim();
       db.prepare(
         `UPDATE calendar_events SET instructor = ?
-         WHERE instructor = '${UNASSIGNED}' AND id IN (${idList(ids)})`
+         WHERE instructor = '${UNASSIGNED}' AND id IN (${idList(ids)})`,
       ).run(name, ...ids);
     } else if (entity === "vehicle") {
       // Events store the bare model; their "deleted" marker is ''.
       db.prepare(
         `UPDATE calendar_events SET vehicle = ?
-         WHERE vehicle = '' AND id IN (${idList(ids)})`
+         WHERE vehicle = '' AND id IN (${idList(ids)})`,
       ).run(String(snapshot.model), ...ids);
     }
   }
@@ -190,19 +192,16 @@ function relink(
       const name = `${snapshot.first_name} ${snapshot.last_name}`.trim();
       db.prepare(
         `UPDATE theory_groups SET instructor = ?
-         WHERE instructor = '${UNASSIGNED}' AND id IN (${idList(ids)})`
+         WHERE instructor = '${UNASSIGNED}' AND id IN (${idList(ids)})`,
       ).run(name, ...ids);
     } else if (entity === "student") {
       // Re-add the student to each group it was removed from — unless
       // the seat has been filled or the student re-added in the meantime.
       const studentId = Number(snapshot.id);
-      const lookup = db.query<
-        { student_ids: string; capacity: number },
-        [number]
-      >("SELECT student_ids, capacity FROM theory_groups WHERE id = ?");
-      const update = db.prepare(
-        "UPDATE theory_groups SET student_ids = ? WHERE id = ?"
+      const lookup = db.query<{ student_ids: string; capacity: number }, [number]>(
+        "SELECT student_ids, capacity FROM theory_groups WHERE id = ?",
       );
+      const update = db.prepare("UPDATE theory_groups SET student_ids = ? WHERE id = ?");
       for (const groupId of ids) {
         const group = lookup.get(groupId);
         if (!group) continue;
@@ -224,7 +223,7 @@ function relink(
     const ids = links.conversations;
     db.prepare(
       `UPDATE conversations SET student_id = ?, orphaned = 0
-       WHERE student_id IS NULL AND id IN (${idList(ids)})`
+       WHERE student_id IS NULL AND id IN (${idList(ids)})`,
     ).run(Number(snapshot.id), ...ids);
   }
 }
@@ -235,8 +234,8 @@ function parseIdList(raw: string): number[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .map(value => Number(value))
-      .filter(id => Number.isInteger(id) && id > 0);
+      .map((value) => Number(value))
+      .filter((id) => Number.isInteger(id) && id > 0);
   } catch {
     return [];
   }
@@ -247,9 +246,7 @@ function parseIdList(raw: string): number[] {
    price plan is itself still deleted) become readable errors. */
 export function restoreArchived(db: Database, id: number): ArchiveRecord {
   const row = getArchiveRow(db, id);
-  const parsed = JSON.parse(row.payload) as
-    | ArchivePayload
-    | Record<string, unknown>;
+  const parsed = JSON.parse(row.payload) as ArchivePayload | Record<string, unknown>;
   // Early snapshots stored the bare row without the { row, links } wrapper.
   const { row: snapshot, links } =
     "row" in parsed && typeof parsed.row === "object"
@@ -259,9 +256,9 @@ export function restoreArchived(db: Database, id: number): ArchiveRecord {
 
   const restore = db.transaction(() => {
     db.prepare(
-      `INSERT INTO ${TABLES[row.entity]} (${columns.map(c => `"${c}"`).join(", ")})
-       VALUES (${columns.map(() => "?").join(", ")})`
-    ).run(...(columns.map(c => snapshot[c]) as (string | number | null)[]));
+      `INSERT INTO ${TABLES[row.entity]} (${columns.map((c) => `"${c}"`).join(", ")})
+       VALUES (${columns.map(() => "?").join(", ")})`,
+    ).run(...(columns.map((c) => snapshot[c]) as (string | number | null)[]));
     if (links) relink(db, row.entity, snapshot, links);
     db.prepare("DELETE FROM archive WHERE id = ?").run(id);
   });
@@ -271,12 +268,12 @@ export function restoreArchived(db: Database, id: number): ArchiveRecord {
   } catch (error) {
     if (error instanceof Error && error.message.includes("UNIQUE")) {
       throw new ValidationError(
-        "Wiederherstellen nicht möglich: Eine Nummer oder ID ist inzwischen neu vergeben."
+        "Wiederherstellen nicht möglich: Eine Nummer oder ID ist inzwischen neu vergeben.",
       );
     }
     if (error instanceof Error && error.message.includes("FOREIGN KEY")) {
       throw new ValidationError(
-        "Wiederherstellen nicht möglich: Ein verknüpfter Eintrag ist noch gelöscht."
+        "Wiederherstellen nicht möglich: Ein verknüpfter Eintrag ist noch gelöscht.",
       );
     }
     throw error;

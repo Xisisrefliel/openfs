@@ -37,13 +37,7 @@ export type StudentEdit = Pick<
 
 export const classOptions = ["A", "B", "B197", "BE"];
 
-export function DetailItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+export function DetailItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
@@ -72,11 +66,7 @@ export function EditableField({
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
-        id={id}
-        value={value}
-        onChange={event => onChange(event.target.value)}
-      />
+      <Input id={id} value={value} onChange={(event) => onChange(event.target.value)} />
     </Field>
   );
 }
@@ -110,7 +100,7 @@ export function EditableSelectField({
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            {allOptions.map(option => (
+            {allOptions.map((option) => (
               <SelectItem key={option} value={option}>
                 {option}
               </SelectItem>

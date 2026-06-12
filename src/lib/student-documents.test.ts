@@ -17,7 +17,9 @@ import {
 /* Helpers                                                              */
 /* ================================================================== */
 
-function makeUpload(overrides: Partial<UploadedStudentDocument> = {}): UploadedStudentDocument {
+function makeUpload(
+  overrides: Partial<UploadedStudentDocument> = {},
+): UploadedStudentDocument {
   return {
     kind: "upload",
     id: "test-id-123",
@@ -74,7 +76,9 @@ describe("isUploadedStudentDocument", () => {
 
 describe("getStudentDocumentName", () => {
   test("UploadedStudentDocument with name → returns name", () => {
-    expect(getStudentDocumentName(makeUpload({ name: "Mein Dokument.pdf" }))).toBe("Mein Dokument.pdf");
+    expect(getStudentDocumentName(makeUpload({ name: "Mein Dokument.pdf" }))).toBe(
+      "Mein Dokument.pdf",
+    );
   });
 
   test("UploadedStudentDocument with empty name → 'Unbenanntes Dokument'", () => {
@@ -92,7 +96,9 @@ describe("getStudentDocumentName", () => {
 
 describe("getStudentDocumentKey", () => {
   test("UploadedStudentDocument → 'upload-{id}'", () => {
-    expect(getStudentDocumentKey(makeUpload({ id: "abc-123" }), 0)).toBe("upload-abc-123");
+    expect(getStudentDocumentKey(makeUpload({ id: "abc-123" }), 0)).toBe(
+      "upload-abc-123",
+    );
   });
 
   test("plain string at index 0 → 'checklist-{string}-0'", () => {

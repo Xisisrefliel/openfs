@@ -7,7 +7,7 @@ import type { Attestation } from "@/server/ausbildungsnachweis";
 
 /** Fetch the attestation for a single calendar event; null if none. */
 export async function fetchAttestationForEvent(
-  eventId: string | number
+  eventId: string | number,
 ): Promise<Attestation | null> {
   const res = await fetch(`/api/calendar-events/${eventId}/attestation`);
   if (res.status === 404) return null;
@@ -17,10 +17,10 @@ export async function fetchAttestationForEvent(
 
 /** Fetch all attestations for a student. */
 export async function fetchAttestationsForStudent(
-  studentId: number
+  studentId: number,
 ): Promise<Attestation[]> {
   const data = await parseOrThrow<{ attestations: Attestation[] }>(
-    await fetch(`/api/attestations?studentId=${studentId}`)
+    await fetch(`/api/attestations?studentId=${studentId}`),
   );
   return data.attestations;
 }
@@ -36,14 +36,14 @@ export type CreateAttestationPayload = {
 /** POST a new attestation for the given calendar event. */
 export async function saveAttestation(
   eventId: string | number,
-  payload: CreateAttestationPayload
+  payload: CreateAttestationPayload,
 ): Promise<Attestation> {
   const data = await parseOrThrow<{ attestation: Attestation }>(
     await fetch(`/api/calendar-events/${eventId}/attestation`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    })
+    }),
   );
   return data.attestation;
 }

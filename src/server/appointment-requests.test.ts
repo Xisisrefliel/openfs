@@ -80,10 +80,10 @@ describe("ensureAppointmentRequestTables", () => {
 
   test("seed is mostly 'offen' with a mix of statuses", () => {
     const requests = listAppointmentRequests(db);
-    const offen = requests.filter(r => r.status === "offen");
+    const offen = requests.filter((r) => r.status === "offen");
     expect(offen.length).toBeGreaterThanOrEqual(5);
-    expect(requests.some(r => r.status === "bestätigt")).toBe(true);
-    expect(requests.some(r => r.status === "abgelehnt")).toBe(true);
+    expect(requests.some((r) => r.status === "bestätigt")).toBe(true);
+    expect(requests.some((r) => r.status === "abgelehnt")).toBe(true);
   });
 
   test("is idempotent — calling again does not reseed", () => {
@@ -119,31 +119,31 @@ describe("createAppointmentRequest", () => {
 
   test("missing name → ValidationError 'Name ist ein Pflichtfeld.'", () => {
     expect(() => createAppointmentRequest(db, { ...VALID, name: "   " })).toThrow(
-      "Name ist ein Pflichtfeld."
+      "Name ist ein Pflichtfeld.",
     );
   });
 
   test("invalid date → ValidationError", () => {
     expect(() =>
-      createAppointmentRequest(db, { ...VALID, requestedDate: "18.06.2026" })
+      createAppointmentRequest(db, { ...VALID, requestedDate: "18.06.2026" }),
     ).toThrow(ValidationError);
   });
 
   test("malformed time → ValidationError", () => {
     expect(() =>
-      createAppointmentRequest(db, { ...VALID, requestedTime: "9:00" })
+      createAppointmentRequest(db, { ...VALID, requestedTime: "9:00" }),
     ).toThrow("Wunschzeit muss im Format HH:MM sein.");
   });
 
   test("invalid type → ValidationError 'Ungültiger Termin-Typ.'", () => {
     expect(() =>
-      createAppointmentRequest(db, { ...VALID, type: "Quatsch" as never })
+      createAppointmentRequest(db, { ...VALID, type: "Quatsch" as never }),
     ).toThrow("Ungültiger Termin-Typ.");
   });
 
   test("invalid status → ValidationError", () => {
     expect(() =>
-      createAppointmentRequest(db, { ...VALID, status: "wartend" as never })
+      createAppointmentRequest(db, { ...VALID, status: "wartend" as never }),
     ).toThrow(ValidationError);
   });
 
@@ -157,19 +157,19 @@ describe("createAppointmentRequest", () => {
 
   test("message over 2000 chars → ValidationError", () => {
     expect(() =>
-      createAppointmentRequest(db, { ...VALID, message: "m".repeat(2001) })
+      createAppointmentRequest(db, { ...VALID, message: "m".repeat(2001) }),
     ).toThrow("Feld 'message' darf maximal 2000 Zeichen lang sein.");
   });
 
   test("name over 200 chars → ValidationError", () => {
     expect(() =>
-      createAppointmentRequest(db, { ...VALID, name: "n".repeat(201) })
+      createAppointmentRequest(db, { ...VALID, name: "n".repeat(201) }),
     ).toThrow("Feld 'name' darf maximal 200 Zeichen lang sein.");
   });
 
   test("phone over 50 chars → ValidationError", () => {
     expect(() =>
-      createAppointmentRequest(db, { ...VALID, phone: "0".repeat(51) })
+      createAppointmentRequest(db, { ...VALID, phone: "0".repeat(51) }),
     ).toThrow("Feld 'phone' darf maximal 50 Zeichen lang sein.");
   });
 
@@ -178,13 +178,13 @@ describe("createAppointmentRequest", () => {
       createAppointmentRequest(db, {
         ...VALID,
         email: `${"a".repeat(250)}@b.de`,
-      })
+      }),
     ).toThrow("Feld 'email' darf maximal 254 Zeichen lang sein.");
   });
 
   test("malformed email → ValidationError", () => {
     expect(() =>
-      createAppointmentRequest(db, { ...VALID, email: "not-an-email" })
+      createAppointmentRequest(db, { ...VALID, email: "not-an-email" }),
     ).toThrow("Feld 'email' muss eine gültige E-Mail-Adresse sein.");
   });
 
@@ -215,7 +215,7 @@ describe("updateAppointmentRequest", () => {
 
   test("update on missing id → ValidationError", () => {
     expect(() => updateAppointmentRequest(db, 999999, { name: "x" })).toThrow(
-      "Terminanfrage nicht gefunden."
+      "Terminanfrage nicht gefunden.",
     );
   });
 });
@@ -227,13 +227,13 @@ describe("deleteAppointmentRequest", () => {
     deleteAppointmentRequest(db, created.id);
     expect(listAppointmentRequests(db).length).toBe(before - 1);
     expect(() => getAppointmentRequest(db, created.id)).toThrow(
-      "Terminanfrage nicht gefunden."
+      "Terminanfrage nicht gefunden.",
     );
   });
 
   test("delete on missing id → ValidationError", () => {
     expect(() => deleteAppointmentRequest(db, 999999)).toThrow(
-      "Terminanfrage nicht gefunden."
+      "Terminanfrage nicht gefunden.",
     );
   });
 });
@@ -273,21 +273,21 @@ describe("acceptAppointmentRequest", () => {
     const created = createAppointmentRequest(db, VALID);
     acceptAppointmentRequest(db, created.id);
     expect(() => acceptAppointmentRequest(db, created.id)).toThrow(
-      "Terminanfrage wurde bereits bestätigt."
+      "Terminanfrage wurde bereits bestätigt.",
     );
   });
 
   test("invalid override keeps the status untouched (transaction)", () => {
     const created = createAppointmentRequest(db, VALID);
-    expect(() =>
-      acceptAppointmentRequest(db, created.id, { end: "09:00" }) // before start
+    expect(
+      () => acceptAppointmentRequest(db, created.id, { end: "09:00" }), // before start
     ).toThrow(ValidationError);
     expect(getAppointmentRequest(db, created.id).status).toBe("offen");
   });
 
   test("accept on missing id → ValidationError", () => {
     expect(() => acceptAppointmentRequest(db, 999999)).toThrow(
-      "Terminanfrage nicht gefunden."
+      "Terminanfrage nicht gefunden.",
     );
   });
 });
@@ -295,7 +295,7 @@ describe("acceptAppointmentRequest", () => {
 describe("conflict detection", () => {
   /* The request slot is requestedTime + 60min (the accept default). */
   const findRequest = (id: number) =>
-    listAppointmentRequests(db).find(r => r.id === id)!;
+    listAppointmentRequests(db).find((r) => r.id === id)!;
 
   test("open request overlapping an event lists it as conflict", () => {
     createCalendarEvent(db, {
@@ -361,7 +361,7 @@ describe("declineAppointmentRequest", () => {
 
   test("decline on missing id → ValidationError", () => {
     expect(() => declineAppointmentRequest(db, 999999)).toThrow(
-      "Terminanfrage nicht gefunden."
+      "Terminanfrage nicht gefunden.",
     );
   });
 });
@@ -369,20 +369,15 @@ describe("declineAppointmentRequest", () => {
 describe("appointmentRequestRoutes", () => {
   test("exposes all endpoints with the expected methods", () => {
     const routes = appointmentRequestRoutes(db);
-    expect(Object.keys(routes["/api/appointment-requests"])).toEqual([
-      "GET",
-      "POST",
-    ]);
+    expect(Object.keys(routes["/api/appointment-requests"])).toEqual(["GET", "POST"]);
     expect(Object.keys(routes["/api/appointment-requests/:id"])).toEqual([
       "PATCH",
       "DELETE",
     ]);
-    expect(
-      Object.keys(routes["/api/appointment-requests/:id/accept"])
-    ).toEqual(["POST"]);
-    expect(
-      Object.keys(routes["/api/appointment-requests/:id/decline"])
-    ).toEqual(["POST"]);
+    expect(Object.keys(routes["/api/appointment-requests/:id/accept"])).toEqual(["POST"]);
+    expect(Object.keys(routes["/api/appointment-requests/:id/decline"])).toEqual([
+      "POST",
+    ]);
   });
 
   test("HTTP round-trip: list, create, accept, decline, delete", async () => {
@@ -419,7 +414,7 @@ describe("appointmentRequestRoutes", () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ instructor: "Köksal Gül" }),
-        }
+        },
       );
       expect(acceptRes.status).toBe(200);
       const accepted = (await acceptRes.json()) as {
@@ -434,29 +429,23 @@ describe("appointmentRequestRoutes", () => {
       const open = list.requests[0]!;
       const declineRes = await fetch(
         url(`/api/appointment-requests/${open.id}/decline`),
-        { method: "POST" }
+        { method: "POST" },
       );
       expect(declineRes.status).toBe(200);
 
       // PATCH
-      const patchRes = await fetch(
-        url(`/api/appointment-requests/${created.id}`),
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: "030 123456" }),
-        }
-      );
+      const patchRes = await fetch(url(`/api/appointment-requests/${created.id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: "030 123456" }),
+      });
       expect(patchRes.status).toBe(200);
-      expect(((await patchRes.json()) as { phone: string }).phone).toBe(
-        "030 123456"
-      );
+      expect(((await patchRes.json()) as { phone: string }).phone).toBe("030 123456");
 
       // DELETE
-      const deleteRes = await fetch(
-        url(`/api/appointment-requests/${created.id}`),
-        { method: "DELETE" }
-      );
+      const deleteRes = await fetch(url(`/api/appointment-requests/${created.id}`), {
+        method: "DELETE",
+      });
       expect(deleteRes.status).toBe(200);
 
       // Validation errors surface as 400
@@ -495,7 +484,7 @@ describe("rate limiting on public create", () => {
       const third = await post(server.url);
       expect(third.status).toBe(429);
       expect(((await third.json()) as { error: string }).error).toBe(
-        "Zu viele Anfragen. Bitte später erneut versuchen."
+        "Zu viele Anfragen. Bitte später erneut versuchen.",
       );
 
       // Admin/status routes stay unlimited — decline still works.
@@ -504,10 +493,10 @@ describe("rate limiting on public create", () => {
       const { requests } = (await listRes.json()) as {
         requests: { id: number; status: string }[];
       };
-      const open = requests.find(r => r.status === "offen")!;
+      const open = requests.find((r) => r.status === "offen")!;
       const declineRes = await fetch(
         url(`/api/appointment-requests/${open.id}/decline`),
-        { method: "POST" }
+        { method: "POST" },
       );
       expect(declineRes.status).toBe(200);
     } finally {
