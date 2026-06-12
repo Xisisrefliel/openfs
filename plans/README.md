@@ -50,8 +50,8 @@ isolated worktrees and reviewed (done criteria re-run, diffs read) on
 | 019  | Lesson billing link (confirm-to-bill, per design/lessons-billing.md) | P1 | L | 016 (soft) | DONE (advisor/019-lesson-billing; incl. review fix enforcing guthaben_uebertragung on the bill endpoint) |
 | 020  | Exam results + license milestone + pass-rate KPI | P1 | M | 019 | DONE (advisor/020-exam-results, based on 019) |
 | 023  | Digital Ausbildungsnachweis MVP (per-lesson signature) | P2 | M | 019 | DONE (advisor/023-ausbildungsnachweis, based on 019) |
-| 017  | Route table in App.tsx (+404) | P3 | M | design-refresh commit | BLOCKED (App.tsx has uncommitted design work) |
-| 018  | Design-system rollout to ~14 remaining pages | P2 | L | design-refresh commit; 017 rec. | BLOCKED (reference pages uncommitted) |
+| 017  | Route table in App.tsx (+404) | P3 | M | design-refresh commit | TODO (unblocked 2026-06-13 — design refresh landed as `4cd0f9c`; re-run drift check, excerpts were taken from that tree) |
+| 018  | Design-system rollout to ~14 remaining pages | P2 | L | design-refresh commit; 017 rec. | TODO (unblocked 2026-06-13, same reason; re-verify excerpts) |
 
 ### Merge notes (014–027)
 
@@ -79,6 +79,95 @@ isolated worktrees and reviewed (done criteria re-run, diffs read) on
 - **Unused ui/ components (embla/vaul/cmdk)**: tree-shaken shadcn files.
 - **10s chat poll interval**: deliberate; plan 015 removed the redundant
   extra refetch instead.
+
+## Deep audit 2026-06-13 — plans 028–039
+
+Audited at commit `2ee4bbe` (deep: whole repo, all nine categories, 8
+subagents, every table finding re-verified by the advisor). Baseline:
+556 tests, typecheck + build green, `bun audit` clean. User selected ALL
+findings for planning and execution into ONE integration branch
+(`advisor/integration-2026-06-13`) → single PR.
+
+Working-tree note at planning time: uncommitted changes in
+`design-guideline.md`, `src/Marketing.tsx`, and
+`src/server/ausbildungsnachweis.ts` (flat→nested route-key refactor; plan
+032 touches the same code — reconcile at integration).
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+|------|-------|----------|--------|------------|--------|
+| 028  | Delete/rename contracts cover new tables (FK 500s, attendance orphans, attestation cascade) | P1 | M | — | DONE (advisor/028-soft-reference-cleanup @ 4f5b3ec) |
+| 029  | Public intake hardening (length caps + per-IP rate limit) | P1 | S | — | DONE (advisor/029-public-intake-hardening @ a5098c1) |
+| 030  | Window-function first-attempt query + student-keyed indexes | P2 | S | — | DONE (advisor/030-stats-query-indexes @ fb03965) |
+| 031  | HTTP tests: attestation routes + exam-result endpoint | P1 | S | — | DONE, AMENDED (advisor/031-attestation-routes-fix @ ad95103 — see execution notes) |
+| 033  | Dependency manifest cleanup (6 removed + orphaned wrappers; next-themes kept) | P2 | S | — | DONE (advisor/033-dependency-cleanup @ 931f44c) |
+| 034  | Set studentId at calendar-event creation/edit | P1 | S | — | DONE (advisor/034-event-student-id @ 836ec64) |
+| 037  | Design spike: exam-fee billing + revenue-account mapping (doc only) | P3 | M | — | DONE (→ plans/design/exam-fee-billing.md) |
+| 032  | Shared json/err/handle across 10 route factories | P2 | M | 031 | DONE (advisor/032-http-helper-consolidation @ 98c9d1c) |
+| 035  | Batch billing: "Alle offenen Fahrstunden abrechnen" | P2 | M | 034 | DONE (advisor/035-batch-billing @ 56d885b) |
+| 036  | Printable cumulative Ausbildungsnachweis | P2 | M | 035 (soft) | DONE (advisor/036-nachweis-print @ 7f8a80e) |
+| 038  | Biome lint/format + CI cache & audit | P2 | M | 028–036 merged | DONE (advisor/038-biome-ci @ f695074) |
+| 039  | AGENTS.md / README refresh | P3 | S | all above | DONE (advisor/039-docs-refresh @ 201362c) |
+
+All twelve executed by subagents in isolated worktrees on 2026-06-13,
+each reviewed (scope check, diff read, done criteria re-run) and merged
+into **`advisor/integration-2026-06-13` @ `b84282d`** — 586 tests pass,
+typecheck + build + `biome check` green. Merge that ONE branch (single PR).
+
+### Execution notes (2026-06-13)
+
+- **Production-startup bug found and fixed during execution**: at `2ee4bbe`
+  the committed `attestationRoutes` used method-prefixed route keys
+  (`"GET /api/attestations"`), which Bun 1.3.8 rejects at `Bun.serve()`
+  construction — `buildApiRoutes()` could not start the server at all
+  (confirmed by two executors independently). Plan 031 was amended to
+  convert the keys to the nested shape first. The user's uncommitted
+  working-tree refactor of `ausbildungsnachweis.ts` was the same fix —
+  it is superseded by the integration branch and can be discarded.
+- 033 correction: the plan claimed `next-themes` was unused — wrong; it
+  powers theme detection in `src/components/ui/sonner.tsx` (used by
+  App.tsx). Kept. Six packages removed, not seven.
+- 035: `guthaben_uebertragung` books with `belegNr: null` by design
+  (receipt was issued at the Anzahlung), so the batch test asserts
+  distinct transaction ids, not receipt numbers. Unresolvable plan price →
+  batch dialog disables confirm and points to single-lesson billing.
+- 036: letterhead pulls `CompanyProfile` from `/api/profile` (same source
+  as VertragDialog) — the school-profile hook has no name/address.
+- 038: Biome 2.5.0, line width 90 (measured: fewer changed lines than 100);
+  disabled rules with reasons are listed in the executor NOTES quoted in
+  the PR description; `organizeImports` assist off (import order can change
+  module evaluation order).
+- Follow-up candidates recorded: Prüfungsplaner still creates exam events
+  without `studentId` (3-line change, out of 034's scope); calendar event
+  ids serialize as strings while `attestation.eventId` is a number
+  (cosmetic inconsistency, noted by 031's executor).
+
+Execution waves used: wave 1 = 028, 029, 030, 031, 033, 034, 037
+(parallel, base `2ee4bbe`); wave 2a = 031-amended, 035 (base `bda7af1`);
+wave 2b = 032, 036 (base `b14da79`); wave 3 = 038, 039 (base `904774a`).
+
+### Rejected in the 2026-06-13 deep audit (verified — do not re-report)
+
+- **Calendar-events storniert_by "N+1" scalar subquery** (`calendar-events.ts:109-114`):
+  per-row primary-key lookup inside one statement; fine at any realistic scale.
+- **Theory-groups per-id member/validation lookups** (`theory-groups.ts:212-289`):
+  in-process PK gets, sub-millisecond; below the established perf bar.
+- **Unauthenticated `/api/export/database`**: within the README's documented
+  no-auth posture; no CORS headers exist so browsers can't read it
+  cross-origin. Must be auth-gated by the tenancy work, which owns that.
+- **"Billed events deletable/movable without Storno"**: false — guard exists
+  (`calendar-events.ts:334-339`).
+- **radix-ui vs @base-ui/react consolidation spike**: Combobox is the only
+  @base-ui consumer and works; migration cost > payoff now.
+- **recharts exact-version pin**: left deliberately; relax only with a
+  verified test pass (note in plan 033).
+- **seed.ts / app-routes.ts / openDb-order dedicated tests**: exercised
+  indirectly by the whole suite; low value.
+- **Scheduled/matrix CI**: low value at current repo size.
+- Minor unplanned (real but below plan threshold): dead `if (!event)` in
+  `markEventBilled` (`calendar-events.ts:321-323`); unused `studentRef`
+  memo (`StundenTab.tsx:328-338`); `formatDate` triplicated
+  (`Marketing.tsx:120`, `Bewertungen.tsx:72`, `Terminanfragen.tsx:95`) —
+  fold into any future touch of those files.
 
 ## Dependency notes
 
