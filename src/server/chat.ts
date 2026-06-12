@@ -182,6 +182,18 @@ function seedStudents(db: Database): { id: number | null; name: string }[] {
 export function ensureChatTables(db: Database) {
   db.exec(DDL);
 
+  // Idempotent migration: add the orphaned marker column if absent.
+  const hasOrphaned = db
+    .query<{ name: string }, [string]>(
+      "SELECT name FROM pragma_table_info('conversations') WHERE name = ?"
+    )
+    .get("orphaned");
+  if (!hasOrphaned) {
+    db.exec(
+      "ALTER TABLE conversations ADD COLUMN orphaned INTEGER NOT NULL DEFAULT 0"
+    );
+  }
+
   const count = db
     .query<{ n: number }, []>("SELECT count(*) AS n FROM conversations")
     .get()!.n;
@@ -365,12 +377,12 @@ export function createConversation(
     studentId !== null
       ? db
           .query<{ id: number }, [number]>(
-            "SELECT id FROM conversations WHERE student_id = ? LIMIT 1"
+            "SELECT id FROM conversations WHERE student_id = ? AND orphaned = 0 LIMIT 1"
           )
           .get(studentId)
       : db
           .query<{ id: number }, [string]>(
-            "SELECT id FROM conversations WHERE student_name = ? LIMIT 1"
+            "SELECT id FROM conversations WHERE student_name = ? AND orphaned = 0 LIMIT 1"
           )
           .get(name);
   if (existing) return getConversation(db, existing.id);
