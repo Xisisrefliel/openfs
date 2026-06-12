@@ -332,6 +332,17 @@ const addMinutes = (time: string, minutes: number): string => {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 };
 
+/* Length caps for the free-text fields — the create endpoint is public
+   (/anfrage), so unbounded strings would let a single client bloat the
+   DB. Same pattern as ausbildungsnachweis.ts. */
+const NAME_MAX_LEN = 200;
+const PHONE_MAX_LEN = 50;
+const EMAIL_MAX_LEN = 254;
+const MESSAGE_MAX_LEN = 2000;
+
+/* Minimal sanity check, not RFC 5322 — empty email stays allowed. */
+const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
+
 const EMPTY: AppointmentRequestInput = {
   name: "",
   phone: "",
@@ -358,9 +369,30 @@ function normalize(
     return value.trim();
   };
 
-  const name = str("name", current.name);
+  const capped = (
+    key: keyof AppointmentRequestInput,
+    fallback: string,
+    maxLen: number
+  ): string => {
+    const value = str(key, fallback);
+    if (value.length > maxLen) {
+      throw new ValidationError(
+        `Feld '${key}' darf maximal ${maxLen} Zeichen lang sein.`
+      );
+    }
+    return value;
+  };
+
+  const name = capped("name", current.name, NAME_MAX_LEN);
   if (!name) {
     throw new ValidationError("Name ist ein Pflichtfeld.");
+  }
+
+  const email = capped("email", current.email, EMAIL_MAX_LEN);
+  if (email && !EMAIL_PATTERN.test(email)) {
+    throw new ValidationError(
+      "Feld 'email' muss eine gültige E-Mail-Adresse sein."
+    );
   }
 
   const requestedDate = str("requestedDate", current.requestedDate);
@@ -387,9 +419,9 @@ function normalize(
 
   return {
     name,
-    phone: str("phone", current.phone),
-    email: str("email", current.email),
-    message: str("message", current.message),
+    phone: capped("phone", current.phone, PHONE_MAX_LEN),
+    email,
+    message: capped("message", current.message, MESSAGE_MAX_LEN),
     requestedDate,
     requestedTime,
     type: type as CalendarEventType,

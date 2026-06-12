@@ -146,6 +146,52 @@ describe("createAppointmentRequest", () => {
       createAppointmentRequest(db, { ...VALID, status: "wartend" as never })
     ).toThrow(ValidationError);
   });
+
+  test("message at the 2000-char cap passes", () => {
+    const request = createAppointmentRequest(db, {
+      ...VALID,
+      message: "m".repeat(2000),
+    });
+    expect(request.message).toHaveLength(2000);
+  });
+
+  test("message over 2000 chars → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, { ...VALID, message: "m".repeat(2001) })
+    ).toThrow("Feld 'message' darf maximal 2000 Zeichen lang sein.");
+  });
+
+  test("name over 200 chars → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, { ...VALID, name: "n".repeat(201) })
+    ).toThrow("Feld 'name' darf maximal 200 Zeichen lang sein.");
+  });
+
+  test("phone over 50 chars → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, { ...VALID, phone: "0".repeat(51) })
+    ).toThrow("Feld 'phone' darf maximal 50 Zeichen lang sein.");
+  });
+
+  test("email over 254 chars → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, {
+        ...VALID,
+        email: `${"a".repeat(250)}@b.de`,
+      })
+    ).toThrow("Feld 'email' darf maximal 254 Zeichen lang sein.");
+  });
+
+  test("malformed email → ValidationError", () => {
+    expect(() =>
+      createAppointmentRequest(db, { ...VALID, email: "not-an-email" })
+    ).toThrow("Feld 'email' muss eine gültige E-Mail-Adresse sein.");
+  });
+
+  test("empty email stays allowed (optional field)", () => {
+    const request = createAppointmentRequest(db, { ...VALID, email: "" });
+    expect(request.email).toBe("");
+  });
 });
 
 describe("updateAppointmentRequest", () => {
