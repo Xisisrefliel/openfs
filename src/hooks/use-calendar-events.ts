@@ -8,8 +8,9 @@
 
 import { parseOrThrow, useFetchList } from "@/lib/api";
 import type { CalEvent } from "@/lib/calendar-data";
+import type { CreateTransactionInput } from "@/lib/accounting-types";
 
-export type CalendarEventInput = Omit<CalEvent, "id">;
+export type CalendarEventInput = Omit<CalEvent, "id" | "billedTransactionId" | "billedActive">;
 
 export async function fetchCalendarEvents(): Promise<CalEvent[]> {
   const data = await parseOrThrow<{ events: CalEvent[] }>(
@@ -46,6 +47,19 @@ export async function updateCalendarEvent(
 export async function deleteCalendarEvent(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
     await fetch(`/api/calendar-events/${id}`, { method: "DELETE" })
+  );
+}
+
+export async function billCalendarEvent(
+  id: string,
+  input: CreateTransactionInput
+): Promise<{ transaction: { id: number }; event: CalEvent }> {
+  return parseOrThrow<{ transaction: { id: number }; event: CalEvent }>(
+    await fetch(`/api/calendar-events/${id}/bill`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    })
   );
 }
 

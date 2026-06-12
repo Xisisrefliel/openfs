@@ -116,6 +116,12 @@ export function PaymentDialog({
   accounts,
   onCreated,
   defaultCustomerNo,
+  defaultType,
+  defaultDate,
+  defaultAmountCents,
+  defaultDescription,
+  defaultHabenKonto,
+  onSubmitOverride,
 }: {
   open: boolean;
   onClose: () => void;
@@ -124,11 +130,31 @@ export function PaymentDialog({
   onCreated: (printableId: number | null) => void;
   /** Preselect this student (e.g. on the Fahrschüler detail page). */
   defaultCustomerNo?: string;
+  /** Prefill the transaction type (defaults to zahlung_guthaben). */
+  defaultType?: TransactionType;
+  /** Prefill the date (ISO YYYY-MM-DD). */
+  defaultDate?: string;
+  /** Prefill the amount in cents (converted to display string). */
+  defaultAmountCents?: number;
+  /** Prefill the description / Leistung field. */
+  defaultDescription?: string;
+  /** Prefill the Leistungskonto (habenKonto). */
+  defaultHabenKonto?: string;
+  /** When present, replaces the dialog's own API call with this function.
+      All validation and field-building still runs; the built
+      CreateTransactionInput is passed to this callback instead of POST
+      /api/accounting/transactions. Other call-sites that do NOT pass this
+      prop are completely unchanged. */
+  onSubmitOverride?: (input: CreateTransactionInput) => Promise<void>;
 }) {
   const { students } = useStudents();
-  const [type, setType] = useState<TransactionType>("zahlung_guthaben");
-  const [date, setDate] = useState(() => toIsoDate(new Date()));
-  const [amount, setAmount] = useState("");
+  const [type, setType] = useState<TransactionType>(defaultType ?? "zahlung_guthaben");
+  const [date, setDate] = useState(() => defaultDate ?? toIsoDate(new Date()));
+  const [amount, setAmount] = useState(() =>
+    defaultAmountCents != null
+      ? (defaultAmountCents / 100).toFixed(2).replace(".", ",")
+      : ""
+  );
   const [customerNo, setCustomerNo] = useState("");
 
   // Students load async — default to the first one once the list arrives.
@@ -138,19 +164,26 @@ export function PaymentDialog({
     }
   }, [customerNo, students, defaultCustomerNo]);
 
-  // Re-pin the preselected student whenever the dialog opens.
+  // Re-pin the preselected student and other prefill props whenever the dialog opens.
   useEffect(() => {
-    if (open && defaultCustomerNo) {
-      setCustomerNo(defaultCustomerNo);
+    if (open) {
+      if (defaultCustomerNo) setCustomerNo(defaultCustomerNo);
+      if (defaultType) setType(defaultType);
+      if (defaultDate) setDate(defaultDate);
+      if (defaultAmountCents != null)
+        setAmount((defaultAmountCents / 100).toFixed(2).replace(".", ","));
+      if (defaultDescription != null) setDescription(defaultDescription);
+      if (defaultHabenKonto) setHabenKonto(defaultHabenKonto);
     }
-  }, [open, defaultCustomerNo]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bar");
   // SKR 04 defaults: 1600 Kasse, 4400 Erlöse 19 %, 6530 Kfz-Kosten, 1800 Bank
   const [geldkonto, setGeldkonto] = useState("1600");
-  const [habenKonto, setHabenKonto] = useState("4400");
+  const [habenKonto, setHabenKonto] = useState(defaultHabenKonto ?? "4400");
   const [aufwandKonto, setAufwandKonto] = useState("6530");
   const [toKonto, setToKonto] = useState("1800");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(defaultDescription ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   const active = (kinds: Account["kind"][]) =>
@@ -178,8 +211,8 @@ export function PaymentDialog({
 
   const reset = () => {
     setAmount("");
-    setDescription("");
-    setDate(toIsoDate(new Date()));
+    setDescription(defaultDescription ?? "");
+    setDate(defaultDate ?? toIsoDate(new Date()));
   };
 
   const submit = async () => {
@@ -236,24 +269,33 @@ export function PaymentDialog({
 
     setSubmitting(true);
     try {
-      const created = await accountingApi.createTransaction(input);
-      const printable = type === "zahlung_guthaben" || type === "direktzahlung";
-      toast.success(
-        created.belegNr
-          ? `Beleg ${created.belegNr} gebucht.`
-          : "Buchung erfasst.",
-        printable
-          ? {
-              action: {
-                label: "Quittung drucken",
-                onClick: () => onCreated(created.id),
-              },
-            }
-          : undefined
-      );
-      reset();
-      onClose();
-      onCreated(null);
+      if (onSubmitOverride) {
+        // Caller takes over the submit (e.g. StundenTab's bill endpoint).
+        await onSubmitOverride(input);
+        toast.success("Buchung erfasst.");
+        reset();
+        onClose();
+        onCreated(null);
+      } else {
+        const created = await accountingApi.createTransaction(input);
+        const printable = type === "zahlung_guthaben" || type === "direktzahlung";
+        toast.success(
+          created.belegNr
+            ? `Beleg ${created.belegNr} gebucht.`
+            : "Buchung erfasst.",
+          printable
+            ? {
+                action: {
+                  label: "Quittung drucken",
+                  onClick: () => onCreated(created.id),
+                },
+              }
+            : undefined
+        );
+        reset();
+        onClose();
+        onCreated(null);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Buchung fehlgeschlagen.");
     } finally {

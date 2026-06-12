@@ -26,6 +26,15 @@ export type CalEvent = {
   vehicle?: string;
   type: EventType;
   tentative?: boolean;
+  /** FK → students.id; set when the event was created for a known student
+      or back-filled by migration. Omitted when NULL. */
+  studentId?: number;
+  /** FK → transactions.id; set after billing via the /bill endpoint.
+      Omitted when NULL. */
+  billedTransactionId?: number;
+  /** Derived by the server: true when billedTransactionId is set AND the
+      linked transaction has not been storniert. Omitted when not billed. */
+  billedActive?: boolean;
 };
 
 /* The app's notion of "today" — drives week anchoring/highlighting.
