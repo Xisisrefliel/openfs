@@ -56,6 +56,9 @@ export type Student = {
   balance: string;
   /** Assigned Preisplan (price_plans.id) — null/undefined = default plan. */
   pricePlanId?: number | null;
+  // Milestone
+  /** ISO date (YYYY-MM-DD) the license was issued; undefined = not yet issued. */
+  licenseDate?: string;
   // Practical training
   lastLesson: string;
   nextLesson: string;

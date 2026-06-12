@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   tentative INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   student_id INTEGER REFERENCES students(id),
-  billed_transaction_id INTEGER REFERENCES transactions(id)
+  billed_transaction_id INTEGER REFERENCES transactions(id),
+  exam_result TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(date);
 `;
