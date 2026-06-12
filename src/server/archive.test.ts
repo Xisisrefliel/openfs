@@ -18,12 +18,7 @@ import { openDb } from "./db";
 import { ValidationError } from "./engine";
 import { createInstructor, deleteInstructor, listInstructors } from "./instructors";
 import { createPricePlan, deletePricePlan } from "./price-plans";
-import {
-  createStudent,
-  deleteStudent,
-  getStudent,
-  updateStudent,
-} from "./students";
+import { createStudent, deleteStudent, getStudent, updateStudent } from "./students";
 import {
   createTheoryGroup,
   ensureTheoryGroupTables,
