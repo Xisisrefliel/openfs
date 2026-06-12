@@ -12,7 +12,7 @@ alwaysApply: true
 
 ## What this is
 
-OpenFS is a desktop Fahrschule (driving school) management app: student records, calendar, theory groups, and a GoBD-compliant accounting engine. The UI is German throughout.
+OpenFS is a Fahrschule (driving school) management web app: student records, calendar, theory groups, and a GoBD-compliant accounting engine. The UI is German throughout.
 
 ## Commands
 
