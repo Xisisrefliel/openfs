@@ -5,7 +5,7 @@
 
 import type { Database } from "./sqlite";
 
-import { archiveRow } from "./archive";
+import { archiveRow, tableExists } from "./archive";
 import { ValidationError } from "./engine";
 
 export type CalendarEventType =
@@ -336,6 +336,23 @@ export function deleteCalendarEvent(db: Database, id: number): void {
     throw new ValidationError(
       "Termin ist abgerechnet — zuerst stornieren."
     );
+  }
+
+  // Guard: attestations are immutable compliance records referencing the
+  // event (FK) — deleting the event would either fail raw or orphan them.
+  // tableExists because the table is created at app startup, not by openDb.
+  if (tableExists(db, "lesson_attestations")) {
+    const attested =
+      db
+        .query<{ n: number }, [number]>(
+          "SELECT count(*) AS n FROM lesson_attestations WHERE event_id = ?"
+        )
+        .get(id)!.n > 0;
+    if (attested) {
+      throw new ValidationError(
+        "Termin hat einen Ausbildungsnachweis und kann nicht gelöscht werden."
+      );
+    }
   }
 
   const remove = db.transaction(() => {

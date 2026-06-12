@@ -17,6 +17,10 @@ import {
 } from "./calendar-events";
 import { openDb } from "./db";
 import { createTransaction, stornoTransaction, ValidationError } from "./engine";
+import {
+  createAttestation,
+  ensureAttestationTables,
+} from "./ausbildungsnachweis";
 import type { StudentRef } from "@/lib/accounting-types";
 
 let db: Database;
@@ -179,6 +183,25 @@ describe("deleteCalendarEvent", () => {
 
   test("delete on missing id → ValidationError", () => {
     expect(() => deleteCalendarEvent(db, 999999)).toThrow("Termin nicht gefunden.");
+  });
+
+  test("delete on event with lesson_attestation → ValidationError", () => {
+    ensureAttestationTables(db);
+    const sid = insertStudent(db);
+    const event = createCalendarEvent(db, { ...VALID, studentId: sid });
+    createAttestation(db, {
+      eventId: Number(event.id),
+      studentId: sid,
+      instructor: VALID.instructor,
+      content: "Stadtfahrt",
+      durationMin: 45,
+      signatureDataUrl: "data:image/png;base64,abc123",
+    });
+    expect(() => deleteCalendarEvent(db, Number(event.id))).toThrow(
+      /Ausbildungsnachweis/
+    );
+    // The event must still exist.
+    expect(getCalendarEvent(db, Number(event.id)).id).toBe(event.id);
   });
 });
 
