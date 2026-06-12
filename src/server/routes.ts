@@ -45,6 +45,7 @@ import {
   listAccounts,
   listJournal,
   listLedger,
+  listStudentBalances,
   setAccountActive,
   stornoTransaction,
   ValidationError,
@@ -292,6 +293,11 @@ export function archiveRoutes(db: Database) {
 
 export function accountingRoutes(db: Database) {
   return {
+    "/api/student-balances": {
+      GET: (req: BunRequest) =>
+        handle(() => json({ balances: listStudentBalances(db) }))(),
+    },
+
     "/api/accounting/accounts": {
       GET: (req: BunRequest) =>
         handle(() => json({ accounts: listAccounts(db) }))(),
