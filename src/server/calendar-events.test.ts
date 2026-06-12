@@ -12,6 +12,7 @@ import {
   getCalendarEvent,
   listCalendarEvents,
   markEventBilled,
+  recordExamResult,
   updateCalendarEvent,
 } from "./calendar-events";
 import { openDb } from "./db";
@@ -331,6 +332,75 @@ describe("markEventBilled + delete-guard", () => {
     const reloaded = getCalendarEvent(fresh, Number(event.id));
     expect(reloaded.billedTransactionId).toBe(tx.id);
     expect(reloaded.billedActive).toBe(false);
+  });
+});
+
+describe("recordExamResult", () => {
+  const EXAM_BASE = {
+    date: "2026-06-10",
+    start: "09:00",
+    end: "11:00",
+    title: "Theorieprüfung",
+    instructor: "Köksal Gül",
+  };
+
+  test("records 'bestanden' on a Theorieprüfung event", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, {
+      ...EXAM_BASE,
+      type: "Theorieprüfung",
+    });
+    const updated = recordExamResult(fresh, Number(event.id), "bestanden");
+    expect(updated.examResult).toBe("bestanden");
+    // persisted
+    expect(getCalendarEvent(fresh, Number(event.id)).examResult).toBe("bestanden");
+  });
+
+  test("records 'nicht_bestanden' on a Vorstellung event", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, {
+      ...EXAM_BASE,
+      title: "Praktische Prüfung",
+      type: "Vorstellung zur prakt. Prüfung",
+    });
+    const updated = recordExamResult(fresh, Number(event.id), "nicht_bestanden");
+    expect(updated.examResult).toBe("nicht_bestanden");
+  });
+
+  test("clears result by passing null", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, { ...EXAM_BASE, type: "Theorieprüfung" });
+    recordExamResult(fresh, Number(event.id), "bestanden");
+    const cleared = recordExamResult(fresh, Number(event.id), null);
+    expect(cleared.examResult).toBeUndefined();
+  });
+
+  test("rejects recording on a non-exam event type (Praktisch)", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, { ...VALID, type: "Praktisch" });
+    expect(() =>
+      recordExamResult(fresh, Number(event.id), "bestanden")
+    ).toThrow(ValidationError);
+  });
+
+  test("rejects recording on Theorie type", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, { ...EXAM_BASE, title: "Theoriestunde", type: "Theorie" });
+    expect(() =>
+      recordExamResult(fresh, Number(event.id), "bestanden")
+    ).toThrow(ValidationError);
+  });
+
+  test("examResult is omitted on wire when not set", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, { ...EXAM_BASE, type: "Theorieprüfung" });
+    expect(event.examResult).toBeUndefined();
   });
 });
 

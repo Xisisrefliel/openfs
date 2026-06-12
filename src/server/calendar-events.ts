@@ -44,11 +44,18 @@ export type CalendarEvent = {
   /** Derived: true when billedTransactionId is set AND the linked
       transaction has not been storniert. Populated by the SELECT query. */
   billedActive?: boolean;
+  /** Exam result — only meaningful for the two exam event types. */
+  examResult?: "bestanden" | "nicht_bestanden";
 };
+
+const EXAM_TYPES: CalendarEventType[] = [
+  "Theorieprüfung",
+  "Vorstellung zur prakt. Prüfung",
+];
 
 export type CalendarEventInput = Omit<
   CalendarEvent,
-  "id" | "billedTransactionId" | "billedActive"
+  "id" | "billedTransactionId" | "billedActive" | "examResult"
 >;
 
 type CalendarEventRow = {
@@ -66,6 +73,7 @@ type CalendarEventRow = {
   student_id: number | null;
   billed_transaction_id: number | null;
   tx_storniert_by: number | null;
+  exam_result: string | null;
 };
 
 const toEvent = (row: CalendarEventRow): CalendarEvent => {
@@ -87,6 +95,9 @@ const toEvent = (row: CalendarEventRow): CalendarEvent => {
     event.billedTransactionId = row.billed_transaction_id;
     event.billedActive = row.tx_storniert_by == null;
   }
+  if (row.exam_result === "bestanden" || row.exam_result === "nicht_bestanden") {
+    event.examResult = row.exam_result;
+  }
   return event;
 };
 
@@ -94,7 +105,7 @@ const SELECT = `
   SELECT
     ce.id, ce.date, ce.start, ce."end", ce.title, ce.subtitle,
     ce.location, ce.instructor, ce.vehicle, ce.type, ce.tentative,
-    ce.student_id, ce.billed_transaction_id,
+    ce.student_id, ce.billed_transaction_id, ce.exam_result,
     CASE
       WHEN ce.billed_transaction_id IS NOT NULL THEN (
         SELECT t.storniert_by FROM transactions t WHERE t.id = ce.billed_transaction_id
@@ -337,4 +348,30 @@ export function deleteCalendarEvent(db: Database, id: number): void {
     db.prepare("DELETE FROM calendar_events WHERE id = ?").run(id);
   });
   remove();
+}
+
+/** Record (or clear) an exam result on an exam-type event.
+    - Allowed only on "Theorieprüfung" and "Vorstellung zur prakt. Prüfung".
+    - result: 'bestanden' | 'nicht_bestanden' | null (null clears).
+    NOT settable via the generic update/normalize path. */
+export function recordExamResult(
+  db: Database,
+  eventId: number,
+  result: "bestanden" | "nicht_bestanden" | null
+): CalendarEvent {
+  const event = getCalendarEvent(db, eventId);
+  if (!EXAM_TYPES.includes(event.type)) {
+    throw new ValidationError(
+      "Prüfungsergebnis kann nur für Prüfungs-Termine gespeichert werden."
+    );
+  }
+  if (result !== null && result !== "bestanden" && result !== "nicht_bestanden") {
+    throw new ValidationError(
+      "Ergebnis muss 'bestanden', 'nicht_bestanden' oder null sein."
+    );
+  }
+  db.prepare(
+    "UPDATE calendar_events SET exam_result = ? WHERE id = ?"
+  ).run(result, eventId);
+  return getCalendarEvent(db, eventId);
 }

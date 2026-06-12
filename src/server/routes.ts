@@ -30,6 +30,7 @@ import {
   getCalendarEvent,
   listCalendarEvents,
   markEventBilled,
+  recordExamResult,
   updateCalendarEvent,
 } from "./calendar-events";
 import { UNASSIGNED_VEHICLE } from "../lib/vehicle-options";
@@ -308,6 +309,29 @@ export function calendarEventRoutes(db: Database) {
           bill();
 
           return json(result, 201);
+        })(),
+    },
+
+    "/api/calendar-events/:id/exam-result": {
+      POST: (req: BunRequest<"/api/calendar-events/:id/exam-result">) =>
+        handle(async () => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Termin-ID.");
+          }
+          const body = (await req.json()) as { result?: unknown };
+          const raw = body?.result;
+          if (raw !== null && raw !== "bestanden" && raw !== "nicht_bestanden") {
+            throw new ValidationError(
+              "Ergebnis muss 'bestanden', 'nicht_bestanden' oder null sein."
+            );
+          }
+          const updated = recordExamResult(
+            db,
+            id,
+            raw as "bestanden" | "nicht_bestanden" | null
+          );
+          return json(updated);
         })(),
     },
   };
