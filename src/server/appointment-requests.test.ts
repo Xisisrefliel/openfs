@@ -469,3 +469,60 @@ describe("appointmentRequestRoutes", () => {
     }
   });
 });
+
+describe("rate limiting on public create", () => {
+  const serve = (rateLimit: { max: number; windowMs: number } | false) =>
+    Bun.serve({
+      port: 0,
+      routes: appointmentRequestRoutes(db, { rateLimit }),
+      fetch() {
+        return new Response("not found", { status: 404 });
+      },
+    });
+
+  const post = (base: URL) =>
+    fetch(new URL("/api/appointment-requests", base).href, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(VALID),
+    });
+
+  test("third POST from the same IP returns 429 (max 2)", async () => {
+    const server = serve({ max: 2, windowMs: 60_000 });
+    try {
+      expect((await post(server.url)).status).toBe(201);
+      expect((await post(server.url)).status).toBe(201);
+      const third = await post(server.url);
+      expect(third.status).toBe(429);
+      expect(((await third.json()) as { error: string }).error).toBe(
+        "Zu viele Anfragen. Bitte später erneut versuchen."
+      );
+
+      // Admin/status routes stay unlimited — decline still works.
+      const url = (path: string) => new URL(path, server.url).href;
+      const listRes = await fetch(url("/api/appointment-requests"));
+      const { requests } = (await listRes.json()) as {
+        requests: { id: number; status: string }[];
+      };
+      const open = requests.find(r => r.status === "offen")!;
+      const declineRes = await fetch(
+        url(`/api/appointment-requests/${open.id}/decline`),
+        { method: "POST" }
+      );
+      expect(declineRes.status).toBe(200);
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("rateLimit: false disables the limiter", async () => {
+    const server = serve(false);
+    try {
+      for (let i = 0; i < 3; i++) {
+        expect((await post(server.url)).status).toBe(201);
+      }
+    } finally {
+      server.stop(true);
+    }
+  });
+});

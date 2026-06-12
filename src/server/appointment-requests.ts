@@ -574,25 +574,68 @@ function parseId(raw: string): number {
   return id;
 }
 
-export function appointmentRequestRoutes(db: Database) {
+/* Abuse guard for the public create endpoint (/anfrage form): in-memory,
+   per-IP, per-process — must be replaced by a shared store if the app is
+   ever load-balanced. Admin routes (PATCH/accept/decline/DELETE) stay
+   unlimited. */
+const RATE_LIMIT_MAX = 10; // requests
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // per hour per IP
+
+export type AppointmentRequestRouteOptions = {
+  rateLimit?: { max: number; windowMs: number } | false;
+};
+
+/* Structural subset of Bun's Server the create handler needs — keeps the
+   handler assignable to Bun.serve()'s generic route-handler type. */
+type RequestIPSource = {
+  requestIP(req: Request): { address: string } | null;
+};
+
+export function appointmentRequestRoutes(
+  db: Database,
+  options: AppointmentRequestRouteOptions = {}
+) {
   // Self-provision: the table lives outside the db.ts schema, so make
   // sure it exists (and is seeded once) before the first request.
   ensureAppointmentRequestTables(db);
+
+  const rateLimit =
+    options.rateLimit === undefined
+      ? { max: RATE_LIMIT_MAX, windowMs: RATE_LIMIT_WINDOW_MS }
+      : options.rateLimit;
+  const recentByIp = new Map<string, number[]>();
+
+  function rateLimited(ip: string, now: number): boolean {
+    if (!rateLimit) return false;
+    const cutoff = now - rateLimit.windowMs;
+    const recent = (recentByIp.get(ip) ?? []).filter(t => t > cutoff);
+    const limited = recent.length >= rateLimit.max;
+    if (!limited) recent.push(now);
+    recentByIp.set(ip, recent);
+    return limited;
+  }
 
   return {
     "/api/appointment-requests": {
       GET: (req: BunRequest) =>
         handle(() => json({ requests: listAppointmentRequests(db) }))(),
-      POST: (req: BunRequest) =>
-        handle(async () =>
-          json(
+      POST: (req: BunRequest, server?: RequestIPSource) =>
+        handle(async () => {
+          const ip = server?.requestIP(req)?.address ?? "unknown";
+          if (rateLimited(ip, Date.now())) {
+            return json(
+              { error: "Zu viele Anfragen. Bitte später erneut versuchen." },
+              429
+            );
+          }
+          return json(
             createAppointmentRequest(
               db,
               (await req.json()) as Partial<AppointmentRequestInput>
             ),
             201
-          )
-        )(),
+          );
+        })(),
     },
 
     "/api/appointment-requests/:id": {
