@@ -18,9 +18,11 @@ OpenFS is a Fahrschule (driving school) management web app: student records, cal
 
 | Purpose    | Command             | Expected       |
 |------------|---------------------|----------------|
-| Test       | `bun test`          | 387+ pass, 0 fail |
+| Test       | `bun test`          | 586+ pass, 0 fail |
 | Typecheck  | `bun run typecheck` | exit 0         |
 | Build      | `bun run build`     | exit 0         |
+
+The test count grows over time — fewer tests than last documented is the red flag, not an exact-number mismatch.
 
 ## Architecture
 
