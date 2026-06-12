@@ -531,6 +531,56 @@ describe("POST /api/calendar-events/:id/bill", () => {
     expect(body.event.billedActive).toBe(true);
   });
 
+  test("batch flow: two sequential bill calls on two events of the same student → two distinct transactions, both events billedActive", async () => {
+    const student = await createTestStudent();
+    const eventA = await createPraktischEvent(student.id);
+    const eventB = await createPraktischEvent(student.id);
+
+    const billBody = {
+      type: "guthaben_uebertragung",
+      date: "2026-06-15",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: {
+        customerNo: student.customerNumber,
+        name: "Bill Test",
+        address: "Teststr. 1",
+        contractNo: student.contractNumber,
+        classes: "B",
+      },
+      description: "FS Bill Test - B, Fahrübungsstunde (45)",
+    };
+
+    type BillResponse = {
+      transaction: { id: number; belegNr: string | null };
+      event: { billedTransactionId: number; billedActive: boolean };
+    };
+
+    const results: BillResponse[] = [];
+    for (const event of [eventA, eventB]) {
+      const res = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(billBody),
+      });
+      expect(res.status).toBe(201);
+      results.push(await res.json() as BillResponse);
+    }
+
+    const [first, second] = results as [BillResponse, BillResponse];
+    // Each lesson is its own attributable transaction.
+    expect(second.transaction.id).not.toBe(first.transaction.id);
+    // guthaben_uebertragung carries no Beleg number by design (the receipt
+    // was issued at the Anzahlung) — distinct transaction ids are the
+    // per-lesson attribution guarantee here.
+    expect(first.transaction.belegNr).toBeNull();
+    expect(second.transaction.belegNr).toBeNull();
+    expect(first.event.billedTransactionId).toBe(first.transaction.id);
+    expect(second.event.billedTransactionId).toBe(second.transaction.id);
+    expect(first.event.billedActive).toBe(true);
+    expect(second.event.billedActive).toBe(true);
+  });
+
   test("billing an already-billed event → 400 'bereits abgerechnet'", async () => {
     const student = await createTestStudent();
     const event = await createPraktischEvent(student.id);

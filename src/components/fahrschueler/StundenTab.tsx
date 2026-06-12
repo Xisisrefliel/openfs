@@ -23,6 +23,7 @@ import { useStudents } from "@/hooks/use-students";
 import type { StudentRecord } from "@/hooks/use-students";
 import { accountingApi, useApi } from "@/components/buchhaltung/api";
 import { PaymentDialog } from "@/components/buchhaltung/PaymentDialog";
+import { BatchBillDialog } from "@/components/fahrschueler/BatchBillDialog";
 import { SignaturePad } from "@/components/SignaturePad";
 import type { SignaturePadHandle } from "@/components/SignaturePad";
 import { Badge } from "@/components/ui/badge";
@@ -272,6 +273,7 @@ function NachweisViewDialog({ open, attestation, onClose }: NachweisViewDialogPr
 export function StundenTab({ student }: { student: StudentRecord }) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("alle");
   const [billTarget, setBillTarget] = useState<CalEvent | null>(null);
+  const [batchBillOpen, setBatchBillOpen] = useState(false);
   const [nachweisTarget, setNachweisTarget] = useState<CalEvent | null>(null);
   const [viewAttestation, setViewAttestation] = useState<Attestation | null>(null);
   // Map of event id (string) → Attestation (or null = checked, none found)
@@ -289,7 +291,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
     [plans, student.pricePlanId]
   );
 
-  const events = useMemo(
+  const studentEvents = useMemo(
     () =>
       allEvents
         .filter(event =>
@@ -297,11 +299,31 @@ export function StundenTab({ student }: { student: StudentRecord }) {
             ? event.studentId === student.id
             : event.subtitle === fullName
         )
-        .filter(event => typeFilter === "alle" || event.type === typeFilter)
         .toSorted((left, right) =>
           `${left.date} ${left.start}`.localeCompare(`${right.date} ${right.start}`)
         ),
-    [allEvents, fullName, student.id, typeFilter]
+    [allEvents, fullName, student.id]
+  );
+
+  const events = useMemo(
+    () =>
+      studentEvents.filter(
+        event => typeFilter === "alle" || event.type === typeFilter
+      ),
+    [studentEvents, typeFilter]
+  );
+
+  /* Billable-but-unbilled lessons — same predicate as the per-lesson
+     Abrechnen button, sorted by date ascending (studentEvents already is). */
+  const openLessons = useMemo(
+    () =>
+      studentEvents.filter(
+        event =>
+          isFahrstunde(event) &&
+          billingState(event) === "open" &&
+          event.studentId != null
+      ),
+    [studentEvents]
   );
 
   /* Bulk-load attestations for this student's practical events. */
@@ -357,6 +379,58 @@ export function StundenTab({ student }: { student: StudentRecord }) {
     setBillTarget(null);
   };
 
+  /* Same payload shape PaymentDialog builds from the single-lesson prefill
+     (type guthaben_uebertragung, habenKonto 4400, "FS <name> - <classes>, …"). */
+  const buildBatchBillInput = (
+    event: CalEvent,
+    ref: StudentRef,
+    priceCents: number
+  ): CreateTransactionInput => {
+    const durationMin = toMinutes(event.end) - toMinutes(event.start);
+    return {
+      type: "guthaben_uebertragung",
+      date: event.date,
+      amountCents: priceCents,
+      habenKonto: "4400",
+      student: ref,
+      description: `FS ${ref.name} - ${ref.classes}, Fahrübungsstunde (${durationMin})`,
+    };
+  };
+
+  /* Sequential submit: each lesson stays an individually-attributable GoBD
+     transaction. Stop at the first failure; refresh ONCE at the end. */
+  const handleBatchBillConfirm = async () => {
+    const resolved = resolveLessonPrice(studentPlan);
+    if (!studentRef || !resolved) return;
+    const lessons = openLessons;
+    let billed = 0;
+    let failure: { date: string; message: string } | null = null;
+    for (const lesson of lessons) {
+      try {
+        await billCalendarEvent(
+          lesson.id,
+          buildBatchBillInput(lesson, studentRef, resolved.priceCents)
+        );
+        billed += 1;
+      } catch (err) {
+        failure = {
+          date: lesson.date,
+          message: err instanceof Error ? err.message : "Unbekannter Fehler",
+        };
+        break;
+      }
+    }
+    await refreshEvents();
+    setBatchBillOpen(false);
+    if (failure) {
+      toast.error(
+        `${billed} von ${lessons.length} abgerechnet — Fehler bei ${formatDate(failure.date)}: ${failure.message}`
+      );
+    } else {
+      toast.success(`${billed} Fahrstunden abgerechnet.`);
+    }
+  };
+
   const handleNachweisCaptureDone = async (attestation: Attestation) => {
     setNachweisTarget(null);
     setAttestationMap(prev => new Map(prev).set(String(attestation.eventId), attestation));
@@ -384,6 +458,18 @@ export function StundenTab({ student }: { student: StudentRecord }) {
               </SelectGroup>
             </SelectContent>
           </Select>
+
+          {openLessons.length >= 2 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setBatchBillOpen(true)}
+            >
+              <Receipt className="mr-1 size-3.5" />
+              Alle offenen abrechnen ({openLessons.length})
+            </Button>
+          )}
         </div>
 
         {events.length === 0 ? (
@@ -544,6 +630,17 @@ export function StundenTab({ student }: { student: StudentRecord }) {
             {...billPrefill}
             onSubmitOverride={handleBillSubmit}
             onCreated={() => {}}
+          />
+        )}
+
+        {/* Batch billing confirmation dialog */}
+        {batchBillOpen && (
+          <BatchBillDialog
+            open={true}
+            lessons={openLessons}
+            priceCents={resolveLessonPrice(studentPlan)?.priceCents ?? null}
+            onClose={() => setBatchBillOpen(false)}
+            onConfirm={handleBatchBillConfirm}
           />
         )}
 
