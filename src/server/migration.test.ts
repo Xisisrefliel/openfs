@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { Database } from "./sqlite";
 
-import { migrateCalendarEventBilling, migrateSkr03ToSkr04, openDb } from "./db";
+import { migrateCalendarEventBilling, migrateExamResults, migrateSkr03ToSkr04, openDb } from "./db";
 import { listAccounts, listJournal, listLedger } from "./engine";
 import { seedTransactions } from "./seed";
 import { openSqlite } from "./sqlite";
@@ -279,5 +279,97 @@ describe("migrateCalendarEventBilling", () => {
     // the migration. A fresh DB gains them from migrateCalendarEventBilling.)
     expect(cols).toContain("student_id");
     expect(cols).toContain("billed_transaction_id");
+  });
+});
+
+/* Helper: minimal legacy DB without exam-result columns. */
+function openLegacyDbNoExamCols(): Database {
+  const db = openSqlite(":memory:");
+  db.exec(`
+    CREATE TABLE calendar_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL, start TEXT NOT NULL, "end" TEXT NOT NULL,
+      title TEXT NOT NULL, subtitle TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '', instructor TEXT NOT NULL DEFAULT 'Nicht zugeteilt',
+      vehicle TEXT NOT NULL DEFAULT '',
+      type TEXT NOT NULL DEFAULT 'Praktisch', tentative INTEGER NOT NULL DEFAULT 0,
+      student_id INTEGER, billed_transaction_id INTEGER
+    );
+    CREATE TABLE students (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      first_name TEXT NOT NULL DEFAULT '', last_name TEXT NOT NULL DEFAULT '',
+      birthday TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '',
+      classes TEXT NOT NULL DEFAULT '', driving_school TEXT NOT NULL DEFAULT '',
+      registration_date TEXT NOT NULL DEFAULT '', contract_number TEXT NOT NULL DEFAULT '',
+      customer_number TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'aktiv',
+      instructor TEXT NOT NULL DEFAULT 'Nicht zugeteilt',
+      vehicle TEXT NOT NULL DEFAULT 'Nicht zugeteilt',
+      balance TEXT NOT NULL DEFAULT '0,00 EUR',
+      last_lesson TEXT NOT NULL DEFAULT '', next_lesson TEXT NOT NULL DEFAULT '',
+      progress INTEGER NOT NULL DEFAULT 0,
+      lessons TEXT NOT NULL DEFAULT '[]', documents TEXT NOT NULL DEFAULT '[]',
+      theory TEXT NOT NULL DEFAULT '{}', price_plan_id INTEGER
+    );
+  `);
+  return db;
+}
+
+describe("migrateExamResults", () => {
+  test("adds exam_result to calendar_events and license_date to students", () => {
+    const legacy = openLegacyDbNoExamCols();
+    const eventColsBefore = legacy
+      .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+      .all()
+      .map(c => c.name);
+    const studentColsBefore = legacy
+      .query<{ name: string }, []>("PRAGMA table_info(students)")
+      .all()
+      .map(c => c.name);
+    expect(eventColsBefore).not.toContain("exam_result");
+    expect(studentColsBefore).not.toContain("license_date");
+
+    migrateExamResults(legacy);
+
+    const eventColsAfter = legacy
+      .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+      .all()
+      .map(c => c.name);
+    const studentColsAfter = legacy
+      .query<{ name: string }, []>("PRAGMA table_info(students)")
+      .all()
+      .map(c => c.name);
+    expect(eventColsAfter).toContain("exam_result");
+    expect(studentColsAfter).toContain("license_date");
+  });
+
+  test("running migration twice is a no-op (idempotent)", () => {
+    const legacy = openLegacyDbNoExamCols();
+    migrateExamResults(legacy);
+    expect(() => migrateExamResults(legacy)).not.toThrow();
+    const eventCols = legacy
+      .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+      .all()
+      .map(c => c.name);
+    const studentCols = legacy
+      .query<{ name: string }, []>("PRAGMA table_info(students)")
+      .all()
+      .map(c => c.name);
+    expect(eventCols.filter(c => c === "exam_result")).toHaveLength(1);
+    expect(studentCols.filter(c => c === "license_date")).toHaveLength(1);
+  });
+
+  test("openDb (fresh) gains both columns from migrateExamResults", () => {
+    const fresh = openDb(":memory:");
+    const eventCols = fresh
+      .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+      .all()
+      .map(c => c.name);
+    const studentCols = fresh
+      .query<{ name: string }, []>("PRAGMA table_info(students)")
+      .all()
+      .map(c => c.name);
+    expect(eventCols).toContain("exam_result");
+    expect(studentCols).toContain("license_date");
   });
 });

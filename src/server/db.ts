@@ -287,6 +287,7 @@ export function openDb(path = "data/fahrschule.db"): Database {
   migrateSkr03ToSkr04(db);
   migrateStudentPricePlan(db);
   migrateCalendarEventBilling(db);
+  migrateExamResults(db);
   initAccounts(db);
   initSequences(db);
   initSettings(db);
@@ -423,6 +424,27 @@ export function migrateCalendarEventBilling(db: Database) {
     db.exec(
       "ALTER TABLE calendar_events ADD COLUMN billed_transaction_id INTEGER REFERENCES transactions(id)"
     );
+  }
+}
+
+/* Databases created before exam-result tracking existed lack the
+   exam_result column on calendar_events and the license_date column on
+   students. Adds each when absent. Idempotent. */
+export function migrateExamResults(db: Database) {
+  const eventCols = db
+    .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+    .all()
+    .map(c => c.name);
+  if (!eventCols.includes("exam_result")) {
+    db.exec("ALTER TABLE calendar_events ADD COLUMN exam_result TEXT");
+  }
+
+  const studentCols = db
+    .query<{ name: string }, []>("PRAGMA table_info(students)")
+    .all()
+    .map(c => c.name);
+  if (!studentCols.includes("license_date")) {
+    db.exec("ALTER TABLE students ADD COLUMN license_date TEXT");
   }
 }
 
