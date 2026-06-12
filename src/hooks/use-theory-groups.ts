@@ -79,3 +79,39 @@ export function useTheoryGroups() {
   );
   return { groups, loading, refresh };
 }
+
+/* ------------------------------------------------------------------ */
+/* Attendance                                                          */
+/* ------------------------------------------------------------------ */
+
+export type AttendanceEntry = {
+  studentId: number;
+  attended: boolean;
+};
+
+export type AttendanceSession = {
+  sessionDate: string;
+  entries: AttendanceEntry[];
+};
+
+export async function fetchAttendance(groupId: number): Promise<AttendanceSession[]> {
+  const data = await parseOrThrow<{ sessions: AttendanceSession[] }>(
+    await fetch(`/api/theory-groups/${groupId}/attendance`)
+  );
+  return data.sessions;
+}
+
+export async function putAttendance(
+  groupId: number,
+  sessionDate: string,
+  entries: AttendanceEntry[]
+): Promise<AttendanceSession[]> {
+  const data = await parseOrThrow<{ sessions: AttendanceSession[] }>(
+    await fetch(`/api/theory-groups/${groupId}/attendance`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionDate, entries }),
+    })
+  );
+  return data.sessions;
+}

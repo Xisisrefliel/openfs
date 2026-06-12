@@ -10,11 +10,14 @@ import { openSqlite, type Database } from "./sqlite";
 import { DDL } from "./db";
 import { ValidationError } from "./engine";
 import {
+  attendanceCounts,
   createTheoryGroup,
   deleteTheoryGroup,
   ensureTheoryGroupTables,
   getTheoryGroup,
+  listAttendance,
   listTheoryGroups,
+  setAttendance,
   theoryGroupRoutes,
   updateTheoryGroup,
 } from "./theory-groups";
@@ -345,11 +348,14 @@ describe("theoryGroupRoutes", () => {
     expect(Object.keys(routes).sort()).toEqual([
       "/api/theory-groups",
       "/api/theory-groups/:id",
+      "/api/theory-groups/:id/attendance",
     ]);
     expect(typeof routes["/api/theory-groups"].GET).toBe("function");
     expect(typeof routes["/api/theory-groups"].POST).toBe("function");
     expect(typeof routes["/api/theory-groups/:id"].PATCH).toBe("function");
     expect(typeof routes["/api/theory-groups/:id"].DELETE).toBe("function");
+    expect(typeof routes["/api/theory-groups/:id/attendance"].GET).toBe("function");
+    expect(typeof routes["/api/theory-groups/:id/attendance"].PUT).toBe("function");
   });
 
   test("GET returns { groups }, POST creates with 201, validation errors → 400", async () => {
@@ -399,5 +405,193 @@ describe("theoryGroupRoutes", () => {
     );
     expect(ok.status).toBe(200);
     expect(listTheoryGroups(db)).toHaveLength(0);
+  });
+
+  test("GET /attendance returns { sessions } for a group", async () => {
+    const routes = theoryGroupRoutes(db);
+    const asReq = (request: Request, params: Record<string, string> = {}) =>
+      Object.assign(request, { params }) as never;
+
+    const anna = insertStudent(db, "Anna", "Albers");
+    const group = createTheoryGroup(db, { ...VALID, studentIds: [anna] });
+    setAttendance(db, group.id, "2026-06-09", [{ studentId: anna, attended: true }]);
+
+    const res = await routes["/api/theory-groups/:id/attendance"].GET(
+      asReq(
+        new Request(`http://localhost/api/theory-groups/${group.id}/attendance`),
+        { id: String(group.id) }
+      )
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { sessions: unknown[] };
+    expect(body.sessions).toHaveLength(1);
+  });
+
+  test("PUT /attendance upserts and returns updated sessions", async () => {
+    const routes = theoryGroupRoutes(db);
+    const asReq = (request: Request, params: Record<string, string> = {}) =>
+      Object.assign(request, { params }) as never;
+
+    const ben = insertStudent(db, "Ben", "Berger");
+    const group = createTheoryGroup(db, { ...VALID, studentIds: [ben] });
+
+    const res = await routes["/api/theory-groups/:id/attendance"].PUT(
+      asReq(
+        new Request(`http://localhost/api/theory-groups/${group.id}/attendance`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionDate: "2026-06-10",
+            entries: [{ studentId: ben, attended: true }],
+          }),
+        }),
+        { id: String(group.id) }
+      )
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { sessions: unknown[] };
+    expect(body.sessions).toHaveLength(1);
+  });
+
+  test("PUT /attendance with non-member student → 400", async () => {
+    const routes = theoryGroupRoutes(db);
+    const asReq = (request: Request, params: Record<string, string> = {}) =>
+      Object.assign(request, { params }) as never;
+
+    const group = createTheoryGroup(db, { ...VALID });
+    const outsider = insertStudent(db, "Out", "Sider");
+
+    const res = await routes["/api/theory-groups/:id/attendance"].PUT(
+      asReq(
+        new Request(`http://localhost/api/theory-groups/${group.id}/attendance`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionDate: "2026-06-10",
+            entries: [{ studentId: outsider, attended: true }],
+          }),
+        }),
+        { id: String(group.id) }
+      )
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Attendance domain tests                                             */
+/* ------------------------------------------------------------------ */
+
+describe("attendance domain", () => {
+  test("happy upsert: setAttendance creates rows, listAttendance returns them", () => {
+    const anna = insertStudent(db, "Anna", "Albers");
+    const ben = insertStudent(db, "Ben", "Berger");
+    const group = createTheoryGroup(db, { ...VALID, studentIds: [anna, ben] });
+
+    setAttendance(db, group.id, "2026-06-09", [
+      { studentId: anna, attended: true },
+      { studentId: ben, attended: false },
+    ]);
+
+    const sessions = listAttendance(db, group.id);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]!.sessionDate).toBe("2026-06-09");
+    expect(sessions[0]!.entries).toHaveLength(2);
+    const annaEntry = sessions[0]!.entries.find(e => e.studentId === anna);
+    const benEntry = sessions[0]!.entries.find(e => e.studentId === ben);
+    expect(annaEntry?.attended).toBe(true);
+    expect(benEntry?.attended).toBe(false);
+  });
+
+  test("re-recording same (group, student, date) overwrites — no duplicate row", () => {
+    const anna = insertStudent(db, "Anna", "Albers");
+    const group = createTheoryGroup(db, { ...VALID, studentIds: [anna] });
+
+    setAttendance(db, group.id, "2026-06-09", [{ studentId: anna, attended: true }]);
+    setAttendance(db, group.id, "2026-06-09", [{ studentId: anna, attended: false }]);
+
+    const sessions = listAttendance(db, group.id);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]!.entries).toHaveLength(1);
+    expect(sessions[0]!.entries[0]!.attended).toBe(false);
+
+    // Verify only one DB row
+    const rowCount = db
+      .query<{ n: number }, [number, number, string]>(
+        "SELECT count(*) AS n FROM theory_attendance WHERE group_id = ? AND student_id = ? AND session_date = ?"
+      )
+      .get(group.id, anna, "2026-06-09")!.n;
+    expect(rowCount).toBe(1);
+  });
+
+  test("student not in group → ValidationError", () => {
+    const anna = insertStudent(db, "Anna", "Albers");
+    const outsider = insertStudent(db, "Out", "Sider");
+    const group = createTheoryGroup(db, { ...VALID, studentIds: [anna] });
+
+    expect(() =>
+      setAttendance(db, group.id, "2026-06-09", [{ studentId: outsider, attended: true }])
+    ).toThrow(ValidationError);
+  });
+
+  test("bad date format → ValidationError", () => {
+    const anna = insertStudent(db, "Anna", "Albers");
+    const group = createTheoryGroup(db, { ...VALID, studentIds: [anna] });
+
+    expect(() =>
+      setAttendance(db, group.id, "09-06-2026", [{ studentId: anna, attended: true }])
+    ).toThrow("Datum muss im Format YYYY-MM-DD angegeben werden.");
+
+    expect(() =>
+      setAttendance(db, group.id, "2026/06/09", [{ studentId: anna, attended: true }])
+    ).toThrow(ValidationError);
+  });
+
+  test("unknown group → ValidationError", () => {
+    expect(() =>
+      setAttendance(db, 999999, "2026-06-09", [])
+    ).toThrow("Theorie-Gruppe nicht gefunden.");
+  });
+
+  test("attendanceCounts correct across multiple dates", () => {
+    const anna = insertStudent(db, "Anna", "Albers");
+    const ben = insertStudent(db, "Ben", "Berger");
+    const group = createTheoryGroup(db, { ...VALID, studentIds: [anna, ben] });
+
+    setAttendance(db, group.id, "2026-06-02", [
+      { studentId: anna, attended: true },
+      { studentId: ben, attended: true },
+    ]);
+    setAttendance(db, group.id, "2026-06-09", [
+      { studentId: anna, attended: true },
+      { studentId: ben, attended: false },
+    ]);
+    setAttendance(db, group.id, "2026-06-16", [
+      { studentId: anna, attended: true },
+    ]);
+
+    const counts = attendanceCounts(db, group.id);
+    expect(counts[anna]).toBe(3);
+    expect(counts[ben]).toBe(1);
+  });
+
+  test("attendance history survives member removal from group", () => {
+    const anna = insertStudent(db, "Anna", "Albers");
+    const group = createTheoryGroup(db, { ...VALID, studentIds: [anna] });
+
+    setAttendance(db, group.id, "2026-06-09", [{ studentId: anna, attended: true }]);
+
+    // Remove anna from the group
+    updateTheoryGroup(db, group.id, { studentIds: [] });
+
+    // Old attendance record should still be there
+    const sessions = listAttendance(db, group.id);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]!.entries[0]!.studentId).toBe(anna);
+
+    // But new attendance for removed member should be rejected
+    expect(() =>
+      setAttendance(db, group.id, "2026-06-16", [{ studentId: anna, attended: true }])
+    ).toThrow(ValidationError);
   });
 });
