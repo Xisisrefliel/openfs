@@ -7,15 +7,20 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { serve } from "bun";
 
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { openDb } from "./db";
 import {
   accountingRoutes,
   calendarEventRoutes,
+  exportRoutes,
   instructorRoutes,
   pricePlanRoutes,
   studentRoutes,
   vehicleRoutes,
 } from "./routes";
+import { openSqlite } from "./sqlite";
 
 /* ------------------------------------------------------------------ */
 /* Server setup — one server for the whole file.                       */
@@ -31,6 +36,7 @@ beforeAll(() => {
     routes: {
       ...accountingRoutes(db),
       ...calendarEventRoutes(db),
+      ...exportRoutes(db),
       ...instructorRoutes(db),
       ...pricePlanRoutes(db),
       ...studentRoutes(db),
@@ -359,5 +365,48 @@ describe("PUT /api/profile", () => {
     expect(res.status).toBe(200);
     const body = await res.json() as { name: string };
     expect(body.name).toBe("Neue Fahrschule");
+  });
+});
+
+/* ================================================================== */
+/* Database export                                                       */
+/* ================================================================== */
+
+describe("GET /api/export/database", () => {
+  test("200, .db in content-disposition, non-empty body with SQLite magic header", async () => {
+    const res = await fetch(url("/api/export/database"));
+    expect(res.status).toBe(200);
+
+    // content-disposition must mention .db
+    const disposition = res.headers.get("content-disposition") ?? "";
+    expect(disposition).toContain(".db");
+
+    // body must be non-empty
+    const buf = await res.arrayBuffer();
+    expect(buf.byteLength).toBeGreaterThan(0);
+
+    // first 16 bytes: "SQLite format 3\0"
+    const header = new TextDecoder().decode(new Uint8Array(buf, 0, 15));
+    expect(header).toBe("SQLite format 3");
+  });
+
+  test("bonus: serialized bytes open as a valid SQLite db with a students table", async () => {
+    const res = await fetch(url("/api/export/database"));
+    expect(res.status).toBe(200);
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+
+    // write to a temp file outside of data/
+    const tmpPath = join(tmpdir(), `openfs-test-export-${Date.now()}.db`);
+    await Bun.write(tmpPath, bytes);
+
+    const tmpDb = openSqlite(tmpPath);
+    const row = tmpDb.query<{ n: number }, []>(
+      "SELECT count(*) AS n FROM students"
+    ).get();
+    tmpDb.close();
+
+    expect(row).not.toBeNull();
+    expect(typeof row!.n).toBe("number");
   });
 });
