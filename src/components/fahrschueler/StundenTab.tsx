@@ -4,8 +4,8 @@
 /* fallback for events created before the billing migration).          */
 /* ------------------------------------------------------------------ */
 
-import { useMemo, useState } from "react";
-import { Receipt } from "lucide-react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { ClipboardCheck, ClipboardList, Receipt } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -23,14 +23,24 @@ import { useStudents } from "@/hooks/use-students";
 import type { StudentRecord } from "@/hooks/use-students";
 import { accountingApi, useApi } from "@/components/buchhaltung/api";
 import { PaymentDialog } from "@/components/buchhaltung/PaymentDialog";
+import { SignaturePad } from "@/components/SignaturePad";
+import type { SignaturePadHandle } from "@/components/SignaturePad";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -47,6 +57,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -55,6 +66,11 @@ import {
 } from "@/components/ui/tooltip";
 import type { CreateTransactionInput, StudentRef } from "@/lib/accounting-types";
 import { formatCents } from "@/lib/money";
+import {
+  fetchAttestationsForStudent,
+  saveAttestation,
+} from "@/hooks/use-ausbildungsnachweis";
+import type { Attestation } from "@/server/ausbildungsnachweis";
 
 /** "2026-06-09" → "09.06.2026" */
 function formatDate(iso: string): string {
@@ -74,33 +90,205 @@ function formatDuration(start: string, end: string): string {
 
 type TypeFilter = "alle" | EventType;
 
-/** Derive billing state for a practical event:
-    - "billed"  — billedActive is true (transaction exists and is not storniert)
-    - "open"    — no billing or the linked transaction was storniert
-*/
+/** Derive billing state for a practical event. */
 function billingState(event: CalEvent): "billed" | "open" {
   if (event.billedTransactionId != null && event.billedActive) return "billed";
   return "open";
 }
 
+/* ------------------------------------------------------------------ */
+/* Nachweis capture dialog                                             */
+/* ------------------------------------------------------------------ */
+
+type NachweisDialogProps = {
+  open: boolean;
+  event: CalEvent;
+  student: StudentRecord;
+  onClose: () => void;
+  onSaved: (attestation: Attestation) => void;
+};
+
+function NachweisDialog({ open, event, student, onClose, onSaved }: NachweisDialogProps) {
+  const sigRef = useRef<SignaturePadHandle>(null);
+  const [content, setContent] = useState("");
+  const [sigHasStrokes, setSigHasStrokes] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const durationMin = toMinutes(event.end) - toMinutes(event.start);
+  const canSave = sigHasStrokes && !saving;
+
+  const handleSave = async () => {
+    if (!sigRef.current || !sigRef.current.hasStrokes) return;
+    setSaving(true);
+    try {
+      const attestation = await saveAttestation(event.id, {
+        studentId: student.id,
+        instructor: event.instructor,
+        content,
+        durationMin,
+        signatureDataUrl: sigRef.current.toDataURL(),
+      });
+      toast.success("Ausbildungsnachweis gespeichert.");
+      onSaved(attestation);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Fehler beim Speichern.";
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Ausbildungsnachweis erfassen</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground rounded-lg border p-3">
+            <div>
+              <span className="font-medium text-foreground">Datum</span>
+              <div>{formatDate(event.date)}</div>
+            </div>
+            <div>
+              <span className="font-medium text-foreground">Dauer</span>
+              <div>{durationMin} Min ({event.start} – {event.end})</div>
+            </div>
+            <div>
+              <span className="font-medium text-foreground">Fahrlehrer</span>
+              <div>{event.instructor}</div>
+            </div>
+            <div>
+              <span className="font-medium text-foreground">Fahrzeug</span>
+              <div>{event.vehicle ?? "–"}</div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="nachweis-content">Unterrichtsinhalt</Label>
+            <Textarea
+              id="nachweis-content"
+              placeholder="z.B. Stadtfahrt, Autobahn, Einparken…"
+              value={content}
+              onChange={e => setContent(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              className="resize-none text-sm"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Unterschrift Fahrschüler</Label>
+            <SignaturePad
+              ref={sigRef}
+              onChange={setSigHasStrokes}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Abbrechen
+          </Button>
+          <Button
+            onClick={() => void handleSave()}
+            disabled={!canSave}
+          >
+            {saving ? "Speichern…" : "Unterschreiben & speichern"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Nachweis read-only view dialog                                      */
+/* ------------------------------------------------------------------ */
+
+type NachweisViewDialogProps = {
+  open: boolean;
+  attestation: Attestation;
+  onClose: () => void;
+};
+
+function NachweisViewDialog({ open, attestation, onClose }: NachweisViewDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={open => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Ausbildungsnachweis</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground rounded-lg border p-3">
+            <div>
+              <span className="font-medium text-foreground">Fahrlehrer</span>
+              <div>{attestation.instructor || "–"}</div>
+            </div>
+            <div>
+              <span className="font-medium text-foreground">Dauer</span>
+              <div>{attestation.durationMin} Min</div>
+            </div>
+            <div className="col-span-2">
+              <span className="font-medium text-foreground">Unterzeichnet am</span>
+              <div>{attestation.signedAt.replace("T", " ").slice(0, 16)}</div>
+            </div>
+          </div>
+
+          {attestation.content && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium">Unterrichtsinhalt</span>
+              <p className="rounded-lg border p-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                {attestation.content}
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium">Unterschrift</span>
+            <img
+              src={attestation.signatureDataUrl}
+              alt="Unterschrift des Fahrschülers"
+              className="rounded-lg border p-2 bg-background w-full"
+              style={{ imageRendering: "pixelated" }}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Schließen</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Main StundenTab                                                     */
+/* ------------------------------------------------------------------ */
+
 export function StundenTab({ student }: { student: StudentRecord }) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("alle");
   const [billTarget, setBillTarget] = useState<CalEvent | null>(null);
+  const [nachweisTarget, setNachweisTarget] = useState<CalEvent | null>(null);
+  const [viewAttestation, setViewAttestation] = useState<Attestation | null>(null);
+  // Map of event id (string) → Attestation (or null = checked, none found)
+  const [attestationMap, setAttestationMap] = useState<Map<string, Attestation | null>>(new Map());
+  const [loadingAttestations, setLoadingAttestations] = useState(false);
+
   const fullName = `${student.firstName} ${student.lastName}`;
   const { events: allEvents, refresh: refreshEvents } = useCalendarEvents();
   const { plans } = usePricePlans();
   const { students } = useStudents();
   const accounts = useApi(accountingApi.accounts, []);
 
-  // Find the student's price plan (if any) for prefilling the dialog amount.
   const studentPlan = useMemo(
     () => plans.find(p => p.id === student.pricePlanId),
     [plans, student.pricePlanId]
   );
 
-  // Build the list of this student's events.
-  // Prefer matching by studentId (stable FK); fall back to subtitle for
-  // events that predate the billing migration (no studentId set).
   const events = useMemo(
     () =>
       allEvents
@@ -116,7 +304,27 @@ export function StundenTab({ student }: { student: StudentRecord }) {
     [allEvents, fullName, student.id, typeFilter]
   );
 
-  // Build StudentRef for the currently-open billing event.
+  /* Bulk-load attestations for this student's practical events. */
+  const refreshAttestations = useCallback(async () => {
+    setLoadingAttestations(true);
+    try {
+      const list = await fetchAttestationsForStudent(student.id);
+      const map = new Map<string, Attestation | null>();
+      for (const att of list) {
+        map.set(String(att.eventId), att);
+      }
+      setAttestationMap(map);
+    } catch {
+      // Non-fatal: attestation column will just be empty
+    } finally {
+      setLoadingAttestations(false);
+    }
+  }, [student.id]);
+
+  useEffect(() => {
+    void refreshAttestations();
+  }, [refreshAttestations]);
+
   const studentRef = useMemo((): StudentRef | null => {
     const found = students.find(s => s.id === student.id);
     if (!found) return null;
@@ -129,7 +337,6 @@ export function StundenTab({ student }: { student: StudentRecord }) {
     };
   }, [students, student.id]);
 
-  // Prefill values for the PaymentDialog when billing a lesson.
   const billPrefill = useMemo(() => {
     if (!billTarget) return {};
     const durationMin = toMinutes(billTarget.end) - toMinutes(billTarget.start);
@@ -148,6 +355,11 @@ export function StundenTab({ student }: { student: StudentRecord }) {
     await billCalendarEvent(billTarget.id, input);
     await refreshEvents();
     setBillTarget(null);
+  };
+
+  const handleNachweisCaptureDone = async (attestation: Attestation) => {
+    setNachweisTarget(null);
+    setAttestationMap(prev => new Map(prev).set(String(attestation.eventId), attestation));
   };
 
   return (
@@ -196,7 +408,8 @@ export function StundenTab({ student }: { student: StudentRecord }) {
                   <TableHead>Fahrschule</TableHead>
                   <TableHead>Fahrlehrer</TableHead>
                   <TableHead>Fahrzeug</TableHead>
-                  <TableHead className="pr-4">Abrechnung</TableHead>
+                  <TableHead>Abrechnung</TableHead>
+                  <TableHead className="pr-4">Nachweis</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -208,6 +421,10 @@ export function StundenTab({ student }: { student: StudentRecord }) {
                   const billDisabledReason = isPraktisch && !hasStudent
                     ? "Kein Fahrschüler verknüpft"
                     : null;
+
+                  const attestation = attestationMap.get(event.id);
+                  const nachweisChecked = attestationMap.has(event.id);
+                  const nachweisAttested = attestation != null;
 
                   return (
                     <TableRow key={event.id}>
@@ -238,7 +455,9 @@ export function StundenTab({ student }: { student: StudentRecord }) {
                       <TableCell className="text-muted-foreground">
                         {event.vehicle ?? "-"}
                       </TableCell>
-                      <TableCell className="pr-4">
+
+                      {/* Abrechnung column */}
+                      <TableCell>
                         {!isPraktisch ? null : state === "billed" ? (
                           <span className="text-muted-foreground text-xs">
                             Abgerechnet
@@ -271,6 +490,42 @@ export function StundenTab({ student }: { student: StudentRecord }) {
                           </div>
                         )}
                       </TableCell>
+
+                      {/* Nachweis column */}
+                      <TableCell className="pr-4">
+                        {!isPraktisch ? null : nachweisAttested ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-muted-foreground gap-1"
+                            onClick={() => setViewAttestation(attestation)}
+                          >
+                            <ClipboardCheck className="size-3 text-green-600" />
+                            {formatDate(attestation.signedAt.slice(0, 10))}
+                          </Button>
+                        ) : !hasStudent ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-1.5 text-muted-foreground/50 text-xs cursor-not-allowed select-none">
+                                <ClipboardList className="size-3" />
+                                Nachweis
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Kein Fahrschüler verknüpft</TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setNachweisTarget(event)}
+                            disabled={loadingAttestations && !nachweisChecked}
+                          >
+                            <ClipboardList className="mr-1 size-3" />
+                            Nachweis
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -279,6 +534,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
           </div>
         )}
 
+        {/* Billing dialog */}
         {billTarget && (
           <PaymentDialog
             open={true}
@@ -288,6 +544,26 @@ export function StundenTab({ student }: { student: StudentRecord }) {
             {...billPrefill}
             onSubmitOverride={handleBillSubmit}
             onCreated={() => {}}
+          />
+        )}
+
+        {/* Nachweis capture dialog */}
+        {nachweisTarget && (
+          <NachweisDialog
+            open={true}
+            event={nachweisTarget}
+            student={student}
+            onClose={() => setNachweisTarget(null)}
+            onSaved={att => void handleNachweisCaptureDone(att)}
+          />
+        )}
+
+        {/* Nachweis read-only view dialog */}
+        {viewAttestation && (
+          <NachweisViewDialog
+            open={true}
+            attestation={viewAttestation}
+            onClose={() => setViewAttestation(null)}
           />
         )}
       </div>
