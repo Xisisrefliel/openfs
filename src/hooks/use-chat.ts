@@ -7,7 +7,7 @@
 /* sendChatMessage + refresh, so everything persists across reloads.   */
 /* ------------------------------------------------------------------ */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { parseOrThrow, useFetchList } from "@/lib/api";
 
@@ -108,18 +108,21 @@ export function useConversations() {
 export function useMessages(conversationId: number | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const requestVersion = useRef(0);
 
   const refresh = useCallback(async () => {
     if (conversationId === null) {
       setMessages([]);
       return;
     }
+    const version = ++requestVersion.current;
     try {
-      setMessages(await fetchMessages(conversationId));
+      const result = await fetchMessages(conversationId);
+      if (requestVersion.current === version) setMessages(result);
     } catch (error) {
       console.error("Nachrichten konnten nicht geladen werden:", error);
     } finally {
-      setLoading(false);
+      if (requestVersion.current === version) setLoading(false);
     }
   }, [conversationId]);
 
