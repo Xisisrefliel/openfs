@@ -318,6 +318,43 @@ describe("DELETE /api/calendar-events/:id", () => {
 });
 
 /* ================================================================== */
+/* Student balances                                                     */
+/* ================================================================== */
+
+describe("GET /api/student-balances", () => {
+  test("returns 200 with balances array; deposit shows correct balance", async () => {
+    // Post a payment for a fresh student.
+    const id = uniq();
+    await fetch(url("/api/accounting/transactions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "zahlung_guthaben",
+        date: "2026-06-09",
+        amountCents: 50000,
+        geldkonto: "1600",
+        paymentMethod: "bar",
+        student: {
+          customerNo: `B-${id}`,
+          name: `Balance Tester ${id}`,
+          address: "",
+          contractNo: "",
+          classes: "B",
+        },
+      }),
+    });
+
+    const res = await fetch(url("/api/student-balances"));
+    expect(res.status).toBe(200);
+    const body = await res.json() as { balances: { customerNo: string; balanceCents: number }[] };
+    expect(Array.isArray(body.balances)).toBe(true);
+    const entry = body.balances.find(b => b.customerNo === `B-${id}`);
+    expect(entry).toBeDefined();
+    expect(entry!.balanceCents).toBe(50000);
+  });
+});
+
+/* ================================================================== */
 /* Accounting                                                           */
 /* ================================================================== */
 

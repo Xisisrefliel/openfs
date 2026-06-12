@@ -8,6 +8,7 @@ import {
   listAccounts,
   listJournal,
   listLedger,
+  listStudentBalances,
   setAccountActive,
   stornoTransaction,
   ValidationError,
@@ -449,6 +450,102 @@ describe("company settings", () => {
     };
     setCompany(db, updated);
     expect(getCompany(db)).toEqual(updated);
+  });
+});
+
+describe("listStudentBalances", () => {
+  const STUDENT_A = {
+    customerNo: "10051",
+    name: "Aylin Demir",
+    address: "Bleichstraße 9, 64283 Darmstadt",
+    contractNo: "V-2026-0987",
+    classes: "B197",
+  };
+  const STUDENT_B = {
+    customerNo: "10052",
+    name: "Jonas Keller",
+    address: "Rheinstraße 1, 64283 Darmstadt",
+    contractNo: "V-2026-0988",
+    classes: "B",
+  };
+
+  test("deposit 500 € → +50000 for that student", () => {
+    createTransaction(db, {
+      type: "zahlung_guthaben",
+      date: "2026-06-09",
+      amountCents: 50000,
+      geldkonto: "1600",
+      paymentMethod: "bar",
+      student: STUDENT_A,
+    });
+    const balances = listStudentBalances(db);
+    const entry = balances.find(b => b.customerNo === STUDENT_A.customerNo);
+    expect(entry).toBeDefined();
+    expect(entry!.balanceCents).toBe(50000);
+  });
+
+  test("deposit 500 € then 65 € lesson charge → +43500", () => {
+    createTransaction(db, {
+      type: "zahlung_guthaben",
+      date: "2026-06-09",
+      amountCents: 50000,
+      geldkonto: "1600",
+      paymentMethod: "bar",
+      student: STUDENT_A,
+    });
+    createTransaction(db, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: STUDENT_A,
+      description: "Fahrübungsstunde (90)",
+    });
+    const balances = listStudentBalances(db);
+    const entry = balances.find(b => b.customerNo === STUDENT_A.customerNo);
+    expect(entry!.balanceCents).toBe(43500);
+  });
+
+  test("storno of the charge restores the balance to +50000", () => {
+    createTransaction(db, {
+      type: "zahlung_guthaben",
+      date: "2026-06-09",
+      amountCents: 50000,
+      geldkonto: "1600",
+      paymentMethod: "bar",
+      student: STUDENT_A,
+    });
+    const charge = createTransaction(db, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: STUDENT_A,
+      description: "Fahrübungsstunde (90)",
+    });
+    stornoTransaction(db, charge.id, "Irrtümliche Buchung", "2026-06-10");
+    const balances = listStudentBalances(db);
+    const entry = balances.find(b => b.customerNo === STUDENT_A.customerNo);
+    expect(entry!.balanceCents).toBe(50000);
+  });
+
+  test("student with no transactions is absent from the list", () => {
+    // Post a transaction for STUDENT_B only.
+    createTransaction(db, {
+      type: "zahlung_guthaben",
+      date: "2026-06-09",
+      amountCents: 10000,
+      geldkonto: "1600",
+      paymentMethod: "bar",
+      student: STUDENT_B,
+    });
+    const balances = listStudentBalances(db);
+    // STUDENT_A has no transactions in this fresh beforeEach db.
+    const entryA = balances.find(b => b.customerNo === STUDENT_A.customerNo);
+    expect(entryA).toBeUndefined();
+    // STUDENT_B is present.
+    const entryB = balances.find(b => b.customerNo === STUDENT_B.customerNo);
+    expect(entryB!.balanceCents).toBe(10000);
   });
 });
 

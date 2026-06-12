@@ -30,6 +30,8 @@ export type ContractRow = {
   /** Epoch ms parsed from DD.MM.YYYY — NaN when unparseable. */
   registrationTime: number;
   status: StudentStatus;
+  /** Real Guthaben from the ledger in cents; null = no ledger activity. */
+  balanceCents: number | null;
 };
 
 export type ContractKpis = {
@@ -79,7 +81,9 @@ export function resolvePlanName(
 
 export function deriveContractRows(
   students: StudentRecord[],
-  plans: PricePlanRecord[]
+  plans: PricePlanRecord[],
+  /** Map from customerNumber → balanceCents, e.g. from /api/student-balances. */
+  balances: Map<string, number> = new Map()
 ): ContractRow[] {
   return students.map(student => ({
     studentId: student.id,
@@ -93,6 +97,9 @@ export function deriveContractRows(
     registrationDate: student.registrationDate,
     registrationTime: parseGermanDate(student.registrationDate),
     status: student.status,
+    balanceCents: balances.has(student.customerNumber)
+      ? (balances.get(student.customerNumber) ?? null)
+      : null,
   }));
 }
 
