@@ -345,9 +345,10 @@ export function deleteStudent(db: Database, id: number): void {
       }
     }
     // Chat threads survive as history; only the live link is cut.
+    // orphaned = 1 prevents these threads from being reused via name lookup.
     if (conversations.length > 0) {
       db.prepare(
-        "UPDATE conversations SET student_id = NULL WHERE student_id = ?"
+        "UPDATE conversations SET student_id = NULL, orphaned = 1 WHERE student_id = ?"
       ).run(id);
     }
     db.prepare("DELETE FROM students WHERE id = ?").run(id);
