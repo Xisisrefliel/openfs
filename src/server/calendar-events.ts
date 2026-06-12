@@ -95,9 +95,13 @@ const SELECT = `
     ce.id, ce.date, ce.start, ce."end", ce.title, ce.subtitle,
     ce.location, ce.instructor, ce.vehicle, ce.type, ce.tentative,
     ce.student_id, ce.billed_transaction_id,
-    t.storniert_by AS tx_storniert_by
+    CASE
+      WHEN ce.billed_transaction_id IS NOT NULL THEN (
+        SELECT t.storniert_by FROM transactions t WHERE t.id = ce.billed_transaction_id
+      )
+      ELSE NULL
+    END AS tx_storniert_by
   FROM calendar_events ce
-  LEFT JOIN transactions t ON t.id = ce.billed_transaction_id
 `;
 
 export function listCalendarEvents(

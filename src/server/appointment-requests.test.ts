@@ -22,8 +22,19 @@ import {
 import { createCalendarEvent, listCalendarEvents } from "./calendar-events";
 import { ValidationError } from "./engine";
 
-/* Same DDL as in src/server/db.ts — keeps the test DB minimal. */
+/* Same DDL as in src/server/db.ts — keeps the test DB minimal.
+   Includes the billing columns added in plan 019 so listCalendarEvents
+   (which references them) can run against this minimal schema. */
 const CALENDAR_EVENTS_DDL = `
+CREATE TABLE IF NOT EXISTS transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  storniert_by INTEGER REFERENCES transactions(id)
+);
+CREATE TABLE IF NOT EXISTS students (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  first_name TEXT NOT NULL DEFAULT '',
+  last_name TEXT NOT NULL DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS calendar_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   date TEXT NOT NULL,            -- ISO "YYYY-MM-DD"
@@ -36,7 +47,9 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   vehicle TEXT NOT NULL DEFAULT '',
   type TEXT NOT NULL CHECK (type IN ('Praktisch','Theorie','Vorstellung zur prakt. Prüfung','Theorieprüfung','Andere')),
   tentative INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  student_id INTEGER REFERENCES students(id),
+  billed_transaction_id INTEGER REFERENCES transactions(id)
 );
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(date);
 `;
