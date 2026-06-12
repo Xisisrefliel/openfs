@@ -270,7 +270,7 @@ export function generateDatevExport(
     lines.push(fields.join(";"));
   }
 
-  const csv = lines.join("\r\n") + "\r\n";
+  const csv = `${lines.join("\r\n")}\r\n`;
   return {
     filename: `EXTF_Buchungsstapel_${from.replace(/-/g, "")}_${to.replace(/-/g, "")}.csv`,
     bytes: encodeCp1252(csv),

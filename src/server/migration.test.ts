@@ -202,7 +202,7 @@ describe("migrateCalendarEventBilling", () => {
       "Lena",
       "Braun",
     );
-    const { lastInsertRowid: studentId } = legacy.run("SELECT last_insert_rowid() as id");
+    legacy.run("SELECT last_insert_rowid() as id");
     // Insert an event whose subtitle exactly matches.
     legacy.run(
       `INSERT INTO calendar_events (date, start, "end", title, subtitle, type)

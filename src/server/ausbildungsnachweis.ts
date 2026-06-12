@@ -185,7 +185,7 @@ export function createAttestation(
   }
 
   /* ── insert ───────────────────────────────────────────────────── */
-  const row = db
+  db
     .query<{ id: number }, [number, number, string, string, number, string]>(
       `INSERT INTO lesson_attestations
          (event_id, student_id, instructor, content, duration_min, signature_data_url)

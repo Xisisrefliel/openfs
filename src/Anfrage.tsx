@@ -120,8 +120,6 @@ export function Anfrage() {
     }
   }
 
-  const schoolName = profile.description ? undefined : undefined; // only using slogan/name below
-
   return (
     <div className="flex min-h-screen flex-col items-center bg-background px-4 py-12">
       <div className="w-full max-w-md space-y-6">

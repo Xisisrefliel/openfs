@@ -256,7 +256,7 @@ describe("createAttestation — oversize signature rejected", () => {
     const sid = insertStudent(db);
     const eid = insertPraktischEvent(db, sid);
     // Oversize: prefix + 200_001 'A' chars
-    const oversized = "data:image/png;base64," + "A".repeat(200_000);
+    const oversized = `data:image/png;base64,${"A".repeat(200_000)}`;
     expect(() =>
       createAttestation(db, {
         eventId: eid,

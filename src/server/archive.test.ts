@@ -22,7 +22,6 @@ import {
   createStudent,
   deleteStudent,
   getStudent,
-  listStudents,
   updateStudent,
 } from "./students";
 import {

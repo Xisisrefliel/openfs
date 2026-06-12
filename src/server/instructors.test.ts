@@ -280,7 +280,7 @@ describe("deleteInstructor", () => {
       makeInstructor({ firstName: "Tom", lastName: "Fahr" }),
     );
     const fullName = `${instructor.firstName} ${instructor.lastName}`;
-    const student = createStudent(db, makeStudent());
+    createStudent(db, makeStudent());
     db.prepare(
       "INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type) VALUES (?, ?, ?, ?, ?, ?, ?)",
     ).run("2026-02-01", "09:00", "10:00", "Fahrstunde", fullName, "", "Praktisch");

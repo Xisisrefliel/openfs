@@ -62,7 +62,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { CreateTransactionInput, StudentRef } from "@/lib/accounting-types";
-import { formatCents } from "@/lib/money";
 import {
   fetchAttestationsForStudent,
   saveAttestation,
@@ -115,7 +114,7 @@ function NachweisDialog({ open, event, student, onClose, onSaved }: NachweisDial
   const canSave = sigHasStrokes && !saving;
 
   const handleSave = async () => {
-    if (!sigRef.current || !sigRef.current.hasStrokes) return;
+    if (!sigRef.current?.hasStrokes) return;
     setSaving(true);
     try {
       const attestation = await saveAttestation(event.id, {
@@ -525,7 +524,6 @@ export function StundenTab({ student }: { student: StudentRecord }) {
                   const isPraktisch = isFahrstunde(event);
                   const state = isPraktisch ? billingState(event) : null;
                   const hasStudent = event.studentId != null;
-                  const canBill = isPraktisch && state === "open" && hasStudent;
                   const billDisabledReason =
                     isPraktisch && !hasStudent ? "Kein Fahrschüler verknüpft" : null;
 
