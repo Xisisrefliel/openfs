@@ -11,10 +11,12 @@ import {
   deleteCalendarEvent,
   getCalendarEvent,
   listCalendarEvents,
+  markEventBilled,
   updateCalendarEvent,
 } from "./calendar-events";
 import { openDb } from "./db";
-import { ValidationError } from "./engine";
+import { createTransaction, stornoTransaction, ValidationError } from "./engine";
+import type { StudentRef } from "@/lib/accounting-types";
 
 let db: Database;
 
@@ -176,6 +178,159 @@ describe("deleteCalendarEvent", () => {
 
   test("delete on missing id → ValidationError", () => {
     expect(() => deleteCalendarEvent(db, 999999)).toThrow("Termin nicht gefunden.");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* studentId + billed_transaction_id new tests                        */
+/* ------------------------------------------------------------------ */
+
+/** Inserts a minimal student and returns their id. */
+function insertStudent(db: Database, firstName = "Lena", lastName = "Braun"): number {
+  const row = db
+    .query<{ id: number }, [string, string]>(
+      `INSERT INTO students
+         (first_name, last_name, birthday, phone, email, address, classes,
+          driving_school, registration_date, contract_number, customer_number)
+       VALUES (?, ?, '', '', '', '', 'B', 'Fahrschule', '01.01.2026', 'V-TEST-001', 'C001')
+       RETURNING id`
+    )
+    .get(firstName, lastName)!;
+  return row.id;
+}
+
+function makeStudentRef(db: Database, studentId: number): StudentRef {
+  const s = db
+    .query<{ contract_number: string; customer_number: string; first_name: string; last_name: string; classes: string }, [number]>(
+      "SELECT contract_number, customer_number, first_name, last_name, classes FROM students WHERE id = ?"
+    )
+    .get(studentId)!;
+  return {
+    customerNo: s.customer_number,
+    name: `${s.first_name} ${s.last_name}`,
+    address: "",
+    contractNo: s.contract_number,
+    classes: s.classes,
+  };
+}
+
+describe("studentId wire shape", () => {
+  test("createCalendarEvent with valid studentId carries through", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    expect(event.studentId).toBe(sid);
+  });
+
+  test("optional studentId is omitted when not set", () => {
+    const event = createCalendarEvent(db, VALID);
+    expect(event.studentId).toBeUndefined();
+  });
+
+  test("createCalendarEvent with unknown studentId → ValidationError", () => {
+    expect(() =>
+      createCalendarEvent(db, { ...VALID, studentId: 999999 })
+    ).toThrow(ValidationError);
+  });
+
+  test("createCalendarEvent with non-integer studentId → ValidationError", () => {
+    expect(() =>
+      createCalendarEvent(db, { ...VALID, studentId: 1.5 as unknown as number })
+    ).toThrow(ValidationError);
+  });
+
+  test("updateCalendarEvent can set studentId", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const created = createCalendarEvent(fresh, VALID);
+    const updated = updateCalendarEvent(fresh, Number(created.id), { studentId: sid });
+    expect(updated.studentId).toBe(sid);
+  });
+});
+
+describe("markEventBilled + delete-guard", () => {
+  test("markEventBilled sets billedTransactionId and billedActive=true", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    const ref = makeStudentRef(fresh, sid);
+    const tx = createTransaction(fresh, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: ref,
+      description: `FS ${ref.name} - ${ref.classes}, Fahrübungsstunde (45)`,
+    });
+    const billed = markEventBilled(fresh, Number(event.id), tx.id);
+    expect(billed.billedTransactionId).toBe(tx.id);
+    expect(billed.billedActive).toBe(true);
+  });
+
+  test("delete of billed (active) event → ValidationError 'abgerechnet'", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    const ref = makeStudentRef(fresh, sid);
+    const tx = createTransaction(fresh, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: ref,
+      description: `FS ${ref.name} - ${ref.classes}, Fahrübungsstunde (45)`,
+    });
+    markEventBilled(fresh, Number(event.id), tx.id);
+    expect(() => deleteCalendarEvent(fresh, Number(event.id))).toThrow(
+      "Termin ist abgerechnet — zuerst stornieren."
+    );
+  });
+
+  test("delete allowed after linked transaction is storniert", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    const ref = makeStudentRef(fresh, sid);
+    const tx = createTransaction(fresh, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: ref,
+      description: `FS ${ref.name} - ${ref.classes}, Fahrübungsstunde (45)`,
+    });
+    markEventBilled(fresh, Number(event.id), tx.id);
+    stornoTransaction(fresh, tx.id, "Test-Storno", "2026-06-10");
+
+    // After storno the event should be deletable.
+    expect(() => deleteCalendarEvent(fresh, Number(event.id))).not.toThrow();
+  });
+
+  test("billedActive is false after transaction is storniert", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    const ref = makeStudentRef(fresh, sid);
+    const tx = createTransaction(fresh, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: ref,
+      description: `FS ${ref.name} - ${ref.classes}, Fahrübungsstunde (45)`,
+    });
+    markEventBilled(fresh, Number(event.id), tx.id);
+    stornoTransaction(fresh, tx.id, "Test-Storno", "2026-06-10");
+
+    const reloaded = getCalendarEvent(fresh, Number(event.id));
+    expect(reloaded.billedTransactionId).toBe(tx.id);
+    expect(reloaded.billedActive).toBe(false);
   });
 });
 
