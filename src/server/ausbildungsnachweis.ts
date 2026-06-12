@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS lesson_attestations (
   signature_data_url TEXT NOT NULL,
   signed_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS idx_lesson_attestations_student ON lesson_attestations(student_id);
 `;
 
 export function ensureAttestationTables(db: Database): void {
