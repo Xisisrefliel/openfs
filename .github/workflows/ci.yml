@@ -10,10 +10,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - name: Cache bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: Audit dependencies
+        run: bun audit
       - name: Typecheck
         run: bun run typecheck
+      - name: Lint
+        run: bun run lint
       - name: Test
         run: bun test
       - name: Build
