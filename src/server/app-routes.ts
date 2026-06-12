@@ -6,6 +6,7 @@
 import type { Database } from "./sqlite";
 
 import { appointmentRequestRoutes } from "./appointment-requests";
+import { attestationRoutes } from "./ausbildungsnachweis";
 import { branchRoutes } from "./branches";
 import { campaignRoutes } from "./campaigns";
 import { chatRoutes } from "./chat";
@@ -40,5 +41,6 @@ export function buildApiRoutes(db: Database) {
     ...theoryGroupRoutes(db),
     ...schoolProfileRoutes(db),
     ...statisticsRoutes(db),
+    ...attestationRoutes(db),
   };
 }
