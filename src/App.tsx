@@ -97,13 +97,11 @@ const navItems: { label: string; Icon: IconCmp; route?: string }[] = [
 const navGroups: {
   label: string;
   Icon: IconCmp;
-  iconColor: string;
   items: { label: string; Icon: IconCmp; route?: string }[];
 }[] = [
   {
     label: "Marketing",
     Icon: Megaphone,
-    iconColor: "text-rose-500!",
     items: [
       { label: "Marketing", Icon: Megaphone, route: "/marketing" },
       { label: "Schulprofil", Icon: Building2, route: "/schulprofil" },
@@ -114,7 +112,6 @@ const navGroups: {
   {
     label: "Verwaltung",
     Icon: CalendarClock,
-    iconColor: "text-green-700!",
     items: [
       { label: "Terminanfragen", Icon: CalendarClock, route: "/terminanfragen" },
       { label: "Fahrschule", Icon: Building2, route: "/fahrschule" },
@@ -205,14 +202,14 @@ function AppSidebar({
           </SidebarMenu>
         </SidebarGroup>
 
-        {navGroups.map(({ label, Icon, iconColor, items }) => (
+        {navGroups.map(({ label, Icon, items }) => (
           <SidebarGroup key={label}>
             <SidebarMenu>
               <Collapsible defaultOpen className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton tooltip={label}>
-                      <Icon className={iconColor} />
+                      <Icon />
                       <span>{label}</span>
                       <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                     </SidebarMenuButton>
@@ -222,7 +219,10 @@ function AppSidebar({
                       {items.map(
                         ({ label: subLabel, Icon: SubIcon, route }) => (
                           <SidebarMenuSubItem key={subLabel}>
-                            <SidebarMenuSubButton asChild>
+                            <SidebarMenuSubButton
+                              asChild
+                              isActive={route ? path === route : false}
+                            >
                               <a
                                 href={route ?? "#"}
                                 aria-disabled={!route}
@@ -232,7 +232,7 @@ function AppSidebar({
                                   if (route) navigate(route);
                                 }}
                               >
-                                <SubIcon className={iconColor} />
+                                <SubIcon />
                                 <span>{subLabel}</span>
                               </a>
                             </SidebarMenuSubButton>
@@ -256,7 +256,7 @@ function AppSidebar({
                 isActive={path === "/archiv"}
                 onClick={() => navigate("/archiv")}
               >
-                <Archive className="text-amber-600!" />
+                <Archive />
                 <span>Archiv</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -342,7 +342,11 @@ function ShellControls() {
           )}
         />
       </div>
-      <div className="pointer-events-auto relative flex items-center gap-1">
+      {/* w-fit keeps the clickable area to the buttons themselves — the
+          strip container spans the full sidebar width, and a full-width
+          pointer-events-auto row would swallow clicks meant for header
+          content underneath when the sidebar is collapsed. */}
+      <div className="pointer-events-auto relative flex w-fit items-center gap-1">
         <SidebarTrigger className="size-7 bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent" />
         <Button
           type="button"

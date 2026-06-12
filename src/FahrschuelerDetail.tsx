@@ -66,14 +66,15 @@ export function FahrschuelerDetail({
   const student = students.find(entry => entry.id === studentId) ?? null;
   const hasDebt = student?.balance.startsWith("-") ?? false;
 
-  const backToFahrschueler = () => {
-    navigate("/fahrschueler");
-
-    window.setTimeout(() => {
-      if (window.location.pathname !== "/fahrschueler") {
-        window.location.assign("/fahrschueler");
-      }
-    }, 0);
+  // The detail page is reached from several lists (/fahrschueler,
+  // /theorie, …) — go back to wherever the user came from. The list
+  // is only a fallback for direct-URL visits with no app history.
+  const goBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate("/fahrschueler");
+    }
   };
 
   const save = async (updates: Partial<Student>) => {
@@ -201,8 +202,8 @@ export function FahrschuelerDetail({
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label="Zurück zur Fahrschülerliste"
-            onClick={backToFahrschueler}
+            aria-label="Zurück"
+            onClick={goBack}
           >
             <ArrowLeft />
           </Button>
@@ -234,7 +235,7 @@ export function FahrschuelerDetail({
               type="button"
               variant="outline"
               size="sm"
-              onClick={backToFahrschueler}
+              onClick={() => navigate("/fahrschueler")}
             >
               <ArrowLeft data-icon="inline-start" />
               Zur Übersicht

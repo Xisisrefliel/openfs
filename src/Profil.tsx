@@ -1,21 +1,14 @@
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
-  Building2,
-  Car,
   Check,
-  Clock,
-  CreditCard,
-  FileText,
   Globe,
-  GraduationCap,
   ImagePlus,
   Info,
   Landmark,
   Mail,
   MapPin,
   Phone,
-  Star,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,14 +17,11 @@ import type { CompanyProfile } from "@/lib/accounting-types";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "./components/PageHeader.tsx";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  FormSection as Section,
+  FormSectionIndex,
+} from "./components/FormSection.tsx";
+import { PageHeader } from "./components/PageHeader.tsx";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -40,42 +30,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
-type IconCmp = React.ComponentType<{ className?: string }>;
-
 /* ------------------------------------------------------------------ */
 /* Primitives composed from shadcn                                     */
 /* ------------------------------------------------------------------ */
-
-function Section({
-  title,
-  description,
-  Icon,
-  accent,
-  children,
-}: {
-  title: string;
-  description?: string;
-  Icon: IconCmp;
-  accent: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardHeader className="border-b">
-        <div className="flex items-start gap-2.5">
-          <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", accent)}>
-            <Icon className="size-[18px]" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <CardTitle>{title}</CardTitle>
-            {description && <CardDescription>{description}</CardDescription>}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
 
 function Field({
   label,
@@ -116,6 +73,7 @@ function YesNo({ value, onChange }: { value: boolean; onChange: (v: boolean) => 
   );
 }
 
+/* License classes as compact toggle chips; selected = filled primary. */
 function ChipGroup({
   options,
   value,
@@ -137,7 +95,7 @@ function ChipGroup({
         <ToggleGroupItem
           key={o}
           value={o}
-          className="data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+          className="rounded-md data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
           {o}
         </ToggleGroupItem>
@@ -224,6 +182,16 @@ const merkmaleList = [
 ];
 
 const paymentMethods = ["Banküberweisung", "Kredit- / Debitkarte", "Bar", "Giro / EC-Karten"];
+
+const sections = [
+  { id: "stammdaten", label: "Stammdaten" },
+  { id: "oeffnungszeiten", label: "Öffnungszeiten" },
+  { id: "theorie", label: "Theorie" },
+  { id: "klassen", label: "Klassen" },
+  { id: "merkmale", label: "Merkmale" },
+  { id: "fahrzeuge", label: "Fahrzeuge" },
+  { id: "zahlung", label: "Zahlung" },
+];
 
 /* ------------------------------------------------------------------ */
 /* Hours editor                                                        */
@@ -377,292 +345,304 @@ export function Profil() {
           if ((event.target as HTMLElement).closest("button")) markDirty();
         }}
       >
-        <div className="stagger-in mx-auto flex w-full max-w-[1080px] flex-col gap-4 2xl:gap-5">
-          {/* Schulinformationen */}
-          <Section
-            title="Schulinformationen"
-            description="Stammdaten Ihrer Fahrschule"
-            Icon={Building2}
-            accent="bg-indigo-500/10 text-indigo-600"
-          >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Fahrschulname" htmlFor="name">
-                <Input
-                  id="name"
-                  value={company.name}
-                  onChange={e => updateCompany({ name: e.target.value })}
-                />
-              </Field>
-              <Field label="Anschrift" htmlFor="address">
-                <div className="relative">
-                  <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="address"
-                    className="pl-9"
-                    value={company.address}
-                    onChange={e => updateCompany({ address: e.target.value })}
-                  />
-                </div>
-              </Field>
-              <Field
-                label="E-Mail"
-                htmlFor="email"
-                hint="Über diese E-Mail erhalten Sie alle Buchungen."
-              >
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    className="pl-9"
-                    value={company.email}
-                    onChange={e => updateCompany({ email: e.target.value })}
-                  />
-                </div>
-              </Field>
-              <Field label="Telefon" htmlFor="phone">
-                <div className="relative">
-                  <Phone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    type="tel"
-                    className="pl-9"
-                    value={company.phone}
-                    onChange={e => updateCompany({ phone: e.target.value })}
-                  />
-                </div>
-              </Field>
-              <Field label="Webseite" htmlFor="web">
-                <div className="relative">
-                  <Globe className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="web"
-                    type="url"
-                    className="pl-9"
-                    value={company.website}
-                    onChange={e => updateCompany({ website: e.target.value })}
-                  />
-                </div>
-              </Field>
-              <Field label="Beschreibung" htmlFor="desc">
-                <Textarea
-                  id="desc"
-                  rows={3}
-                  placeholder="Beschreiben Sie Ihre Fahrschule in wenigen Sätzen…"
-                />
-              </Field>
-              <Field
-                label="Steuernummer"
-                htmlFor="steuernummer"
-                hint="Erscheint auf Quittungen (§ 14 UStG)."
-              >
-                <div className="relative">
-                  <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="steuernummer"
-                    className="pl-9"
-                    placeholder="z. B. 045 123 45678"
-                    value={company.steuernummer}
-                    onChange={e => updateCompany({ steuernummer: e.target.value })}
-                  />
-                </div>
-              </Field>
-              <Field
-                label="USt-IdNr"
-                htmlFor="ustidnr"
-                hint="Optional — alternativ zur Steuernummer auf Quittungen."
-              >
-                <div className="relative">
-                  <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="ustidnr"
-                    className="pl-9"
-                    placeholder="z. B. DE123456789"
-                    value={company.ustIdNr}
-                    onChange={e => updateCompany({ ustIdNr: e.target.value })}
-                  />
-                </div>
-              </Field>
-              <Field
-                label="DATEV-Beraternummer"
-                htmlFor="beraternr"
-                hint="Nummer Ihres Steuerberaters (1001–9999999) — für den DATEV-Export."
-              >
-                <div className="relative">
-                  <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="beraternr"
-                    className="pl-9"
-                    inputMode="numeric"
-                    placeholder="z. B. 29098"
-                    value={company.beraterNr}
-                    onChange={e => updateCompany({ beraterNr: e.target.value })}
-                  />
-                </div>
-              </Field>
-              <Field
-                label="DATEV-Mandantennummer"
-                htmlFor="mandantnr"
-                hint="Ihre Mandantennummer beim Steuerberater (1–99999)."
-              >
-                <div className="relative">
-                  <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="mandantnr"
-                    className="pl-9"
-                    inputMode="numeric"
-                    placeholder="z. B. 55003"
-                    value={company.mandantNr}
-                    onChange={e => updateCompany({ mandantNr: e.target.value })}
-                  />
-                </div>
-              </Field>
-            </div>
+        <div className="mx-auto flex w-full max-w-[1080px] gap-10">
+          <FormSectionIndex sections={sections} />
 
-            <div className="mt-4 flex flex-col gap-1.5">
-              <Label>Die Fahrschule in Bildern</Label>
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/40 px-4 py-8 text-center transition-colors hover:border-ring hover:bg-muted">
-                <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                  <ImagePlus className="size-5" />
-                </div>
-                <p className="text-sm text-foreground">
-                  Lassen Sie Ihre Bilder hier oder{" "}
-                  <span className="font-medium underline underline-offset-2">
-                    wählen Sie die Datei
-                  </span>
-                </p>
-                <span className="text-xs text-muted-foreground">PNG, JPG bis 10 MB</span>
-                <input type="file" accept="image/*" multiple className="hidden" />
-              </label>
-            </div>
-          </Section>
-
-          {/* Öffnungszeiten */}
-          <Section
-            title="Öffnungszeiten"
-            description="Teilen Sie Ihre Öffnungszeiten mit und erleichtern Sie Ihren Kunden die Terminvereinbarung."
-            Icon={Clock}
-            accent="bg-sky-500/10 text-sky-600"
-          >
-            <HoursEditor initial={officeDefaults} />
-          </Section>
-
-          {/* Theorieunterricht */}
-          <Section
-            title="Theorieunterricht"
-            description="Veröffentlichen Sie Ihre Theorie-Stunden und machen Sie es den Schülern leichter."
-            Icon={FileText}
-            accent="bg-violet-500/10 text-violet-600"
-          >
-            <HoursEditor initial={theoryDefaults} />
-          </Section>
-
-          {/* Klassen */}
-          <Section title="Klassen" description="Welche Führerscheinklassen bieten Sie an?" Icon={Star} accent="bg-amber-500/10 text-amber-600">
-            <div className="flex flex-col gap-5">
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center justify-between">
-                  <Label>Führerscheinklassen</Label>
-                  <span className="text-xs text-muted-foreground">{classes.length} ausgewählt</span>
-                </div>
-                <ChipGroup options={licenseClasses} value={classes} onChange={setClasses} />
+          <div className="stagger-in flex min-w-0 flex-1 flex-col gap-8 pb-4">
+            {/* Stammdaten */}
+            <Section
+              id="stammdaten"
+              title="Stammdaten"
+              description="Grunddaten Ihrer Fahrschule — erscheinen auf Quittungen und im DATEV-Export."
+            >
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Fahrschulname" htmlFor="name">
+                  <Input
+                    id="name"
+                    value={company.name}
+                    onChange={e => updateCompany({ name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Anschrift" htmlFor="address">
+                  <div className="relative">
+                    <MapPin className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="address"
+                      className="pl-9"
+                      value={company.address}
+                      onChange={e => updateCompany({ address: e.target.value })}
+                    />
+                  </div>
+                </Field>
+                <Field
+                  label="E-Mail"
+                  htmlFor="email"
+                  hint="Über diese E-Mail erhalten Sie alle Buchungen."
+                >
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      className="pl-9"
+                      value={company.email}
+                      onChange={e => updateCompany({ email: e.target.value })}
+                    />
+                  </div>
+                </Field>
+                <Field label="Telefon" htmlFor="phone">
+                  <div className="relative">
+                    <Phone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      className="pl-9"
+                      value={company.phone}
+                      onChange={e => updateCompany({ phone: e.target.value })}
+                    />
+                  </div>
+                </Field>
+                <Field label="Webseite" htmlFor="web">
+                  <div className="relative">
+                    <Globe className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="web"
+                      type="url"
+                      className="pl-9"
+                      value={company.website}
+                      onChange={e => updateCompany({ website: e.target.value })}
+                    />
+                  </div>
+                </Field>
+                <Field label="Beschreibung" htmlFor="desc">
+                  <Textarea
+                    id="desc"
+                    rows={3}
+                    placeholder="Beschreiben Sie Ihre Fahrschule in wenigen Sätzen…"
+                  />
+                </Field>
+                <Field
+                  label="Steuernummer"
+                  htmlFor="steuernummer"
+                  hint="Erscheint auf Quittungen (§ 14 UStG)."
+                >
+                  <div className="relative">
+                    <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="steuernummer"
+                      className="pl-9 font-mono text-[13px]"
+                      placeholder="z. B. 045 123 45678"
+                      value={company.steuernummer}
+                      onChange={e => updateCompany({ steuernummer: e.target.value })}
+                    />
+                  </div>
+                </Field>
+                <Field
+                  label="USt-IdNr"
+                  htmlFor="ustidnr"
+                  hint="Optional — alternativ zur Steuernummer auf Quittungen."
+                >
+                  <div className="relative">
+                    <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="ustidnr"
+                      className="pl-9 font-mono text-[13px]"
+                      placeholder="z. B. DE123456789"
+                      value={company.ustIdNr}
+                      onChange={e => updateCompany({ ustIdNr: e.target.value })}
+                    />
+                  </div>
+                </Field>
+                <Field
+                  label="DATEV-Beraternummer"
+                  htmlFor="beraternr"
+                  hint="Nummer Ihres Steuerberaters (1001–9999999) — für den DATEV-Export."
+                >
+                  <div className="relative">
+                    <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="beraternr"
+                      className="pl-9 font-mono text-[13px]"
+                      inputMode="numeric"
+                      placeholder="z. B. 29098"
+                      value={company.beraterNr}
+                      onChange={e => updateCompany({ beraterNr: e.target.value })}
+                    />
+                  </div>
+                </Field>
+                <Field
+                  label="DATEV-Mandantennummer"
+                  htmlFor="mandantnr"
+                  hint="Ihre Mandantennummer beim Steuerberater (1–99999)."
+                >
+                  <div className="relative">
+                    <Landmark className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="mandantnr"
+                      className="pl-9 font-mono text-[13px]"
+                      inputMode="numeric"
+                      placeholder="z. B. 55003"
+                      value={company.mandantNr}
+                      onChange={e => updateCompany({ mandantNr: e.target.value })}
+                    />
+                  </div>
+                </Field>
               </div>
 
-              <Separator />
-
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center justify-between">
-                  <Label>Führerscheinklassen Berufskraftfahrer</Label>
-                  <span className="text-xs text-muted-foreground">{bkf.length} ausgewählt</span>
-                </div>
-                <ChipGroup options={bkfClasses} value={bkf} onChange={setBkf} />
+              <div className="flex flex-col gap-1.5">
+                <Label>Die Fahrschule in Bildern</Label>
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/40 px-4 py-8 text-center transition-colors hover:border-ring hover:bg-muted">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                    <ImagePlus className="size-5" />
+                  </div>
+                  <p className="text-sm text-foreground">
+                    Lassen Sie Ihre Bilder hier oder{" "}
+                    <span className="font-medium underline underline-offset-2">
+                      wählen Sie die Datei
+                    </span>
+                  </p>
+                  <span className="text-xs text-muted-foreground">PNG, JPG bis 10 MB</span>
+                  <input type="file" accept="image/*" multiple className="hidden" />
+                </label>
               </div>
-            </div>
-          </Section>
+            </Section>
 
-          {/* Merkmale */}
-          <Section title="Merkmale" description="Welche Leistungen bietet Ihre Fahrschule?" Icon={Check} accent="bg-emerald-500/10 text-emerald-600">
-            <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
-              {merkmaleList.map(m => (
-                <div key={m} className="flex items-center justify-between border-b py-3 last:border-0">
-                  <span className="text-sm">{m}</span>
-                  <YesNo value={merkmale[m] ?? false} onChange={v => setMerkmale({ ...merkmale, [m]: v })} />
+            {/* Öffnungszeiten */}
+            <Section
+              id="oeffnungszeiten"
+              title="Öffnungszeiten"
+              description="Teilen Sie Ihre Öffnungszeiten mit und erleichtern Sie Ihren Kunden die Terminvereinbarung."
+            >
+              <HoursEditor initial={officeDefaults} />
+            </Section>
+
+            {/* Theorieunterricht */}
+            <Section
+              id="theorie"
+              title="Theorieunterricht"
+              description="Veröffentlichen Sie Ihre Theorie-Stunden und machen Sie es den Schülern leichter."
+            >
+              <HoursEditor initial={theoryDefaults} />
+            </Section>
+
+            {/* Klassen */}
+            <Section
+              id="klassen"
+              title="Klassen"
+              description="Welche Führerscheinklassen bieten Sie an?"
+            >
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <Label>Führerscheinklassen</Label>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {classes.length} ausgewählt
+                    </span>
+                  </div>
+                  <ChipGroup options={licenseClasses} value={classes} onChange={setClasses} />
                 </div>
-              ))}
-            </div>
 
-            <Separator className="my-5" />
+                <Separator />
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Sprachen" hint="Enter drücken zum Hinzufügen">
-                <TagInput placeholder="Sprache hinzufügen…" initial={["Deutsch", "Türkisch"]} />
-              </Field>
-              <Field label="Zertifikate" hint="Enter drücken zum Hinzufügen">
-                <TagInput placeholder="Zertifikat hinzufügen…" />
-              </Field>
-            </div>
-          </Section>
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <Label>Führerscheinklassen Berufskraftfahrer</Label>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {bkf.length} ausgewählt
+                    </span>
+                  </div>
+                  <ChipGroup options={bkfClasses} value={bkf} onChange={setBkf} />
+                </div>
+              </div>
+            </Section>
 
-          {/* Fahrzeuge */}
-          <Section title="Fahrzeuge" description="Marken Ihrer Schulungsfahrzeuge je Klasse" Icon={Car} accent="bg-rose-500/10 text-rose-600">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Klasse A (Motorrad) — Marken">
-                <TagInput placeholder="Marke hinzufügen…" initial={["Honda"]} />
-              </Field>
-              <Field label="Klasse B (PKW) — Marken">
-                <TagInput placeholder="Marke hinzufügen…" initial={["VW", "Audi"]} />
-              </Field>
-              <Field label="Klasse C — Marken">
-                <TagInput placeholder="Marke hinzufügen…" />
-              </Field>
-              <Field label="Klasse D — Marken">
-                <TagInput placeholder="Marke hinzufügen…" />
-              </Field>
-            </div>
-          </Section>
+            {/* Merkmale */}
+            <Section
+              id="merkmale"
+              title="Merkmale"
+              description="Welche Leistungen bietet Ihre Fahrschule?"
+            >
+              <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
+                {merkmaleList.map(m => (
+                  <div key={m} className="flex items-center justify-between border-b py-3 last:border-0">
+                    <span className="text-sm">{m}</span>
+                    <YesNo value={merkmale[m] ?? false} onChange={v => setMerkmale({ ...merkmale, [m]: v })} />
+                  </div>
+                ))}
+              </div>
 
-          {/* Zahlungsmethode */}
-          <Section
-            title="Zahlungsmethode"
-            description="Welche Zahlungsarten akzeptieren Sie?"
-            Icon={CreditCard}
-            accent="bg-teal-500/10 text-teal-600"
-          >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {paymentMethods.map(p => {
-                const active = payments.includes(p);
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() =>
-                      setPayments(active ? payments.filter(x => x !== p) : [...payments, p])
-                    }
-                    className={cn(
-                      "flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-all active:scale-[0.99]",
-                      active ? "border-primary bg-muted/50" : "hover:border-ring"
-                    )}
-                  >
-                    <span className="text-sm font-medium">{p}</span>
-                    <span
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Sprachen" hint="Enter drücken zum Hinzufügen">
+                  <TagInput placeholder="Sprache hinzufügen…" initial={["Deutsch", "Türkisch"]} />
+                </Field>
+                <Field label="Zertifikate" hint="Enter drücken zum Hinzufügen">
+                  <TagInput placeholder="Zertifikat hinzufügen…" />
+                </Field>
+              </div>
+            </Section>
+
+            {/* Fahrzeuge */}
+            <Section
+              id="fahrzeuge"
+              title="Fahrzeuge"
+              description="Marken Ihrer Schulungsfahrzeuge je Klasse."
+            >
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Klasse A (Motorrad) — Marken">
+                  <TagInput placeholder="Marke hinzufügen…" initial={["Honda"]} />
+                </Field>
+                <Field label="Klasse B (PKW) — Marken">
+                  <TagInput placeholder="Marke hinzufügen…" initial={["VW", "Audi"]} />
+                </Field>
+                <Field label="Klasse C — Marken">
+                  <TagInput placeholder="Marke hinzufügen…" />
+                </Field>
+                <Field label="Klasse D — Marken">
+                  <TagInput placeholder="Marke hinzufügen…" />
+                </Field>
+              </div>
+            </Section>
+
+            {/* Zahlungsmethode */}
+            <Section
+              id="zahlung"
+              title="Zahlungsmethode"
+              description="Welche Zahlungsarten akzeptieren Sie?"
+            >
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {paymentMethods.map(p => {
+                  const active = payments.includes(p);
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() =>
+                        setPayments(active ? payments.filter(x => x !== p) : [...payments, p])
+                      }
                       className={cn(
-                        "flex size-5 items-center justify-center rounded-full border transition-colors",
-                        active
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "text-transparent"
+                        "flex items-center justify-between rounded-lg border px-4 py-3 text-left transition-all active:scale-[0.99]",
+                        active ? "border-primary bg-secondary" : "hover:border-ring"
                       )}
                     >
-                      <Check className="size-3" />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </Section>
+                      <span className="text-sm font-medium">{p}</span>
+                      <span
+                        className={cn(
+                          "flex size-5 items-center justify-center rounded-full border transition-colors",
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "text-transparent"
+                        )}
+                      >
+                        <Check className="size-3" />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
 
-          {/* Footer */}
-          <Card>
-            <CardContent className="flex items-center justify-between gap-3">
+            {/* Footer */}
+            <div className="flex items-center justify-between gap-3 border-t pt-6">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Info className="size-4 shrink-0" />
                 <span className="text-sm">
@@ -673,8 +653,8 @@ export function Profil() {
                 Speichern
                 <ArrowRight />
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>

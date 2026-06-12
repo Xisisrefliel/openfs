@@ -28,6 +28,58 @@ plan excerpts reflect that working-tree state.
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
+## Full-app audit 2026-06-12 — plans 014–027
+
+Audited at commit `160eccc`. Baseline at audit time: 387 tests, typecheck
+clean, `bun audit` clean. All DONE rows were executed by subagents in
+isolated worktrees and reviewed (done criteria re-run, diffs read) on
+2026-06-12. **Everything below is merged into `advisor/integration-2026-06-12`
+(556 tests, typecheck + build green) — merge that ONE branch.**
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+|------|-------|----------|--------|------------|--------|
+| 016  | Unit tests: instructors/vehicles/price-plans + lib formatters | P1 | M | — | DONE (advisor/016-unit-tests) |
+| 027  | DX: OpenFS AGENTS.md/CLAUDE.md, CI workflow, package name | P1 | S | — | DONE (advisor/027-dx-docs-ci) |
+| 014  | Chat: stop orphaned threads being reused by name match | P2 | S | — | DONE (advisor/014-chat-orphan-dedup) |
+| 015  | Chat polish: stale-response guard, optimistic mark-as-read | P3 | S | — | DONE (advisor/015-chat-polish) |
+| 021  | Theory attendance tracking (Anwesenheit) | P1 | M | — | DONE (advisor/021-theory-attendance) |
+| 022  | Real per-student balances from the ledger | P2 | M | — | DONE (advisor/022-student-balances; nit: name per group is an arbitrary snapshot) |
+| 024  | Public appointment-request form (/anfrage) | P2 | S–M | — | DONE (advisor/024-public-anfrage; App.tsx +3 lines) |
+| 025  | Data export: download the SQLite DB | P2 | S | — | DONE (advisor/025-db-export; incl. review fix mounting the route) |
+| 026  | Design spike: multi-tenant architecture mapping (doc only) | P2 | M | — | DONE (→ plans/design/tenancy.md) |
+| 019  | Lesson billing link (confirm-to-bill, per design/lessons-billing.md) | P1 | L | 016 (soft) | DONE (advisor/019-lesson-billing; incl. review fix enforcing guthaben_uebertragung on the bill endpoint) |
+| 020  | Exam results + license milestone + pass-rate KPI | P1 | M | 019 | DONE (advisor/020-exam-results, based on 019) |
+| 023  | Digital Ausbildungsnachweis MVP (per-lesson signature) | P2 | M | 019 | DONE (advisor/023-ausbildungsnachweis, based on 019) |
+| 017  | Route table in App.tsx (+404) | P3 | M | design-refresh commit | BLOCKED (App.tsx has uncommitted design work) |
+| 018  | Design-system rollout to ~14 remaining pages | P2 | L | design-refresh commit; 017 rec. | BLOCKED (reference pages uncommitted) |
+
+### Merge notes (014–027)
+
+- Merge `advisor/integration-2026-06-12` once; expect a small App.tsx
+  conflict against the design-refresh commit (024's 3-line early return —
+  keep both sides).
+- 017/018 unblock once the design refresh is committed; their excerpts were
+  taken from that working tree on 2026-06-12.
+- 025's UI button deferred until after 018; the endpoint ships UI-less.
+- Follow-ups deferred by 019: batch billing, studentId on Kalendar event
+  creation, exam-fee billing. Open tax question: which Erlöskonto practical
+  lessons book to (4400 vs §4 Nr. 21-exempt 4100) — Steuerberater.
+- Incident log: during execution an agent ran git in the main checkout and
+  wiped the uncommitted design refresh; fully recovered byte-exact from
+  session transcripts the same day. Commit early.
+
+### Rejected in the 2026-06-12 full-app audit (verified — do not re-report)
+
+- **Terminanfragen date-parse "timezone bug"** (`Terminanfragen.tsx:96`):
+  false positive — local-midnight parse + local display agree in every TZ.
+- **Generic CRUD-factory refactor of the 11 server modules**: high risk on
+  the critical path for low payoff.
+- **Chat pagination**: datasets tiny; revisit if threads exceed ~1k messages.
+- **`as unknown as BodyInit` casts**: documented Bun-types workarounds.
+- **Unused ui/ components (embla/vaul/cmdk)**: tree-shaken shadcn files.
+- **10s chat poll interval**: deliberate; plan 015 removed the redundant
+  extra refetch instead.
+
 ## Dependency notes
 
 - 003 first: it makes `bun run test` / `bun run typecheck` the universal

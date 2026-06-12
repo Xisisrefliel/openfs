@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Printer, Trash2 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
-import { useStudents } from "@/hooks/use-students";
-import type { Student } from "@/lib/student-data";
+import { useStudents, type StudentRecord } from "@/hooks/use-students";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,8 @@ import {
 
 // The /theorie view derived from the shared DB-backed student roster — same
 // people as /fahrschueler, projected onto the theory-course fields.
-const toLearner = (student: Student) => ({
+const toLearner = (student: StudentRecord) => ({
+  id: student.id,
   name: `${student.firstName} ${student.lastName}`,
   phone: student.phone,
   className: student.classes,
@@ -39,16 +40,23 @@ const toLearner = (student: Student) => ({
   status: student.theory.status,
 });
 
-const statusTone: Record<string, string> = {
-  Aktiv: "bg-blue-50 text-blue-700 ring-blue-600/20",
-  "In Prüfung": "bg-amber-50 text-amber-700 ring-amber-600/20",
-  Bereit: "bg-green-50 text-green-700 ring-green-600/20",
-  Pausiert: "bg-muted text-muted-foreground ring-border",
+/* Status as a colored dot + plain label — quiet, scannable. */
+const statusDot: Record<string, string> = {
+  Aktiv: "bg-primary",
+  "In Prüfung": "bg-amber-500",
+  Bereit: "bg-green-500",
+  Pausiert: "bg-muted-foreground/50",
 };
 
 type Learner = ReturnType<typeof toLearner>;
-type SortKey = keyof Learner;
+type SortKey = Exclude<keyof Learner, "id">;
 type SortDirection = "asc" | "desc";
+
+/* Mirrors the row navigation on /fahrschueler — same detail page. */
+function openStudent(id: number) {
+  window.history.pushState({}, "", `/fahrschueler/${id}`);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
 
 const sortLabels: Record<SortKey, string> = {
   name: "Name",
@@ -199,19 +207,17 @@ export function Theorie() {
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
-      <PageHeader />
-
-      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
-        <div className="animate-enter flex flex-col gap-4 rounded-xl border bg-card p-4 2xl:p-5">
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        end={
+          <>
             <Input
               value={query}
               onChange={event => setQuery(event.target.value)}
-              placeholder="Name, Telefon oder Klasse suchen"
-              className="max-w-80"
+              placeholder="Suchen…"
+              className="hidden w-44 sm:flex lg:w-60"
             />
             <Select value={classFilter} onValueChange={setClassFilter}>
-              <SelectTrigger className="w-36">
+              <SelectTrigger className="hidden w-32 md:flex">
                 <SelectValue placeholder="Klasse" />
               </SelectTrigger>
               <SelectContent>
@@ -225,7 +231,7 @@ export function Theorie() {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="hidden w-36 md:flex">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -238,11 +244,20 @@ export function Theorie() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <Button type="button" variant="outline" onClick={resetFilters}>
+            <Button
+              type="button"
+              variant="outline"
+              className="hidden md:inline-flex"
+              onClick={resetFilters}
+            >
               Zurücksetzen
             </Button>
-          </div>
+          </>
+        }
+      />
 
+      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
+        <div className="animate-enter flex flex-col rounded-xl border bg-card p-4 2xl:p-5">
           <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
@@ -307,14 +322,29 @@ export function Theorie() {
               </TableHeader>
               <TableBody>
                 {filteredLearners.map(student => (
-                  <TableRow key={student.name}>
+                  <TableRow
+                    key={student.id}
+                    tabIndex={0}
+                    className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
+                    onClick={() => openStudent(student.id)}
+                    onKeyDown={event => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openStudent(student.id);
+                      }
+                    }}
+                  >
                     <TableCell className="font-medium">{student.name}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="tabular-nums text-muted-foreground">
                       {student.phone}
                     </TableCell>
-                    <TableCell>{student.className}</TableCell>
-                    <TableCell>{student.lastLogin}</TableCell>
-                    <TableCell>{student.createdAt}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{student.className}</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{student.lastLogin}</TableCell>
+                    <TableCell className="tabular-nums text-muted-foreground">
+                      {student.createdAt}
+                    </TableCell>
                     <TableCell>
                       <div className="flex min-w-32 items-center gap-2">
                         <Progress value={student.progress} className="h-1.5" />
@@ -323,17 +353,20 @@ export function Theorie() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>{student.preExams}</TableCell>
-                    <TableCell>{student.exam}</TableCell>
+                    <TableCell className="tabular-nums">{student.preExams}</TableCell>
+                    <TableCell className="tabular-nums">{student.exam}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={statusTone[student.status]}
-                      >
+                      <Badge variant="outline" className="gap-1.5 font-normal">
+                        <span
+                          aria-hidden
+                          className={cn("size-1.5 rounded-full", statusDot[student.status])}
+                        />
                         {student.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    {/* Row click navigates; keep the action buttons from
+                        triggering it. */}
+                    <TableCell onClick={event => event.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button
                           type="button"
