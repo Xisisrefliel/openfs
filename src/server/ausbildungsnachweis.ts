@@ -219,26 +219,13 @@ export function createAttestation(
 /* ------------------------------------------------------------------ */
 
 import type { BunRequest } from "bun";
-
-function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-function err(message: string, status = 400): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
+import { err, handle, json } from "./http";
 
 export function attestationRoutes(db: Database) {
   return {
     "/api/attestations": {
       /* GET /api/attestations?studentId=123 */
-      GET: async (req: BunRequest): Promise<Response> => {
+      GET: handle(async (req: BunRequest): Promise<Response> => {
         const url = new URL(req.url);
         const raw = url.searchParams.get("studentId");
         if (!raw) return err("studentId ist erforderlich.");
@@ -248,11 +235,11 @@ export function attestationRoutes(db: Database) {
         }
         const attestations = listAttestationsForStudent(db, studentId);
         return json({ attestations });
-      },
+      }),
     },
 
     "/api/calendar-events/:id/attestation": {
-      GET: async (
+      GET: handle(async (
         req: BunRequest<"/api/calendar-events/:id/attestation">
       ): Promise<Response> => {
         const id = Number(req.params.id);
@@ -260,9 +247,9 @@ export function attestationRoutes(db: Database) {
         const attestation = getAttestationForEvent(db, id);
         if (!attestation) return err("Kein Ausbildungsnachweis gefunden.", 404);
         return json({ attestation });
-      },
+      }),
 
-      POST: async (
+      POST: handle(async (
         req: BunRequest<"/api/calendar-events/:id/attestation">
       ): Promise<Response> => {
         const eventId = Number(req.params.id);
@@ -287,7 +274,7 @@ export function attestationRoutes(db: Database) {
           if (e instanceof ValidationError) return err(e.message);
           throw e;
         }
-      },
+      }),
     },
   } as const;
 }
