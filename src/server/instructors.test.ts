@@ -19,6 +19,7 @@ import {
 } from "./instructors";
 import { listArchive } from "./archive";
 import { createStudent, getStudent } from "./students";
+import { ensureAttestationTables } from "./ausbildungsnachweis";
 
 let db: Database;
 
@@ -179,6 +180,21 @@ describe("rename cascade", () => {
     expect(unrelatedAfter.instructor).toBe("Andere Lehrerin");
   });
 
+  test("rename cascades to lesson_attestations.instructor", () => {
+    const instructor = createInstructor(db, makeInstructor({ firstName: "Rena", lastName: "Alt" }));
+    const fullName = `${instructor.firstName} ${instructor.lastName}`;
+    const attId = insertAttestation(db, fullName);
+
+    updateInstructor(db, instructor.id, { firstName: "Rena", lastName: "Neu" });
+
+    const row = db
+      .query<{ instructor: string }, [number]>(
+        "SELECT instructor FROM lesson_attestations WHERE id = ?"
+      )
+      .get(attId);
+    expect(row?.instructor).toBe("Rena Neu");
+  });
+
   test("namesake caveat: renaming one instructor moves ALL references with that display name (documented limitation)", () => {
     // Create two instructors with the same name — the name-keyed schema
     // cannot tell them apart, so a rename of one cascades to all references.
@@ -269,4 +285,40 @@ describe("deleteInstructor", () => {
     deleteInstructor(db, instructor.id);
     expect(() => getInstructor(db, instructor.id)).toThrow(ValidationError);
   });
+
+  test("leaves lesson_attestations.instructor unchanged (compliance record)", () => {
+    const instructor = createInstructor(db, makeInstructor({ firstName: "Doro", lastName: "Bleibt" }));
+    const fullName = `${instructor.firstName} ${instructor.lastName}`;
+    const attId = insertAttestation(db, fullName);
+
+    deleteInstructor(db, instructor.id);
+
+    const row = db
+      .query<{ instructor: string }, [number]>(
+        "SELECT instructor FROM lesson_attestations WHERE id = ?"
+      )
+      .get(attId);
+    expect(row?.instructor).toBe(fullName);
+  });
 });
+
+/** Creates the attestation table plus a backing calendar event and inserts
+    one attestation row signed by the given instructor name. Returns its id. */
+function insertAttestation(db: Database, instructorName: string): number {
+  ensureAttestationTables(db);
+  const event = db
+    .query<{ id: number }, [string]>(
+      `INSERT INTO calendar_events (date, start, end, title, instructor, vehicle, type)
+       VALUES ('2026-03-01', '08:00', '09:00', 'Fahrstunde', ?, '', 'Praktisch')
+       RETURNING id`
+    )
+    .get(instructorName)!;
+  return db
+    .query<{ id: number }, [number, string]>(
+      `INSERT INTO lesson_attestations
+         (event_id, student_id, instructor, content, duration_min, signature_data_url)
+       VALUES (?, 1, ?, 'Stadtfahrt', 45, 'data:image/png;base64,abc')
+       RETURNING id`
+    )
+    .get(event.id, instructorName)!.id;
+}

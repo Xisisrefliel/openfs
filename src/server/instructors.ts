@@ -183,6 +183,11 @@ export function updateInstructor(
           "UPDATE theory_groups SET instructor = ? WHERE instructor = ?"
         ).run(newName, oldName);
       }
+      if (tableExists(db, "lesson_attestations")) {
+        db.prepare(
+          "UPDATE lesson_attestations SET instructor = ? WHERE instructor = ?"
+        ).run(newName, oldName);
+      }
     }
   });
   write();
@@ -234,6 +239,8 @@ export function deleteInstructor(db: Database, id: number): void {
         "UPDATE calendar_events SET instructor = ? WHERE instructor = ?"
       ).run(UNASSIGNED_INSTRUCTOR, name);
     }
+    // lesson_attestations keep the instructor name on purpose: they record
+    // who actually gave the lesson — rewriting would falsify a compliance record.
     db.prepare("DELETE FROM instructors WHERE id = ?").run(id);
   });
 
