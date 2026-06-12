@@ -1,6 +1,6 @@
 # OpenFS
 
-Management software for German driving schools (Fahrschulen). It covers the full operational workflow: a week-based lesson calendar, student and instructor management, vehicle fleet tracking, configurable price plans, and a GoBD-shaped double-entry accounting engine (SKR 04, immutable bookings, Storno-only corrections, gapless receipt sequences) with Quittungen printing and DATEV CSV export.
+Management software for German driving schools (Fahrschulen). It covers the full operational workflow: a week-based lesson calendar, student and instructor management, vehicle fleet tracking, configurable price plans, and a GoBD-shaped double-entry accounting engine (SKR 04, immutable bookings, Storno-only corrections, gapless receipt sequences) with Quittungen printing and DATEV CSV export. On top of that: lesson billing (confirm-to-bill per lesson, plus batch billing), exam result tracking with a Prüfungsplaner, a digital Ausbildungsnachweis (signed per lesson, printable per student), theory attendance, statistics, an internal chat, and a public appointment request form at `/anfrage`.
 
 Currently a single-tenant Bun web app; being rebuilt as a multi-tenant SaaS (one portal per school at `schoolname.openfs.de`) — see `plans/saas-plan.md`.
 
@@ -26,7 +26,7 @@ bun run start            # production server
 
 ## Security & deployment
 
-This application currently has **no authentication**. It is designed for single-user local use on a trusted machine. The database holds personal data (student names, addresses, phone numbers) and financial records. Do not expose the server to a network or the internet without first adding an authentication layer; doing so would give anyone with network access full read and write access to all data. (Multi-tenant auth is part of the SaaS plan.)
+This application currently has **no authentication**. It is designed for single-user local use on a trusted machine. The database holds personal data (student names, addresses, phone numbers) and financial records. Do not expose the server to a network or the internet without first adding an authentication layer; doing so would give anyone with network access full read and write access to all data. (Multi-tenant auth is part of the SaaS plan.) The one deliberate exception is `/anfrage` and its POST endpoint, which are intentionally public (rate-limited per IP and length-capped); everything else keeps this no-auth local posture.
 
 ## Architecture
 
