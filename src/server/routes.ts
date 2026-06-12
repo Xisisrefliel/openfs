@@ -54,24 +54,7 @@ import {
   ValidationError,
   type ListFilter,
 } from "./engine";
-
-function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status });
-}
-
-function handle(fn: () => Response | Promise<Response>) {
-  return async () => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        return json({ error: error.message }, 400);
-      }
-      console.error(error);
-      return json({ error: "Interner Fehler." }, 500);
-    }
-  };
-}
+import { handle, json } from "./http";
 
 function filterFromUrl(url: string): ListFilter {
   const params = new URL(url).searchParams;
