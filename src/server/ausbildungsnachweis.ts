@@ -236,56 +236,58 @@ function err(message: string, status = 400): Response {
 
 export function attestationRoutes(db: Database) {
   return {
-    /* GET /api/attestations?studentId=123 */
-    "GET /api/attestations": async (req: BunRequest): Promise<Response> => {
-      const url = new URL(req.url);
-      const raw = url.searchParams.get("studentId");
-      if (!raw) return err("studentId ist erforderlich.");
-      const studentId = Number(raw);
-      if (!Number.isInteger(studentId) || studentId <= 0) {
-        return err("studentId muss eine positive ganze Zahl sein.");
-      }
-      const attestations = listAttestationsForStudent(db, studentId);
-      return json({ attestations });
+    "/api/attestations": {
+      /* GET /api/attestations?studentId=123 */
+      GET: async (req: BunRequest): Promise<Response> => {
+        const url = new URL(req.url);
+        const raw = url.searchParams.get("studentId");
+        if (!raw) return err("studentId ist erforderlich.");
+        const studentId = Number(raw);
+        if (!Number.isInteger(studentId) || studentId <= 0) {
+          return err("studentId muss eine positive ganze Zahl sein.");
+        }
+        const attestations = listAttestationsForStudent(db, studentId);
+        return json({ attestations });
+      },
     },
 
-    /* GET /api/calendar-events/:id/attestation */
-    "GET /api/calendar-events/:id/attestation": async (
-      req: BunRequest<"/api/calendar-events/:id/attestation">
-    ): Promise<Response> => {
-      const id = Number(req.params.id);
-      if (!Number.isInteger(id) || id <= 0) return err("Ungültige ID.");
-      const attestation = getAttestationForEvent(db, id);
-      if (!attestation) return err("Kein Ausbildungsnachweis gefunden.", 404);
-      return json({ attestation });
-    },
+    "/api/calendar-events/:id/attestation": {
+      GET: async (
+        req: BunRequest<"/api/calendar-events/:id/attestation">
+      ): Promise<Response> => {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id) || id <= 0) return err("Ungültige ID.");
+        const attestation = getAttestationForEvent(db, id);
+        if (!attestation) return err("Kein Ausbildungsnachweis gefunden.", 404);
+        return json({ attestation });
+      },
 
-    /* POST /api/calendar-events/:id/attestation */
-    "POST /api/calendar-events/:id/attestation": async (
-      req: BunRequest<"/api/calendar-events/:id/attestation">
-    ): Promise<Response> => {
-      const eventId = Number(req.params.id);
-      if (!Number.isInteger(eventId) || eventId <= 0) return err("Ungültige ID.");
-      let body: Record<string, unknown>;
-      try {
-        body = (await req.json()) as Record<string, unknown>;
-      } catch {
-        return err("Ungültiger JSON-Body.");
-      }
-      try {
-        const attestation = createAttestation(db, {
-          eventId,
-          studentId: body.studentId as number,
-          instructor: String(body.instructor ?? ""),
-          content: String(body.content ?? ""),
-          durationMin: body.durationMin as number,
-          signatureDataUrl: String(body.signatureDataUrl ?? ""),
-        });
-        return json({ attestation }, 201);
-      } catch (e) {
-        if (e instanceof ValidationError) return err(e.message);
-        throw e;
-      }
+      POST: async (
+        req: BunRequest<"/api/calendar-events/:id/attestation">
+      ): Promise<Response> => {
+        const eventId = Number(req.params.id);
+        if (!Number.isInteger(eventId) || eventId <= 0) return err("Ungültige ID.");
+        let body: Record<string, unknown>;
+        try {
+          body = (await req.json()) as Record<string, unknown>;
+        } catch {
+          return err("Ungültiger JSON-Body.");
+        }
+        try {
+          const attestation = createAttestation(db, {
+            eventId,
+            studentId: body.studentId as number,
+            instructor: String(body.instructor ?? ""),
+            content: String(body.content ?? ""),
+            durationMin: body.durationMin as number,
+            signatureDataUrl: String(body.signatureDataUrl ?? ""),
+          });
+          return json({ attestation }, 201);
+        } catch (e) {
+          if (e instanceof ValidationError) return err(e.message);
+          throw e;
+        }
+      },
     },
   } as const;
 }
