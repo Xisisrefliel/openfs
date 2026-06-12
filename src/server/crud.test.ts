@@ -38,6 +38,13 @@ import {
   listPricePlans,
   updatePricePlan,
 } from "./price-plans";
+import { createCalendarEvent, getCalendarEvent } from "./calendar-events";
+import { ensureTheoryGroupTables } from "./theory-groups";
+import {
+  createAttestation,
+  ensureAttestationTables,
+  listAttestationsForStudent,
+} from "./ausbildungsnachweis";
 
 let db: Database;
 
@@ -284,6 +291,72 @@ describe("students", () => {
     // The journal rows must still exist (no cascade delete).
     const journalAfterDelete = listJournal(db, {}).length;
     expect(journalAfterDelete).toBe(journalAfterCreate);
+  });
+
+  test("deleteStudent: succeeds despite linked calendar event; event survives with link cleared", () => {
+    const student = createStudent(db, makeStudent());
+    const event = createCalendarEvent(db, {
+      date: "2026-06-15",
+      start: "09:00",
+      end: "10:00",
+      title: "Fahrstunde",
+      instructor: "Köksal Gül",
+      type: "Praktisch",
+      studentId: student.id,
+    });
+    expect(event.studentId).toBe(student.id);
+
+    // Before the fix this threw a raw SQLite FK constraint error.
+    deleteStudent(db, student.id);
+
+    const survivor = getCalendarEvent(db, Number(event.id));
+    expect(survivor.studentId).toBeUndefined();
+  });
+
+  test("deleteStudent: removes the student's theory_attendance rows", () => {
+    ensureTheoryGroupTables(db);
+    const student = createStudent(db, makeStudent());
+    const group = db
+      .query<{ id: number }, []>("SELECT id FROM theory_groups LIMIT 1")
+      .get()!;
+    db.prepare(
+      "INSERT INTO theory_attendance (group_id, student_id, session_date) VALUES (?, ?, ?)"
+    ).run(group.id, student.id, "2026-06-10");
+
+    deleteStudent(db, student.id);
+
+    const remaining = db
+      .query<{ n: number }, [number]>(
+        "SELECT count(*) AS n FROM theory_attendance WHERE student_id = ?"
+      )
+      .get(student.id)!.n;
+    expect(remaining).toBe(0);
+  });
+
+  test("deleteStudent: lesson_attestations are retained (compliance records)", () => {
+    ensureAttestationTables(db);
+    const student = createStudent(db, makeStudent());
+    const event = createCalendarEvent(db, {
+      date: "2026-06-15",
+      start: "09:00",
+      end: "10:00",
+      title: "Fahrstunde",
+      instructor: "Köksal Gül",
+      type: "Praktisch",
+      studentId: student.id,
+    });
+    createAttestation(db, {
+      eventId: Number(event.id),
+      studentId: student.id,
+      instructor: "Köksal Gül",
+      content: "Überlandfahrt",
+      durationMin: 45,
+      signatureDataUrl: "data:image/png;base64,abc123",
+    });
+
+    deleteStudent(db, student.id);
+
+    expect(listAttestationsForStudent(db, student.id)).toHaveLength(1);
   });
 });
 

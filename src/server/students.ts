@@ -371,6 +371,20 @@ export function deleteStudent(db: Database, id: number): void {
         "UPDATE conversations SET student_id = NULL, orphaned = 1 WHERE student_id = ?"
       ).run(id);
     }
+    // Calendar events survive as operational history, name-keyed via
+    // subtitle — only the FK link is cut (it would otherwise block the
+    // DELETE below, since PRAGMA foreign_keys is ON).
+    if (tableExists(db, "calendar_events")) {
+      db.prepare(
+        "UPDATE calendar_events SET student_id = NULL WHERE student_id = ?"
+      ).run(id);
+    }
+    // Theory attendance is operational data, not a compliance record.
+    if (tableExists(db, "theory_attendance")) {
+      db.prepare("DELETE FROM theory_attendance WHERE student_id = ?").run(id);
+    }
+    // lesson_attestations are deliberately untouched: retained compliance
+    // records (FahrSchAusbO) — no UPDATE, no DELETE.
     db.prepare("DELETE FROM students WHERE id = ?").run(id);
   });
   remove();
