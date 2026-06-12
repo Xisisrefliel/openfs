@@ -63,6 +63,19 @@ export async function billCalendarEvent(
   );
 }
 
+export async function recordExamResult(
+  id: string,
+  result: "bestanden" | "nicht_bestanden" | null
+): Promise<CalEvent> {
+  return parseOrThrow<CalEvent>(
+    await fetch(`/api/calendar-events/${id}/exam-result`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result }),
+    })
+  );
+}
+
 export function useCalendarEvents() {
   const { items: events, loading, refresh } = useFetchList(
     fetchCalendarEvents,

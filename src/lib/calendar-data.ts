@@ -35,6 +35,8 @@ export type CalEvent = {
   /** Derived by the server: true when billedTransactionId is set AND the
       linked transaction has not been storniert. Omitted when not billed. */
   billedActive?: boolean;
+  /** Exam result — only present on exam-type events that have been graded. */
+  examResult?: "bestanden" | "nicht_bestanden";
 };
 
 /* The app's notion of "today" — drives week anchoring/highlighting.
