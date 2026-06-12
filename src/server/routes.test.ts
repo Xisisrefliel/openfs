@@ -21,6 +21,10 @@ import {
   vehicleRoutes,
 } from "./routes";
 import { openSqlite } from "./sqlite";
+import {
+  attestationRoutes,
+  ensureAttestationTables,
+} from "./ausbildungsnachweis";
 
 /* ------------------------------------------------------------------ */
 /* Server setup — one server for the whole file.                       */
@@ -31,10 +35,12 @@ const db = openDb(":memory:");
 let server: ReturnType<typeof serve>;
 
 beforeAll(() => {
+  ensureAttestationTables(db);
   server = serve({
     port: 0,
     routes: {
       ...accountingRoutes(db),
+      ...attestationRoutes(db),
       ...calendarEventRoutes(db),
       ...exportRoutes(db),
       ...instructorRoutes(db),
@@ -724,5 +730,249 @@ describe("POST /api/calendar-events/:id/bill", () => {
     const rebillData = await rebillRes.json() as { transaction: { id: number }; event: { billedTransactionId: number } };
     expect(rebillData.transaction.id).not.toBe(txId);
     expect(rebillData.event.billedTransactionId).toBe(rebillData.transaction.id);
+  });
+});
+
+/* ================================================================== */
+/* Attestation routes (Ausbildungsnachweis)                            */
+/* ================================================================== */
+
+const VALID_SIGNATURE = "data:image/png;base64,iVBORw0KGgo=";
+
+/** Create a calendar event of the given type linked to a student. */
+async function createEventOfType(
+  type: string,
+  studentId: number
+): Promise<{ id: number }> {
+  const res = await fetch(url("/api/calendar-events"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      date: "2026-06-16",
+      start: "10:00",
+      end: "10:45",
+      title: type,
+      instructor: "Köksal Gül",
+      type,
+      studentId,
+    }),
+  });
+  expect(res.status).toBe(201);
+  return res.json() as Promise<{ id: number }>;
+}
+
+function attestationBody(studentId: number) {
+  return {
+    studentId,
+    instructor: "Köksal Gül",
+    content: "Grundfahraufgaben, Einparken, Autobahn",
+    durationMin: 45,
+    signatureDataUrl: VALID_SIGNATURE,
+  };
+}
+
+describe("GET /api/attestations", () => {
+  test("without studentId → 400 with error", async () => {
+    const res = await fetch(url("/api/attestations"));
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(typeof body.error).toBe("string");
+    expect(body.error.length).toBeGreaterThan(0);
+  });
+
+  test("with studentId → 200, empty list for fresh student", async () => {
+    const student = await createTestStudent();
+    const res = await fetch(url(`/api/attestations?studentId=${student.id}`));
+    expect(res.status).toBe(200);
+    const body = await res.json() as { attestations: unknown[] };
+    expect(body.attestations).toEqual([]);
+  });
+});
+
+describe("POST /api/calendar-events/:id/attestation", () => {
+  test("happy path → 201 with attestation matching eventId/studentId", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/attestation`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attestationBody(student.id)),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json() as {
+      attestation: { eventId: number; studentId: number };
+    };
+    expect(body.attestation.eventId).toBe(Number(event.id));
+    expect(body.attestation.studentId).toBe(student.id);
+
+    // List for the student is now non-empty.
+    const listRes = await fetch(url(`/api/attestations?studentId=${student.id}`));
+    expect(listRes.status).toBe(200);
+    const listBody = await listRes.json() as { attestations: unknown[] };
+    expect(listBody.attestations.length).toBe(1);
+  });
+
+  test("non-Praktisch event → 400", async () => {
+    const student = await createTestStudent();
+    const event = await createEventOfType("Theorie", student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/attestation`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attestationBody(student.id)),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error.length).toBeGreaterThan(0);
+  });
+
+  test("mismatched studentId → 400", async () => {
+    const student = await createTestStudent();
+    const other = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/attestation`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attestationBody(other.id)),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error.length).toBeGreaterThan(0);
+  });
+
+  test("duplicate attestation for the same event → 400", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const first = await fetch(url(`/api/calendar-events/${event.id}/attestation`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attestationBody(student.id)),
+    });
+    expect(first.status).toBe(201);
+
+    const second = await fetch(url(`/api/calendar-events/${event.id}/attestation`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attestationBody(student.id)),
+    });
+    expect(second.status).toBe(400);
+  });
+
+  test("invalid JSON body → 400", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/attestation`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{not json",
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("GET /api/calendar-events/:id/attestation", () => {
+  test("404 before create, 200 after", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const before = await fetch(url(`/api/calendar-events/${event.id}/attestation`));
+    expect(before.status).toBe(404);
+
+    const create = await fetch(url(`/api/calendar-events/${event.id}/attestation`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(attestationBody(student.id)),
+    });
+    expect(create.status).toBe(201);
+
+    const after = await fetch(url(`/api/calendar-events/${event.id}/attestation`));
+    expect(after.status).toBe(200);
+    const body = await after.json() as { attestation: { eventId: number } };
+    expect(body.attestation.eventId).toBe(Number(event.id));
+  });
+});
+
+/* ================================================================== */
+/* POST /api/calendar-events/:id/exam-result                           */
+/* ================================================================== */
+
+describe("POST /api/calendar-events/:id/exam-result", () => {
+  test("'bestanden' on Theorieprüfung → 200, re-GET shows examResult", async () => {
+    const student = await createTestStudent();
+    const event = await createEventOfType("Theorieprüfung", student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/exam-result`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result: "bestanden" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json() as { examResult?: string };
+    expect(body.examResult).toBe("bestanden");
+
+    // Re-GET via the list endpoint shows the persisted result.
+    const listRes = await fetch(
+      url("/api/calendar-events?from=2026-06-16&to=2026-06-16")
+    );
+    expect(listRes.status).toBe(200);
+    const listBody = await listRes.json() as {
+      events: { id: string; examResult?: string }[];
+    };
+    // Calendar event ids are serialized as strings.
+    const found = listBody.events.find((e) => String(e.id) === String(event.id));
+    expect(found?.examResult).toBe("bestanden");
+  });
+
+  test("result null clears a previously set result", async () => {
+    const student = await createTestStudent();
+    const event = await createEventOfType("Theorieprüfung", student.id);
+
+    const set = await fetch(url(`/api/calendar-events/${event.id}/exam-result`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result: "nicht_bestanden" }),
+    });
+    expect(set.status).toBe(200);
+
+    const clear = await fetch(url(`/api/calendar-events/${event.id}/exam-result`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result: null }),
+    });
+    expect(clear.status).toBe(200);
+    const body = await clear.json() as { examResult?: string };
+    expect(body.examResult).toBeUndefined();
+  });
+
+  test("invalid result 'vielleicht' → 400", async () => {
+    const student = await createTestStudent();
+    const event = await createEventOfType("Theorieprüfung", student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/exam-result`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result: "vielleicht" }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error.length).toBeGreaterThan(0);
+  });
+
+  test("non-exam (Praktisch) event → 400", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/exam-result`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result: "bestanden" }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error.length).toBeGreaterThan(0);
   });
 });
