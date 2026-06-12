@@ -288,6 +288,15 @@ export function calendarEventRoutes(db: Database) {
 
           const body = await req.json();
 
+          if (
+            !(body && typeof body === "object" &&
+              (body as { type?: unknown }).type === "guthaben_uebertragung")
+          ) {
+            throw new ValidationError(
+              "Abrechnung muss vom Typ 'guthaben_uebertragung' sein."
+            );
+          }
+
           // Wrap BOTH writes atomically: if markEventBilled fails,
           // the transaction row is rolled back (savepoint nesting).
           let result!: { transaction: ReturnType<typeof createTransaction>; event: ReturnType<typeof getCalendarEvent> };

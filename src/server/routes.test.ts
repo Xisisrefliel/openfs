@@ -543,6 +543,55 @@ describe("POST /api/calendar-events/:id/bill", () => {
     expect(body.error).toContain("Fahrschüler");
   });
 
+  test("body with wrong type 'zahlung_guthaben' → 400, no transaction linked to event", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "zahlung_guthaben",
+        date: "2026-06-15",
+        amountCents: 6500,
+        habenKonto: "4400",
+        student: {
+          customerNo: student.customerNumber,
+          name: "Bill Test",
+          address: "Teststr. 1",
+          contractNo: student.contractNumber,
+          classes: "B",
+        },
+        description: "FS Bill Test - B, Fahrübungsstunde (45)",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("guthaben_uebertragung");
+
+    // Verify no transaction was linked: the event is still not billed.
+    const eventRes = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "guthaben_uebertragung",
+        date: "2026-06-15",
+        amountCents: 6500,
+        habenKonto: "4400",
+        student: {
+          customerNo: student.customerNumber,
+          name: "Bill Test",
+          address: "Teststr. 1",
+          contractNo: student.contractNumber,
+          classes: "B",
+        },
+        description: "FS Bill Test - B, Fahrübungsstunde (45)",
+      }),
+    });
+    // A successful re-bill (201) confirms the event was never marked billed.
+    expect(eventRes.status).toBe(201);
+  });
+
   test("storno the transaction, then re-bill succeeds with a new transaction id", async () => {
     const student = await createTestStudent();
     const event = await createPraktischEvent(student.id);
