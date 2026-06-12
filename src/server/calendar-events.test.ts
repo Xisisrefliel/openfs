@@ -272,6 +272,20 @@ describe("studentId wire shape", () => {
     const updated = updateCalendarEvent(fresh, Number(created.id), { studentId: sid });
     expect(updated.studentId).toBe(sid);
   });
+
+  test("updateCalendarEvent with studentId: null clears the link", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const created = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    expect(created.studentId).toBe(sid);
+    // The UI sends an explicit null over the wire to unlink (JSON drops
+    // undefined keys, which would keep the stored value instead).
+    const updated = updateCalendarEvent(fresh, Number(created.id), {
+      studentId: null as unknown as number,
+    });
+    expect(updated.studentId).toBeUndefined();
+  });
 });
 
 describe("markEventBilled + delete-guard", () => {

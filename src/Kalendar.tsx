@@ -684,6 +684,18 @@ export function Kalendar({
       ).toSorted((left, right) => left.localeCompare(right, "de")),
     [students]
   );
+  // Resolves the display name picked in the edit dialog back to the
+  // student's id so saved events carry a reliable FK instead of relying
+  // on a later name-match back-fill. Duplicate display names keep the
+  // FIRST match — same limitation the billing back-fill has.
+  const studentIdByName = useMemo(() => {
+    const byName = new Map<string, number>();
+    for (const student of students) {
+      const name = `${student.firstName} ${student.lastName}`.trim();
+      if (name && !byName.has(name)) byName.set(name, student.id);
+    }
+    return byName;
+  }, [students]);
   const [instructors, setInstructors] = useState<Set<string>>(new Set());
   const [niederlassungen, setNiederlassungen] = useState<Set<string>>(new Set());
   const [vehicles, setVehicles] = useState<Set<string>>(new Set());
@@ -1028,8 +1040,14 @@ export function Kalendar({
   };
 
   const handleEventSave = (id: string, updates: CalEvent) => {
+    // The dialog resolves the student name to an id (or undefined). Send
+    // an explicit null when unresolved: JSON drops undefined keys and the
+    // server keeps the stored value when the key is absent — which would
+    // silently keep a stale link after the name was cleared or changed.
+    const { id: _id, ...rest } = updates;
+    const payload = { ...rest, studentId: updates.studentId ?? null };
+
     if (id === NEW_EVENT_ID) {
-      const { id: _id, ...payload } = updates;
       void createCalendarEvent(payload)
         .then(created => {
           setCalendarEvents(current => [...current, created]);
@@ -1044,7 +1062,6 @@ export function Kalendar({
     setCalendarEvents(current =>
       current.map(event => (event.id === id ? updates : event))
     );
-    const { id: _id, ...payload } = updates;
     void updateCalendarEvent(Number(id), payload).catch(() => {
       toast.error("Termin konnte nicht gespeichert werden.");
       void refreshEvents();
@@ -1404,6 +1421,7 @@ export function Kalendar({
         onSave={handleEventSave}
         instructorOptions={instructorOptions}
         studentOptions={studentOptions}
+        studentIdByName={studentIdByName}
         vehicleOptions={vehicleOptions}
       />
     </div>

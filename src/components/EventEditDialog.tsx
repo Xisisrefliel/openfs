@@ -295,6 +295,7 @@ export function EventEditDialog({
   onSave,
   instructorOptions,
   studentOptions,
+  studentIdByName,
   vehicleOptions,
 }: {
   event: CalEvent | null;
@@ -303,6 +304,11 @@ export function EventEditDialog({
   onSave: (id: string, updates: CalEvent) => void;
   instructorOptions: string[];
   studentOptions: string[];
+  /** Display name → students.id. When provided, saving resolves the
+      "Fahrschüler" field to studentId (unmatched/free text → undefined,
+      overwriting any previous link). When omitted, studentId is left
+      exactly as it was on the event. */
+  studentIdByName?: Map<string, number>;
   vehicleOptions: string[];
 }) {
   const [draft, setDraft] = useState<CalEvent | null>(event);
@@ -364,7 +370,17 @@ export function EventEditDialog({
   };
 
   const save = () => {
-    onSave(event.id, draft);
+    const updates = studentIdByName
+      ? {
+          ...draft,
+          // Resolve the selected/typed name to the student's id so the
+          // event carries the FK from the start. Free-text subtitles
+          // (non-student events) resolve to undefined — replacing any
+          // stale id from before the name was changed or cleared.
+          studentId: studentIdByName.get(draft.subtitle?.trim() ?? ""),
+        }
+      : draft;
+    onSave(event.id, updates);
     onOpenChange(false);
   };
 

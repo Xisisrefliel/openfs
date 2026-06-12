@@ -10,7 +10,16 @@ import { parseOrThrow, useFetchList } from "@/lib/api";
 import type { CalEvent } from "@/lib/calendar-data";
 import type { CreateTransactionInput } from "@/lib/accounting-types";
 
-export type CalendarEventInput = Omit<CalEvent, "id" | "billedTransactionId" | "billedActive">;
+export type CalendarEventInput = Omit<
+  CalEvent,
+  "id" | "billedTransactionId" | "billedActive" | "studentId"
+> & {
+  /** number links the event to a student; null explicitly clears the
+      link. The server keeps the stored value when the key is absent
+      (JSON.stringify drops undefined), so senders that resolve the
+      student must pass null — not undefined — to unlink. */
+  studentId?: number | null;
+};
 
 export async function fetchCalendarEvents(): Promise<CalEvent[]> {
   const data = await parseOrThrow<{ events: CalEvent[] }>(
