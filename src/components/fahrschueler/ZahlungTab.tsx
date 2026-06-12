@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------ */
 /* Fahrschüler detail — Zahlungserfassung tab. The student-scoped view */
 /* of the accounting ledger: payments land in the same booking engine  */
-/* as /buchhaltung (PaymentDialog → SKR 03), with Quittung + Storno.   */
+/* as /buchhaltung (PaymentDialog → SKR 04), with Quittung + Storno.   */
 /* ------------------------------------------------------------------ */
 
 import { useState } from "react";
@@ -75,6 +75,7 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
   const query = `?q=${encodeURIComponent(fullName)}`;
   const ledger = useApi(() => accountingApi.ledger(query), [query, refresh]);
   const accounts = useApi(() => accountingApi.accounts(), []);
+  const balancesData = useApi(() => accountingApi.studentBalances(), [refresh]);
 
   const refetch = () => setRefresh(value => value + 1);
 
@@ -89,7 +90,13 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
     0
   );
   const printableIds = rows.filter(row => row.printable).map(row => row.id);
-  const hasDebt = student.balance.startsWith("-");
+
+  // Real balance from the ledger; null = no ledger activity yet.
+  const balanceEntry = balancesData.data?.balances.find(
+    b => b.customerNo === student.customerNumber
+  );
+  const balanceCents = balanceEntry?.balanceCents ?? null;
+  const hasDebt = balanceCents != null && balanceCents < 0;
 
   const printFiltered = () => {
     if (!printableIds.length) {
@@ -208,7 +215,7 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
                     : "text-emerald-600 dark:text-emerald-400"
                 )}
               >
-                {student.balance}
+                {balanceCents != null ? formatCents(balanceCents) : "—"}
               </span>
             </CardContent>
           </Card>
