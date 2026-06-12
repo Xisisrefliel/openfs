@@ -46,6 +46,8 @@ export interface Database {
     ...params: SQLQueryBindings[]
   ): { changes: number; lastInsertRowid: number | bigint };
   transaction<Result>(fn: () => Result): () => Result;
+  /** Snapshot the database as a Uint8Array (calls sqlite3_serialize). */
+  serialize(): Uint8Array;
   close(): void;
 }
 

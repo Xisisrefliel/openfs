@@ -395,3 +395,21 @@ export function accountingRoutes(db: Database) {
     },
   };
 }
+
+export function exportRoutes(db: Database) {
+  return {
+    "/api/export/database": {
+      GET: (_req: BunRequest) =>
+        handle(() => {
+          const bytes = db.serialize();
+          const date = new Date().toISOString().slice(0, 10);
+          return new Response(bytes as unknown as BodyInit, {
+            headers: {
+              "Content-Type": "application/vnd.sqlite3",
+              "Content-Disposition": `attachment; filename="openfs-export-${date}.db"`,
+            },
+          });
+        })(),
+    },
+  };
+}
