@@ -77,12 +77,32 @@ export type RevenueStatistics = {
   perMonth: RevenuePerMonth[];
 };
 
+export type ExamTypeStatistics = {
+  /** Event type label. */
+  type: string;
+  total: number;
+  bestanden: number;
+  nicht_bestanden: number;
+  /** Offen = recorded but no result yet (NULL exam_result). */
+  offen: number;
+  /** First-attempt pass rate 0–1; null if no first-attempt data exists.
+      First attempt = chronologically first exam event of this type for a
+      given student_id that has a recorded result. Events without a
+      student_id are excluded from this rate (counted in totals only). */
+  firstAttemptPassRate: number | null;
+};
+
+export type ExamStatistics = {
+  byType: ExamTypeStatistics[];
+};
+
 export type Statistics = {
   students: StudentStatistics;
   lessons: LessonStatistics;
   instructors: InstructorStatistics;
   vehicles: VehicleStatistics;
   revenue: RevenueStatistics;
+  exams: ExamStatistics;
 };
 
 /* ------------------------------ students --------------------------- */
@@ -255,6 +275,78 @@ export function revenueStatistics(db: Database): RevenueStatistics {
   };
 }
 
+/* ------------------------------- exams ----------------------------- */
+
+const EXAM_EVENT_TYPES = [
+  "Theorieprüfung",
+  "Vorstellung zur prakt. Prüfung",
+] as const;
+
+export function examStatistics(db: Database): ExamStatistics {
+  const byType: ExamTypeStatistics[] = EXAM_EVENT_TYPES.map(type => {
+    // Totals row: all events of this type regardless of student_id or result.
+    const totals = db
+      .query<
+        { total: number; bestanden: number; nicht_bestanden: number },
+        [string]
+      >(
+        `SELECT
+           count(*) AS total,
+           coalesce(sum(CASE WHEN exam_result = 'bestanden' THEN 1 ELSE 0 END), 0) AS bestanden,
+           coalesce(sum(CASE WHEN exam_result = 'nicht_bestanden' THEN 1 ELSE 0 END), 0) AS nicht_bestanden
+         FROM calendar_events
+         WHERE type = ?`
+      )
+      .get(type)!;
+
+    const offen =
+      totals.total - totals.bestanden - totals.nicht_bestanden;
+
+    // First-attempt pass rate: only events with a student_id AND an
+    // exam_result. The "first attempt" per student is the event with the
+    // lowest date (then id) that has a recorded result.
+    const firstAttemptRows = db
+      .query<
+        { student_id: number; exam_result: string },
+        [string]
+      >(
+        `SELECT student_id, exam_result
+         FROM calendar_events
+         WHERE type = ?
+           AND student_id IS NOT NULL
+           AND exam_result IS NOT NULL
+           AND id = (
+             SELECT id FROM calendar_events AS ce2
+             WHERE ce2.type = calendar_events.type
+               AND ce2.student_id = calendar_events.student_id
+               AND ce2.exam_result IS NOT NULL
+             ORDER BY ce2.date, ce2.id
+             LIMIT 1
+           )`
+      )
+      .all(type);
+
+    let firstAttemptPassRate: number | null = null;
+    if (firstAttemptRows.length > 0) {
+      const passed = firstAttemptRows.filter(
+        r => r.exam_result === "bestanden"
+      ).length;
+      firstAttemptPassRate = passed / firstAttemptRows.length;
+    }
+
+    return {
+      type,
+      total: totals.total,
+      bestanden: totals.bestanden,
+      nicht_bestanden: totals.nicht_bestanden,
+      offen,
+      firstAttemptPassRate,
+    };
+  });
+
+  return { byType };
+}
+
 /* ------------------------------ payload ---------------------------- */
 
 export function getStatistics(db: Database): Statistics {
@@ -264,6 +356,7 @@ export function getStatistics(db: Database): Statistics {
     instructors: instructorStatistics(db),
     vehicles: vehicleStatistics(db),
     revenue: revenueStatistics(db),
+    exams: examStatistics(db),
   };
 }
 

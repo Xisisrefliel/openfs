@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useStatistics, type Statistics } from "@/hooks/use-statistics";
+import { useStatistics, type ExamTypeStatistics, type Statistics } from "@/hooks/use-statistics";
 
 type IconCmp = React.ComponentType<{ className?: string }>;
 
@@ -439,6 +439,74 @@ function UtilizationChart({ stats }: { stats: Statistics }) {
   );
 }
 
+/* ------------------------------- exams ----------------------------- */
+
+function ExamTypeRow({ row }: { row: ExamTypeStatistics }) {
+  const rateLabel =
+    row.firstAttemptPassRate === null
+      ? "–"
+      : `${Math.round(row.firstAttemptPassRate * 100)} %`;
+
+  const label =
+    row.type === "Theorieprüfung"
+      ? "Theorieprüfung"
+      : "Praktische Prüfung";
+
+  return (
+    <div className="grid grid-cols-[1fr_repeat(4,auto)] items-center gap-x-6 gap-y-0 py-2">
+      <span className="text-sm font-medium">{label}</span>
+      <span className="text-right text-sm tabular-nums text-muted-foreground">
+        <span className="text-foreground tabular-nums">{row.bestanden}</span> Bestanden
+      </span>
+      <span className="text-right text-sm tabular-nums text-muted-foreground">
+        <span className="text-foreground tabular-nums">{row.nicht_bestanden}</span> Nicht bestanden
+      </span>
+      <span className="text-right text-sm tabular-nums text-muted-foreground">
+        <span className="text-foreground tabular-nums">{row.offen}</span> Offen
+      </span>
+      <span className="text-right text-sm tabular-nums text-muted-foreground">
+        Erfolgsquote (1. Versuch){" "}
+        <span className="font-medium tabular-nums text-foreground">{rateLabel}</span>
+      </span>
+    </div>
+  );
+}
+
+function ExamsPanel({ stats }: { stats: Statistics }) {
+  const total = stats.exams.byType.reduce((sum, r) => sum + r.total, 0);
+
+  return (
+    <Card className={statCardClass}>
+      <CardHeader className={statCardHeaderClass}>
+        <div className="flex size-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+          <GraduationCap className="size-[18px]" />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <CardTitle>Prüfungsergebnisse</CardTitle>
+          <CardDescription>
+            {total === 0
+              ? "Noch keine Ergebnisse erfasst"
+              : `${total} Prüfungen insgesamt`}
+          </CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-2">
+        {total === 0 ? (
+          <p className="py-4 text-sm text-muted-foreground">
+            Ergebnisse werden im Prüfungsplaner pro Termin eingetragen.
+          </p>
+        ) : (
+          <div className="divide-y divide-border/60">
+            {stats.exams.byType.map(row => (
+              <ExamTypeRow key={row.type} row={row} />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ----------------------------- skeletons --------------------------- */
 
 function LoadingSkeleton() {
@@ -493,6 +561,7 @@ export function Statistik() {
               <LessonTypesChart stats={statistics} />
               <UtilizationChart stats={statistics} />
             </div>
+            <ExamsPanel stats={statistics} />
           </div>
         )}
       </div>

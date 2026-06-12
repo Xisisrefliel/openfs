@@ -775,3 +775,61 @@ export function getQuittung(db: Database, transactionId: number): QuittungData {
     totalCents: lines.reduce((sum, line) => sum + line.grossCents, 0),
   };
 }
+
+/* ----------------------- student balances -------------------------- */
+
+export type StudentBalance = {
+  customerNo: string;
+  name: string;
+  balanceCents: number;
+};
+
+/**
+ * Compute the real Guthaben per student from the ledger.
+ *
+ * Balance = SUM(bookings.haben_account = anzahlung-account, same student)
+ *         − SUM(bookings.soll_account  = anzahlung-account, same student)
+ *
+ * Positive → credit; negative → owes.  Students with no anzahlung
+ * bookings are absent from the result.  Uses requireAccountOfKind so it
+ * stays independent of the concrete Kontonummer (SKR 04: 3272).
+ */
+export function listStudentBalances(db: Database): StudentBalance[] {
+  const anzahlungAccount = requireAccountOfKind(db, "anzahlung", "Guthabenkonto");
+  const acctNo = anzahlungAccount.number;
+
+  type BalanceRow = {
+    customer_no: string;
+    name: string;
+    balance_cents: number;
+  };
+
+  const rows = db
+    .query<BalanceRow, [string, string, string]>(
+      `SELECT
+         t.student_customer_no                         AS customer_no,
+         t.student_name                                AS name,
+         SUM(
+           CASE WHEN b.haben_account = ?1 THEN  b.amount_cents ELSE 0 END
+         ) -
+         SUM(
+           CASE WHEN b.soll_account  = ?2 THEN  b.amount_cents ELSE 0 END
+         )                                             AS balance_cents
+       FROM bookings b
+       JOIN transactions t ON t.id = b.transaction_id
+       WHERE
+         t.student_customer_no IS NOT NULL
+         AND t.student_customer_no != ''
+         AND (b.haben_account = ?3 OR b.soll_account = ?3)
+       GROUP BY t.student_customer_no`
+    )
+    .all(acctNo, acctNo, acctNo);
+
+  return rows
+    .filter(row => row.customer_no != null)
+    .map(row => ({
+      customerNo: row.customer_no,
+      name: row.name ?? "",
+      balanceCents: row.balance_cents,
+    }));
+}

@@ -5,6 +5,7 @@ import index from "./index.html";
 import { openDb } from "./server/db";
 import { seedTransactions } from "./server/seed";
 import { ensureTheoryGroupTables } from "./server/theory-groups";
+import { ensureAttestationTables } from "./server/ausbildungsnachweis";
 import { buildApiRoutes } from "./server/app-routes";
 
 // SQLite needs the directory to exist before it can create the file.
@@ -13,6 +14,7 @@ const db = openDb();
 seedTransactions(db);
 // Runs after the students/instructors seeds so seed groups pick up real names.
 ensureTheoryGroupTables(db);
+ensureAttestationTables(db);
 
 const server = serve({
   routes: {

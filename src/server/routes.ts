@@ -27,7 +27,10 @@ import {
   createCalendarEvent,
   type CalendarEventInput,
   deleteCalendarEvent,
+  getCalendarEvent,
   listCalendarEvents,
+  markEventBilled,
+  recordExamResult,
   updateCalendarEvent,
 } from "./calendar-events";
 import { UNASSIGNED_VEHICLE } from "../lib/vehicle-options";
@@ -45,6 +48,7 @@ import {
   listAccounts,
   listJournal,
   listLedger,
+  listStudentBalances,
   setAccountActive,
   stornoTransaction,
   ValidationError,
@@ -257,6 +261,80 @@ export function calendarEventRoutes(db: Database) {
           return json({ ok: true });
         })(),
     },
+
+    "/api/calendar-events/:id/bill": {
+      POST: (req: BunRequest<"/api/calendar-events/:id/bill">) =>
+        handle(async () => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Termin-ID.");
+          }
+
+          // Pre-flight: load event, validate prerequisites.
+          const event = getCalendarEvent(db, id);
+          if (event.type !== "Praktisch") {
+            throw new ValidationError(
+              "Nur praktische Fahrstunden können abgerechnet werden."
+            );
+          }
+          if (event.studentId == null) {
+            throw new ValidationError(
+              "Kein Fahrschüler verknüpft — Termin kann nicht abgerechnet werden."
+            );
+          }
+          if (event.billedActive) {
+            throw new ValidationError(
+              "Termin ist bereits abgerechnet. Zuerst stornieren um neu abzurechnen."
+            );
+          }
+
+          const body = await req.json();
+
+          if (
+            !(body && typeof body === "object" &&
+              (body as { type?: unknown }).type === "guthaben_uebertragung")
+          ) {
+            throw new ValidationError(
+              "Abrechnung muss vom Typ 'guthaben_uebertragung' sein."
+            );
+          }
+
+          // Wrap BOTH writes atomically: if markEventBilled fails,
+          // the transaction row is rolled back (savepoint nesting).
+          let result!: { transaction: ReturnType<typeof createTransaction>; event: ReturnType<typeof getCalendarEvent> };
+          const bill = db.transaction(() => {
+            const tx = createTransaction(db, body);
+            const updated = markEventBilled(db, id, tx.id);
+            result = { transaction: tx, event: updated };
+          });
+          bill();
+
+          return json(result, 201);
+        })(),
+    },
+
+    "/api/calendar-events/:id/exam-result": {
+      POST: (req: BunRequest<"/api/calendar-events/:id/exam-result">) =>
+        handle(async () => {
+          const id = Number(req.params.id);
+          if (!Number.isInteger(id)) {
+            throw new ValidationError("Ungültige Termin-ID.");
+          }
+          const body = (await req.json()) as { result?: unknown };
+          const raw = body?.result;
+          if (raw !== null && raw !== "bestanden" && raw !== "nicht_bestanden") {
+            throw new ValidationError(
+              "Ergebnis muss 'bestanden', 'nicht_bestanden' oder null sein."
+            );
+          }
+          const updated = recordExamResult(
+            db,
+            id,
+            raw as "bestanden" | "nicht_bestanden" | null
+          );
+          return json(updated);
+        })(),
+    },
   };
 }
 
@@ -292,6 +370,11 @@ export function archiveRoutes(db: Database) {
 
 export function accountingRoutes(db: Database) {
   return {
+    "/api/student-balances": {
+      GET: (req: BunRequest) =>
+        handle(() => json({ balances: listStudentBalances(db) }))(),
+    },
+
     "/api/accounting/accounts": {
       GET: (req: BunRequest) =>
         handle(() => json({ accounts: listAccounts(db) }))(),
@@ -385,6 +468,24 @@ export function accountingRoutes(db: Database) {
           }
           setCompany(db, next);
           return json(next);
+        })(),
+    },
+  };
+}
+
+export function exportRoutes(db: Database) {
+  return {
+    "/api/export/database": {
+      GET: (_req: BunRequest) =>
+        handle(() => {
+          const bytes = db.serialize();
+          const date = new Date().toISOString().slice(0, 10);
+          return new Response(bytes as unknown as BodyInit, {
+            headers: {
+              "Content-Type": "application/vnd.sqlite3",
+              "Content-Disposition": `attachment; filename="openfs-export-${date}.db"`,
+            },
+          });
         })(),
     },
   };

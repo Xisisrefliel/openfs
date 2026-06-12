@@ -23,6 +23,13 @@ import { VertragDialog } from "./components/VertragDialog.tsx";
 import { useStudents, type StudentRecord } from "@/hooks/use-students";
 import { usePricePlans } from "@/hooks/use-price-plans";
 import {
+  type StudentBalance,
+  accountingApi,
+  useApi,
+} from "@/components/buchhaltung/api";
+import { formatCents } from "@/lib/money";
+import { cn } from "@/lib/utils";
+import {
   computeContractKpis,
   deriveContractRows,
   filterContractRows,
@@ -113,7 +120,7 @@ function KpiCardSkeleton() {
   );
 }
 
-const TABLE_COLUMNS = 8;
+const TABLE_COLUMNS = 9;
 
 function TableRowSkeleton() {
   return (
@@ -126,7 +133,9 @@ function TableRowSkeleton() {
               ? "pl-4 pr-1"
               : index === TABLE_COLUMNS - 1
                 ? "pl-1 pr-4"
-                : "px-1"
+                : index === TABLE_COLUMNS - 2
+                  ? "px-1 text-right"
+                  : "px-1"
           }
         >
           <Skeleton className="h-4 w-full max-w-24" />
@@ -144,6 +153,7 @@ export function Vertraege({
   // DB-backed: contracts are a view over /api/students + /api/price-plans.
   const { students, loading: studentsLoading } = useStudents();
   const { plans, loading: plansLoading } = usePricePlans();
+  const balancesResult = useApi(() => accountingApi.studentBalances(), []);
   const loading = studentsLoading || plansLoading;
 
   const [query, setQuery] = useState("");
@@ -152,9 +162,14 @@ export function Vertraege({
     null
   );
 
+  const balancesMap = useMemo(() => {
+    const list: StudentBalance[] = balancesResult.data?.balances ?? [];
+    return new Map(list.map(b => [b.customerNo, b.balanceCents]));
+  }, [balancesResult.data]);
+
   const rows = useMemo(
-    () => deriveContractRows(students, plans),
-    [students, plans]
+    () => deriveContractRows(students, plans, balancesMap),
+    [students, plans, balancesMap]
   );
   const kpis = useMemo(() => computeContractKpis(rows), [rows]);
   const filteredRows = useMemo(
@@ -297,6 +312,7 @@ export function Vertraege({
                     <TableHead className="px-1">Preisplan</TableHead>
                     <TableHead className="px-1">Anmeldedatum</TableHead>
                     <TableHead className="px-1">Status</TableHead>
+                    <TableHead className="px-1 text-right">Saldo</TableHead>
                     <TableHead className="pl-1 pr-4 text-right">
                       Aktion
                     </TableHead>
@@ -390,6 +406,21 @@ export function Vertraege({
                           >
                             {row.status === "aktiv" ? "Aktiv" : "Inaktiv"}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="px-1 text-right tabular-nums">
+                          {row.balanceCents == null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <span
+                              className={cn(
+                                row.balanceCents < 0
+                                  ? "text-destructive dark:text-destructive"
+                                  : "text-emerald-600 dark:text-emerald-400"
+                              )}
+                            >
+                              {formatCents(row.balanceCents)}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="pl-1 pr-4">
                           <div className="flex justify-end">

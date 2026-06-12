@@ -69,12 +69,27 @@ export type RevenueStatistics = {
   perMonth: RevenuePerMonth[];
 };
 
+export type ExamTypeStatistics = {
+  type: string;
+  total: number;
+  bestanden: number;
+  nicht_bestanden: number;
+  offen: number;
+  /** First-attempt pass rate 0–1; null if no first-attempt data. */
+  firstAttemptPassRate: number | null;
+};
+
+export type ExamStatistics = {
+  byType: ExamTypeStatistics[];
+};
+
 export type Statistics = {
   students: StudentStatistics;
   lessons: LessonStatistics;
   instructors: InstructorStatistics;
   vehicles: VehicleStatistics;
   revenue: RevenueStatistics;
+  exams: ExamStatistics;
 };
 
 export async function fetchStatistics(): Promise<Statistics> {

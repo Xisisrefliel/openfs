@@ -7,7 +7,7 @@
 /* sendChatMessage + refresh, so everything persists across reloads.   */
 /* ------------------------------------------------------------------ */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { parseOrThrow, useFetchList } from "@/lib/api";
 
@@ -96,11 +96,32 @@ export async function deleteConversation(
 }
 
 export function useConversations() {
-  const { items: conversations, loading, refresh } = useFetchList(
+  const { items: fetched, loading, refresh: fetchRefresh } = useFetchList(
     fetchConversations,
     "Unterhaltungen konnten nicht geladen werden"
   );
-  return { conversations, loading, refresh };
+  const [overrides, setOverrides] = useState<Record<number, number>>({});
+
+  /** Full refetch — also clears any optimistic overrides. */
+  const refresh = useCallback(async () => {
+    await fetchRefresh();
+    setOverrides({});
+  }, [fetchRefresh]);
+
+  /** Optimistically clear the unread badge for one conversation. */
+  const clearUnread = useCallback((id: number) => {
+    setOverrides(prev => ({ ...prev, [id]: 0 }));
+  }, []);
+
+  const conversations = useMemo(
+    () =>
+      fetched.map(c =>
+        c.id in overrides ? { ...c, unread: overrides[c.id] ?? c.unread } : c
+      ),
+    [fetched, overrides]
+  );
+
+  return { conversations, loading, refresh, clearUnread };
 }
 
 /** Messages of the active thread — refetches whenever the id changes.
@@ -108,18 +129,21 @@ export function useConversations() {
 export function useMessages(conversationId: number | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const requestVersion = useRef(0);
 
   const refresh = useCallback(async () => {
     if (conversationId === null) {
       setMessages([]);
       return;
     }
+    const version = ++requestVersion.current;
     try {
-      setMessages(await fetchMessages(conversationId));
+      const result = await fetchMessages(conversationId);
+      if (requestVersion.current === version) setMessages(result);
     } catch (error) {
       console.error("Nachrichten konnten nicht geladen werden:", error);
     } finally {
-      setLoading(false);
+      if (requestVersion.current === version) setLoading(false);
     }
   }, [conversationId]);
 

@@ -50,6 +50,7 @@ import { Preisangebot } from "./Preisangebot";
 import { Profil } from "./Profil";
 import { Schulprofil } from "./Schulprofil";
 import { Statistik } from "./Statistik";
+import { Anfrage } from "./Anfrage";
 import { Terminanfragen } from "./Terminanfragen";
 import { Theorie } from "./Theorie";
 import { Vertraege } from "./Vertraege";
@@ -433,6 +434,8 @@ export function App() {
     ) : (
       <Dashboard />
     );
+
+  if (path === "/anfrage") return <Anfrage />;
 
   return (
     <TooltipProvider delayDuration={300}>

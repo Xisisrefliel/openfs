@@ -223,7 +223,7 @@ function relink(
   ) {
     const ids = links.conversations;
     db.prepare(
-      `UPDATE conversations SET student_id = ?
+      `UPDATE conversations SET student_id = ?, orphaned = 0
        WHERE student_id IS NULL AND id IN (${idList(ids)})`
     ).run(Number(snapshot.id), ...ids);
   }

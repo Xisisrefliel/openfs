@@ -122,6 +122,17 @@ describe("deriveContractRows", () => {
     });
     expect(row!.registrationTime).toBe(new Date(2026, 4, 12).getTime());
   });
+
+  test("balanceCents is null when student has no ledger activity", () => {
+    const [row] = deriveContractRows([makeStudent()], plans);
+    expect(row!.balanceCents).toBeNull();
+  });
+
+  test("balanceCents is populated when balances map contains the customerNumber", () => {
+    const balances = new Map([["10057", 43500]]);
+    const [row] = deriveContractRows([makeStudent()], plans, balances);
+    expect(row!.balanceCents).toBe(43500);
+  });
 });
 
 describe("computeContractKpis", () => {

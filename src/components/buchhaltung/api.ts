@@ -74,6 +74,12 @@ export function buildFilterQuery(
 
 /* ------------------------------ calls ------------------------------ */
 
+export type StudentBalance = {
+  customerNo: string;
+  name: string;
+  balanceCents: number;
+};
+
 export const accountingApi = {
   ledger: (query: string) =>
     request<LedgerResponse>(`/api/accounting/transactions${query}`),
@@ -81,6 +87,8 @@ export const accountingApi = {
     request<{ rows: JournalRow[] }>(`/api/accounting/journal${query}`),
   accounts: () =>
     request<{ accounts: Account[] }>("/api/accounting/accounts"),
+  studentBalances: () =>
+    request<{ balances: StudentBalance[] }>("/api/student-balances"),
   setAccountActive: (number: string, active: boolean) =>
     request<{ ok: true }>(`/api/accounting/accounts/${number}`, {
       method: "PATCH",

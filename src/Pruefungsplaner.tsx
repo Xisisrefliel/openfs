@@ -29,11 +29,12 @@ import { EventEditDialog } from "./components/EventEditDialog.tsx";
 import {
   createCalendarEvent,
   deleteCalendarEvent,
+  recordExamResult,
   updateCalendarEvent,
   useCalendarEvents,
 } from "@/hooks/use-calendar-events";
 import { useInstructors, UNASSIGNED_INSTRUCTOR } from "@/hooks/use-instructors";
-import { useStudents, type StudentRecord } from "@/hooks/use-students";
+import { updateStudent, useStudents, type StudentRecord } from "@/hooks/use-students";
 import { useVehicleOptions } from "@/hooks/use-vehicle-options";
 import {
   TODAY,
@@ -189,14 +190,68 @@ function StatCards({ exams }: { exams: CalEvent[] }) {
 /* Upcoming exam list                                                  */
 /* ------------------------------------------------------------------ */
 
+function ExamResultControl({
+  result,
+  onChange,
+}: {
+  result: "bestanden" | "nicht_bestanden" | undefined;
+  onChange: (result: "bestanden" | "nicht_bestanden" | null) => void;
+}) {
+  const current = result ?? "offen";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              current === "bestanden"
+                ? "bg-emerald-500"
+                : current === "nicht_bestanden"
+                ? "bg-rose-500"
+                : "bg-muted-foreground/40"
+            )}
+          />
+          {current === "bestanden"
+            ? "Bestanden"
+            : current === "nicht_bestanden"
+            ? "Nicht bestanden"
+            : "Offen"}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {(
+          [
+            { value: "bestanden" as const, label: "Bestanden", dot: "bg-emerald-500" },
+            { value: "nicht_bestanden" as const, label: "Nicht bestanden", dot: "bg-rose-500" },
+            { value: null, label: "Offen", dot: "bg-muted-foreground/40" },
+          ] as const
+        ).map(opt => (
+          <DropdownMenuItem
+            key={opt.label}
+            onSelect={() => onChange(opt.value)}
+            className="gap-2"
+          >
+            <span className={cn("size-2 rounded-full", opt.dot)} />
+            {opt.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function ExamRow({
   exam,
   onEdit,
   onDelete,
+  onResult,
 }: {
   exam: CalEvent;
   onEdit: () => void;
   onDelete: () => void;
+  onResult: (result: "bestanden" | "nicht_bestanden" | null) => void;
 }) {
   const typeLabel = examTypeLabel[exam.type as ExamEventType] ?? exam.type;
 
@@ -241,6 +296,8 @@ function ExamRow({
           Vorläufig
         </Badge>
       )}
+
+      <ExamResultControl result={exam.examResult} onChange={onResult} />
 
       <div className="flex items-center gap-1.5">
         <Button
@@ -470,6 +527,39 @@ export function Pruefungsplaner() {
       });
   };
 
+  const handleExamResult = (
+    exam: CalEvent,
+    result: "bestanden" | "nicht_bestanden" | null
+  ) => {
+    void recordExamResult(exam.id, result)
+      .then(updated => {
+        void refresh();
+        // If a practical exam was just marked bestanden AND has a student,
+        // offer to set the license date.
+        if (
+          result === "bestanden" &&
+          updated.type === "Vorstellung zur prakt. Prüfung" &&
+          updated.studentId != null
+        ) {
+          const confirmed = window.confirm(
+            "Führerschein-Datum setzen? Datum des Prüfungstermins wird als Ausstellungsdatum gespeichert."
+          );
+          if (confirmed) {
+            void updateStudent(updated.studentId, { licenseDate: updated.date })
+              .then(() => {
+                toast.success("Führerschein-Datum gespeichert.");
+              })
+              .catch(() => {
+                toast.error("Führerschein-Datum konnte nicht gespeichert werden.");
+              });
+          }
+        }
+      })
+      .catch(() => {
+        toast.error("Ergebnis konnte nicht gespeichert werden.");
+      });
+  };
+
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader
@@ -548,6 +638,7 @@ export function Pruefungsplaner() {
                             exam={exam}
                             onEdit={() => setEditingEvent(exam)}
                             onDelete={() => handleEventDelete(exam)}
+                            onResult={result => handleExamResult(exam, result)}
                           />
                         ))}
                       </section>

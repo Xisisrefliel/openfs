@@ -7,15 +7,20 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { serve } from "bun";
 
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { openDb } from "./db";
 import {
   accountingRoutes,
   calendarEventRoutes,
+  exportRoutes,
   instructorRoutes,
   pricePlanRoutes,
   studentRoutes,
   vehicleRoutes,
 } from "./routes";
+import { openSqlite } from "./sqlite";
 
 /* ------------------------------------------------------------------ */
 /* Server setup — one server for the whole file.                       */
@@ -31,6 +36,7 @@ beforeAll(() => {
     routes: {
       ...accountingRoutes(db),
       ...calendarEventRoutes(db),
+      ...exportRoutes(db),
       ...instructorRoutes(db),
       ...pricePlanRoutes(db),
       ...studentRoutes(db),
@@ -318,6 +324,43 @@ describe("DELETE /api/calendar-events/:id", () => {
 });
 
 /* ================================================================== */
+/* Student balances                                                     */
+/* ================================================================== */
+
+describe("GET /api/student-balances", () => {
+  test("returns 200 with balances array; deposit shows correct balance", async () => {
+    // Post a payment for a fresh student.
+    const id = uniq();
+    await fetch(url("/api/accounting/transactions"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "zahlung_guthaben",
+        date: "2026-06-09",
+        amountCents: 50000,
+        geldkonto: "1600",
+        paymentMethod: "bar",
+        student: {
+          customerNo: `B-${id}`,
+          name: `Balance Tester ${id}`,
+          address: "",
+          contractNo: "",
+          classes: "B",
+        },
+      }),
+    });
+
+    const res = await fetch(url("/api/student-balances"));
+    expect(res.status).toBe(200);
+    const body = await res.json() as { balances: { customerNo: string; balanceCents: number }[] };
+    expect(Array.isArray(body.balances)).toBe(true);
+    const entry = body.balances.find(b => b.customerNo === `B-${id}`);
+    expect(entry).toBeDefined();
+    expect(entry!.balanceCents).toBe(50000);
+  });
+});
+
+/* ================================================================== */
 /* Accounting                                                           */
 /* ================================================================== */
 
@@ -359,5 +402,327 @@ describe("PUT /api/profile", () => {
     expect(res.status).toBe(200);
     const body = await res.json() as { name: string };
     expect(body.name).toBe("Neue Fahrschule");
+  });
+});
+
+/* ================================================================== */
+/* Database export                                                       */
+/* ================================================================== */
+
+describe("GET /api/export/database", () => {
+  test("200, .db in content-disposition, non-empty body with SQLite magic header", async () => {
+    const res = await fetch(url("/api/export/database"));
+    expect(res.status).toBe(200);
+
+    // content-disposition must mention .db
+    const disposition = res.headers.get("content-disposition") ?? "";
+    expect(disposition).toContain(".db");
+
+    // body must be non-empty
+    const buf = await res.arrayBuffer();
+    expect(buf.byteLength).toBeGreaterThan(0);
+
+    // first 16 bytes: "SQLite format 3\0"
+    const header = new TextDecoder().decode(new Uint8Array(buf, 0, 15));
+    expect(header).toBe("SQLite format 3");
+  });
+
+  test("bonus: serialized bytes open as a valid SQLite db with a students table", async () => {
+    const res = await fetch(url("/api/export/database"));
+    expect(res.status).toBe(200);
+    const buf = await res.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+
+    // write to a temp file outside of data/
+    const tmpPath = join(tmpdir(), `openfs-test-export-${Date.now()}.db`);
+    await Bun.write(tmpPath, bytes);
+
+    const tmpDb = openSqlite(tmpPath);
+    const row = tmpDb.query<{ n: number }, []>(
+      "SELECT count(*) AS n FROM students"
+    ).get();
+    tmpDb.close();
+
+    expect(row).not.toBeNull();
+    expect(typeof row!.n).toBe("number");
+  });
+});
+
+/* ================================================================== */
+/* POST /api/calendar-events/:id/bill                                  */
+/* ================================================================== */
+
+/** Create a student via the API, return the created student. */
+async function createTestStudent(): Promise<{ id: number; customerNumber: string; contractNumber: string }> {
+  const tag = uniq("bill");
+  const res = await fetch(url("/api/students"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      firstName: "Bill",
+      lastName: "Test",
+      contractNumber: `V-${tag}`,
+      customerNumber: `K-${tag}`,
+      classes: "B",
+      address: "Teststr. 1",
+    }),
+  });
+  expect(res.status).toBe(201);
+  return res.json() as Promise<{ id: number; customerNumber: string; contractNumber: string }>;
+}
+
+/** Create a Praktisch event linked to a student. */
+async function createPraktischEvent(studentId: number): Promise<{ id: string }> {
+  const res = await fetch(url("/api/calendar-events"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      date: "2026-06-15",
+      start: "09:00",
+      end: "09:45",
+      title: "Fahrstunde",
+      instructor: "Köksal Gül",
+      type: "Praktisch",
+      studentId,
+    }),
+  });
+  expect(res.status).toBe(201);
+  return res.json() as Promise<{ id: string }>;
+}
+
+describe("POST /api/calendar-events/:id/bill", () => {
+  test("happy path: bills event, returns transaction + updated event with billedActive=true", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const billBody = {
+      type: "guthaben_uebertragung",
+      date: "2026-06-15",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: {
+        customerNo: student.customerNumber,
+        name: "Bill Test",
+        address: "Teststr. 1",
+        contractNo: student.contractNumber,
+        classes: "B",
+      },
+      description: "FS Bill Test - B, Fahrübungsstunde (45)",
+    };
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json() as {
+      transaction: { id: number };
+      event: { billedTransactionId: number; billedActive: boolean };
+    };
+    expect(typeof body.transaction.id).toBe("number");
+    expect(body.event.billedTransactionId).toBe(body.transaction.id);
+    expect(body.event.billedActive).toBe(true);
+  });
+
+  test("billing an already-billed event → 400 'bereits abgerechnet'", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const billBody = {
+      type: "guthaben_uebertragung",
+      date: "2026-06-15",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: {
+        customerNo: student.customerNumber,
+        name: "Bill Test",
+        address: "Teststr. 1",
+        contractNo: student.contractNumber,
+        classes: "B",
+      },
+      description: "FS Bill Test - B, Fahrübungsstunde (45)",
+    };
+
+    const first = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(first.status).toBe(201);
+
+    // Second billing attempt must fail.
+    const second = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(second.status).toBe(400);
+    const errBody = await second.json() as { error: string };
+    expect(errBody.error).toContain("abgerechnet");
+  });
+
+  test("billing a Theorie event → 400 'praktische Fahrstunden'", async () => {
+    const res1 = await fetch(url("/api/calendar-events"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-06-15",
+        start: "10:00",
+        end: "11:30",
+        title: "Theorieunterricht",
+        instructor: "Köksal Gül",
+        type: "Theorie",
+      }),
+    });
+    expect(res1.status).toBe(201);
+    const theoryEvent = await res1.json() as { id: string };
+
+    const res = await fetch(url(`/api/calendar-events/${theoryEvent.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "guthaben_uebertragung",
+        date: "2026-06-15",
+        amountCents: 5000,
+        habenKonto: "4400",
+        student: { customerNo: "X", name: "X", address: "", contractNo: "X", classes: "B" },
+        description: "Test",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("praktische");
+  });
+
+  test("billing event without studentId → 400 'Kein Fahrschüler'", async () => {
+    const res1 = await fetch(url("/api/calendar-events"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-06-15",
+        start: "11:00",
+        end: "11:45",
+        title: "Fahrstunde ohne Student",
+        instructor: "Köksal Gül",
+        type: "Praktisch",
+        // No studentId
+      }),
+    });
+    expect(res1.status).toBe(201);
+    const evt = await res1.json() as { id: string };
+
+    const res = await fetch(url(`/api/calendar-events/${evt.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "guthaben_uebertragung",
+        date: "2026-06-15",
+        amountCents: 5000,
+        habenKonto: "4400",
+        student: { customerNo: "X", name: "X", address: "", contractNo: "X", classes: "B" },
+        description: "Test",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("Fahrschüler");
+  });
+
+  test("body with wrong type 'zahlung_guthaben' → 400, no transaction linked to event", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const res = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "zahlung_guthaben",
+        date: "2026-06-15",
+        amountCents: 6500,
+        habenKonto: "4400",
+        student: {
+          customerNo: student.customerNumber,
+          name: "Bill Test",
+          address: "Teststr. 1",
+          contractNo: student.contractNumber,
+          classes: "B",
+        },
+        description: "FS Bill Test - B, Fahrübungsstunde (45)",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json() as { error: string };
+    expect(body.error).toContain("guthaben_uebertragung");
+
+    // Verify no transaction was linked: the event is still not billed.
+    const eventRes = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "guthaben_uebertragung",
+        date: "2026-06-15",
+        amountCents: 6500,
+        habenKonto: "4400",
+        student: {
+          customerNo: student.customerNumber,
+          name: "Bill Test",
+          address: "Teststr. 1",
+          contractNo: student.contractNumber,
+          classes: "B",
+        },
+        description: "FS Bill Test - B, Fahrübungsstunde (45)",
+      }),
+    });
+    // A successful re-bill (201) confirms the event was never marked billed.
+    expect(eventRes.status).toBe(201);
+  });
+
+  test("storno the transaction, then re-bill succeeds with a new transaction id", async () => {
+    const student = await createTestStudent();
+    const event = await createPraktischEvent(student.id);
+
+    const billBody = {
+      type: "guthaben_uebertragung",
+      date: "2026-06-15",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: {
+        customerNo: student.customerNumber,
+        name: "Bill Test",
+        address: "Teststr. 1",
+        contractNo: student.contractNumber,
+        classes: "B",
+      },
+      description: "FS Bill Test - B, Fahrübungsstunde (45)",
+    };
+
+    const billRes = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(billRes.status).toBe(201);
+    const billData = await billRes.json() as { transaction: { id: number }; event: { billedTransactionId: number } };
+    const txId = billData.transaction.id;
+
+    // Storno the transaction.
+    const stornoRes = await fetch(url(`/api/accounting/transactions/${txId}/storno`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "Test-Storno" }),
+    });
+    expect(stornoRes.status).toBe(201);
+
+    // Now re-bill should succeed.
+    const rebillRes = await fetch(url(`/api/calendar-events/${event.id}/bill`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(billBody),
+    });
+    expect(rebillRes.status).toBe(201);
+    const rebillData = await rebillRes.json() as { transaction: { id: number }; event: { billedTransactionId: number } };
+    expect(rebillData.transaction.id).not.toBe(txId);
+    expect(rebillData.event.billedTransactionId).toBe(rebillData.transaction.id);
   });
 });
