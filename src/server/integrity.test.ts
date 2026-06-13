@@ -10,19 +10,10 @@ import type { Database } from "./sqlite";
 import { listArchive, restoreArchived } from "./archive";
 import { createCalendarEvent, getCalendarEvent } from "./calendar-events";
 import { ensureChatTables } from "./chat";
-import {
-  createInstructor,
-  deleteInstructor,
-  updateInstructor,
-} from "./instructors";
+import { createInstructor, deleteInstructor, updateInstructor } from "./instructors";
 import { createStudent, getStudent, updateStudent } from "./students";
 import { ensureTheoryGroupTables } from "./theory-groups";
-import {
-  createVehicle,
-  deleteVehicle,
-  getVehicle,
-  updateVehicle,
-} from "./vehicles";
+import { createVehicle, deleteVehicle, getVehicle, updateVehicle } from "./vehicles";
 
 const UNASSIGNED = "Nicht zugeteilt";
 
@@ -66,9 +57,9 @@ function insertTheoryGroup(instructor: string, studentIds: number[] = []) {
     db
       .prepare(
         `INSERT INTO theory_groups (name, klass, weekday, time, instructor, student_ids)
-         VALUES ('Gruppe T', 'B', 'Montag', '18:00', ?, ?)`
+         VALUES ('Gruppe T', 'B', 'Montag', '18:00', ?, ?)`,
       )
-      .run(instructor, JSON.stringify(studentIds)).lastInsertRowid
+      .run(instructor, JSON.stringify(studentIds)).lastInsertRowid,
   );
 }
 
@@ -87,9 +78,9 @@ describe("instructor rename", () => {
     expect(
       db
         .query<{ instructor: string }, [number]>(
-          "SELECT instructor FROM theory_groups WHERE id = ?"
+          "SELECT instructor FROM theory_groups WHERE id = ?",
         )
-        .get(groupId)!.instructor
+        .get(groupId)!.instructor,
     ).toBe("Anna Neu");
   });
 });
@@ -102,11 +93,9 @@ describe("instructor delete", () => {
     deleteInstructor(db, instructor.id);
     expect(getCalendarEvent(db, Number(event.id)).instructor).toBe(UNASSIGNED);
 
-    const archived = listArchive(db).find(r => r.entity === "instructor");
+    const archived = listArchive(db).find((r) => r.entity === "instructor");
     restoreArchived(db, archived!.id);
-    expect(getCalendarEvent(db, Number(event.id)).instructor).toBe(
-      "Bernd Weg"
-    );
+    expect(getCalendarEvent(db, Number(event.id)).instructor).toBe("Bernd Weg");
   });
 });
 
@@ -132,9 +121,9 @@ describe("vehicle model rename", () => {
     expect(
       db
         .query<{ vehicle: string }, [number]>(
-          "SELECT vehicle FROM instructors WHERE id = ?"
+          "SELECT vehicle FROM instructors WHERE id = ?",
         )
-        .get(instructor.id)!.vehicle
+        .get(instructor.id)!.vehicle,
     ).toBe("Opel Astra");
     expect(getCalendarEvent(db, Number(event.id)).vehicle).toBe("Opel Astra");
   });
@@ -166,7 +155,7 @@ describe("vehicle delete", () => {
     deleteVehicle(db, vehicle.id);
     expect(getCalendarEvent(db, Number(event.id)).vehicle).toBeUndefined();
 
-    const archived = listArchive(db).find(r => r.entity === "vehicle");
+    const archived = listArchive(db).find((r) => r.entity === "vehicle");
     restoreArchived(db, archived!.id);
     expect(getCalendarEvent(db, Number(event.id)).vehicle).toBe("Opel Corsa");
   });
@@ -194,18 +183,19 @@ describe("student rename", () => {
   test("syncs the denormalized conversation name", () => {
     ensureChatTables(db);
     const student = makeStudent({ firstName: "Lara", lastName: "Lang" });
-    db.prepare(
-      "INSERT INTO conversations (student_id, student_name) VALUES (?, ?)"
-    ).run(student.id, "Lara Lang");
+    db.prepare("INSERT INTO conversations (student_id, student_name) VALUES (?, ?)").run(
+      student.id,
+      "Lara Lang",
+    );
 
     updateStudent(db, student.id, { lastName: "Kurz" });
 
     expect(
       db
         .query<{ student_name: string }, [number]>(
-          "SELECT student_name FROM conversations WHERE student_id = ?"
+          "SELECT student_name FROM conversations WHERE student_id = ?",
         )
-        .get(student.id)!.student_name
+        .get(student.id)!.student_name,
     ).toBe("Lara Kurz");
   });
 });
@@ -221,15 +211,18 @@ describe("repairSoftReferences", () => {
     db.prepare("UPDATE students SET instructor = ?, vehicle = ? WHERE id = ?").run(
       "Geist Lehrer",
       "Geist Mobil",
-      student.id
+      student.id,
     );
-    db.prepare(
-      "UPDATE calendar_events SET instructor = ?, vehicle = ? WHERE id = ?"
-    ).run("Geist Lehrer", "Geist Mobil", Number(event.id));
+    db.prepare("UPDATE calendar_events SET instructor = ?, vehicle = ? WHERE id = ?").run(
+      "Geist Lehrer",
+      "Geist Mobil",
+      Number(event.id),
+    );
     const groupId = insertTheoryGroup("Geist Lehrer", [student.id, 99999]);
-    db.prepare(
-      "INSERT INTO conversations (student_id, student_name) VALUES (?, ?)"
-    ).run(99999, "Geist Schüler");
+    db.prepare("INSERT INTO conversations (student_id, student_name) VALUES (?, ?)").run(
+      99999,
+      "Geist Schüler",
+    );
 
     repairSoftReferences(db);
 
@@ -240,7 +233,7 @@ describe("repairSoftReferences", () => {
     expect(repaired.vehicle).toBeUndefined();
     const group = db
       .query<{ instructor: string; student_ids: string }, [number]>(
-        "SELECT instructor, student_ids FROM theory_groups WHERE id = ?"
+        "SELECT instructor, student_ids FROM theory_groups WHERE id = ?",
       )
       .get(groupId)!;
     expect(group.instructor).toBe(UNASSIGNED);
@@ -248,9 +241,9 @@ describe("repairSoftReferences", () => {
     expect(
       db
         .query<{ n: number }, []>(
-          "SELECT count(*) AS n FROM conversations WHERE student_id = 99999"
+          "SELECT count(*) AS n FROM conversations WHERE student_id = 99999",
         )
-        .get()!.n
+        .get()!.n,
     ).toBe(0);
   });
 

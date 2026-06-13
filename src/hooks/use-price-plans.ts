@@ -12,46 +12,45 @@ import { parseOrThrow, useFetchList } from "@/lib/api";
 
 export async function fetchPricePlans(): Promise<PricePlanRecord[]> {
   const data = await parseOrThrow<{ plans: PricePlanRecord[] }>(
-    await fetch("/api/price-plans")
+    await fetch("/api/price-plans"),
   );
   return data.plans;
 }
 
-export async function createPricePlan(
-  input: PricePlanInput
-): Promise<PricePlanRecord> {
+export async function createPricePlan(input: PricePlanInput): Promise<PricePlanRecord> {
   return parseOrThrow<PricePlanRecord>(
     await fetch("/api/price-plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function updatePricePlan(
   id: number,
-  input: Partial<PricePlanInput>
+  input: Partial<PricePlanInput>,
 ): Promise<PricePlanRecord> {
   return parseOrThrow<PricePlanRecord>(
     await fetch(`/api/price-plans/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function deletePricePlan(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/price-plans/${id}`, { method: "DELETE" })
+    await fetch(`/api/price-plans/${id}`, { method: "DELETE" }),
   );
 }
 
 export function usePricePlans() {
-  const { items: plans, loading, refresh } = useFetchList(
-    fetchPricePlans,
-    "Preispläne konnten nicht geladen werden"
-  );
+  const {
+    items: plans,
+    loading,
+    refresh,
+  } = useFetchList(fetchPricePlans, "Preispläne konnten nicht geladen werden");
   return { plans, loading, refresh };
 }

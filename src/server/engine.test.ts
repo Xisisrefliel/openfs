@@ -8,6 +8,7 @@ import {
   listAccounts,
   listJournal,
   listLedger,
+  listStudentBalances,
   setAccountActive,
   stornoTransaction,
   ValidationError,
@@ -31,7 +32,7 @@ const STUDENT = {
 describe("chart of accounts (SKR 04)", () => {
   test("seeds the verified SKR 04 accounts", () => {
     const accounts = listAccounts(db);
-    const byNumber = new Map(accounts.map(a => [a.number, a]));
+    const byNumber = new Map(accounts.map((a) => [a.number, a]));
     expect(byNumber.get("1600")?.name).toBe("Kasse");
     expect(byNumber.get("1800")?.name).toBe("Bank");
     expect(byNumber.get("1460")?.name).toBe("Geldtransit");
@@ -153,15 +154,29 @@ describe("createTransaction", () => {
       paymentMethod: "bar" as const,
       student: STUDENT,
     };
-    expect(() => createTransaction(db, { ...base, amountCents: 0 })).toThrow(ValidationError);
-    expect(() => createTransaction(db, { ...base, amountCents: -100 })).toThrow(ValidationError);
-    expect(() => createTransaction(db, { ...base, amountCents: 10.5 })).toThrow(ValidationError);
-    expect(() => createTransaction(db, { ...base, date: "09.06.2026" })).toThrow(ValidationError);
-    expect(() => createTransaction(db, { ...base, date: "2026-02-30" })).toThrow(ValidationError);
-    expect(() => createTransaction(db, { ...base, geldkonto: "4400" })).toThrow(ValidationError);
-    expect(() => createTransaction(db, { ...base, geldkonto: "9999" })).toThrow(ValidationError);
+    expect(() => createTransaction(db, { ...base, amountCents: 0 })).toThrow(
+      ValidationError,
+    );
+    expect(() => createTransaction(db, { ...base, amountCents: -100 })).toThrow(
+      ValidationError,
+    );
+    expect(() => createTransaction(db, { ...base, amountCents: 10.5 })).toThrow(
+      ValidationError,
+    );
+    expect(() => createTransaction(db, { ...base, date: "09.06.2026" })).toThrow(
+      ValidationError,
+    );
+    expect(() => createTransaction(db, { ...base, date: "2026-02-30" })).toThrow(
+      ValidationError,
+    );
+    expect(() => createTransaction(db, { ...base, geldkonto: "4400" })).toThrow(
+      ValidationError,
+    );
+    expect(() => createTransaction(db, { ...base, geldkonto: "9999" })).toThrow(
+      ValidationError,
+    );
     expect(() =>
-      createTransaction(db, { ...base, student: { ...STUDENT, name: " " } })
+      createTransaction(db, { ...base, student: { ...STUDENT, name: " " } }),
     ).toThrow(ValidationError);
     expect(() =>
       createTransaction(db, {
@@ -170,7 +185,7 @@ describe("createTransaction", () => {
         amountCents: 1000,
         fromKonto: "1600",
         toKonto: "1600",
-      })
+      }),
     ).toThrow(ValidationError);
     expect(() =>
       createTransaction(db, {
@@ -180,7 +195,7 @@ describe("createTransaction", () => {
         habenKonto: "1800", // Geldkonto is not a valid Erlöskonto
         student: STUDENT,
         description: "x",
-      })
+      }),
     ).toThrow(ValidationError);
     // no transactions persisted by failed attempts
     expect(listLedger(db, {}).rows).toHaveLength(0);
@@ -196,7 +211,7 @@ describe("createTransaction", () => {
         habenKonto: "4300",
         student: STUDENT,
         description: "x",
-      })
+      }),
     ).toThrow(ValidationError);
   });
 });
@@ -217,7 +232,7 @@ describe("numbering (GoBD)", () => {
     }
     expect(belege).toEqual(["T0000124A", "T0000125A", "T0000126A"]);
     const buchungen = listJournal(db, {})
-      .map(row => row.buchungNr)
+      .map((row) => row.buchungNr)
       .sort();
     expect(buchungen).toEqual(["00000219A", "00000220A", "00000221A"]);
   });
@@ -308,8 +323,8 @@ describe("storno", () => {
     expect(storno.belegNr).toBe("T0000125A");
 
     const ledger = listLedger(db, {});
-    const original = ledger.rows.find(row => row.id === created.id)!;
-    const reversal = ledger.rows.find(row => row.id === storno.id)!;
+    const original = ledger.rows.find((row) => row.id === created.id)!;
+    const reversal = ledger.rows.find((row) => row.id === storno.id)!;
     expect(original.storniert).toBe(true);
     expect(original.stornoReason).toBe("Falscher Betrag");
     expect(original.printable).toBe(false);
@@ -318,11 +333,11 @@ describe("storno", () => {
 
     expect(() => getQuittung(db, created.id)).toThrow(ValidationError);
     expect(() => stornoTransaction(db, created.id, "nochmal", "2026-06-10")).toThrow(
-      ValidationError
+      ValidationError,
     );
-    expect(() => stornoTransaction(db, storno.id, "storno vom storno", "2026-06-10")).toThrow(
-      ValidationError
-    );
+    expect(() =>
+      stornoTransaction(db, storno.id, "storno vom storno", "2026-06-10"),
+    ).toThrow(ValidationError);
     // Net cash effect is zero again.
     expect(ledger.closingCents).toBe(ledger.openingCents);
   });
@@ -337,7 +352,7 @@ describe("storno", () => {
       student: STUDENT,
     });
     expect(() => stornoTransaction(db, created.id, "  ", "2026-06-10")).toThrow(
-      ValidationError
+      ValidationError,
     );
   });
 });
@@ -419,21 +434,21 @@ describe("seed", () => {
     // 9 single bookings + 2 transfers à 2 bookings = 13
     expect(journal).toHaveLength(13);
     // Every Fahrstunden consumption is 1718 an 8400.
-    const fahrstunden = journal.filter(r => r.description.includes("Fahrübungsstunde"));
+    const fahrstunden = journal.filter((r) => r.description.includes("Fahrübungsstunde"));
     expect(fahrstunden.length).toBe(2);
     for (const row of fahrstunden) {
       expect(row.sollKonto).toBe("3272");
       expect(row.habenKonto).toBe("4400");
     }
     // TÜV fees are durchlaufende Posten.
-    const tuev = journal.filter(r => r.description.includes("TÜV"));
+    const tuev = journal.filter((r) => r.description.includes("TÜV"));
     for (const row of tuev) {
       expect(row.sollKonto).toBe("3272");
       expect(row.habenKonto).toBe("1370");
       expect(row.vatRate).toBeNull();
     }
     // All Zahlungen are printable.
-    const zahlungen = ledger.rows.filter(r => r.type === "zahlung_guthaben");
+    const zahlungen = ledger.rows.filter((r) => r.type === "zahlung_guthaben");
     expect(zahlungen.length).toBe(4);
     for (const row of zahlungen) expect(row.printable).toBe(true);
   });
@@ -449,6 +464,102 @@ describe("company settings", () => {
     };
     setCompany(db, updated);
     expect(getCompany(db)).toEqual(updated);
+  });
+});
+
+describe("listStudentBalances", () => {
+  const STUDENT_A = {
+    customerNo: "10051",
+    name: "Aylin Demir",
+    address: "Bleichstraße 9, 64283 Darmstadt",
+    contractNo: "V-2026-0987",
+    classes: "B197",
+  };
+  const STUDENT_B = {
+    customerNo: "10052",
+    name: "Jonas Keller",
+    address: "Rheinstraße 1, 64283 Darmstadt",
+    contractNo: "V-2026-0988",
+    classes: "B",
+  };
+
+  test("deposit 500 € → +50000 for that student", () => {
+    createTransaction(db, {
+      type: "zahlung_guthaben",
+      date: "2026-06-09",
+      amountCents: 50000,
+      geldkonto: "1600",
+      paymentMethod: "bar",
+      student: STUDENT_A,
+    });
+    const balances = listStudentBalances(db);
+    const entry = balances.find((b) => b.customerNo === STUDENT_A.customerNo);
+    expect(entry).toBeDefined();
+    expect(entry!.balanceCents).toBe(50000);
+  });
+
+  test("deposit 500 € then 65 € lesson charge → +43500", () => {
+    createTransaction(db, {
+      type: "zahlung_guthaben",
+      date: "2026-06-09",
+      amountCents: 50000,
+      geldkonto: "1600",
+      paymentMethod: "bar",
+      student: STUDENT_A,
+    });
+    createTransaction(db, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: STUDENT_A,
+      description: "Fahrübungsstunde (90)",
+    });
+    const balances = listStudentBalances(db);
+    const entry = balances.find((b) => b.customerNo === STUDENT_A.customerNo);
+    expect(entry!.balanceCents).toBe(43500);
+  });
+
+  test("storno of the charge restores the balance to +50000", () => {
+    createTransaction(db, {
+      type: "zahlung_guthaben",
+      date: "2026-06-09",
+      amountCents: 50000,
+      geldkonto: "1600",
+      paymentMethod: "bar",
+      student: STUDENT_A,
+    });
+    const charge = createTransaction(db, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: STUDENT_A,
+      description: "Fahrübungsstunde (90)",
+    });
+    stornoTransaction(db, charge.id, "Irrtümliche Buchung", "2026-06-10");
+    const balances = listStudentBalances(db);
+    const entry = balances.find((b) => b.customerNo === STUDENT_A.customerNo);
+    expect(entry!.balanceCents).toBe(50000);
+  });
+
+  test("student with no transactions is absent from the list", () => {
+    // Post a transaction for STUDENT_B only.
+    createTransaction(db, {
+      type: "zahlung_guthaben",
+      date: "2026-06-09",
+      amountCents: 10000,
+      geldkonto: "1600",
+      paymentMethod: "bar",
+      student: STUDENT_B,
+    });
+    const balances = listStudentBalances(db);
+    // STUDENT_A has no transactions in this fresh beforeEach db.
+    const entryA = balances.find((b) => b.customerNo === STUDENT_A.customerNo);
+    expect(entryA).toBeUndefined();
+    // STUDENT_B is present.
+    const entryB = balances.find((b) => b.customerNo === STUDENT_B.customerNo);
+    expect(entryB!.balanceCents).toBe(10000);
   });
 });
 
@@ -480,7 +591,7 @@ describe("Quittung payload", () => {
       address: "Bleichstraße 9, 64283 Darmstadt",
     });
     expect(quittung.verwendungszweck).toBe(
-      "Zahlung auf Ausbildungskonto, Vertrag V-2026-0987, Klasse B197"
+      "Zahlung auf Ausbildungskonto, Vertrag V-2026-0987, Klasse B197",
     );
     expect(quittung.totalCents).toBe(40983);
     expect(quittung.lines[0]!.netCents + quittung.lines[0]!.vatCents).toBe(40983);

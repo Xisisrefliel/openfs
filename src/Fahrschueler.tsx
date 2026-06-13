@@ -1,10 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Printer,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Printer } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
 import { VertragDialog } from "./components/VertragDialog.tsx";
@@ -102,9 +97,7 @@ function SortableHead({
   return (
     <TableHead
       className={className}
-      aria-sort={
-        isActive ? (direction === "asc" ? "ascending" : "descending") : "none"
-      }
+      aria-sort={isActive ? (direction === "asc" ? "ascending" : "descending") : "none"}
     >
       <Button
         type="button"
@@ -120,26 +113,20 @@ function SortableHead({
   );
 }
 
-export function Fahrschueler({
-  navigate,
-}: {
-  navigate: (to: string) => void;
-}) {
+export function Fahrschueler({ navigate }: { navigate: (to: string) => void }) {
   // DB-backed: the roster comes from /api/students, edits go back via PATCH.
   const { students: studentRows } = useStudents();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("aktiv");
   const [sortKey, setSortKey] = useState<SortKey>("lastName");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [vertragStudent, setVertragStudent] = useState<StudentRecord | null>(
-    null
-  );
+  const [vertragStudent, setVertragStudent] = useState<StudentRecord | null>(null);
 
   const filteredStudents = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     return studentRows
-      .filter(student => {
+      .filter((student) => {
         const matchesQuery =
           normalizedQuery.length === 0 ||
           [
@@ -174,7 +161,7 @@ export function Fahrschueler({
 
   const handleSort = (key: SortKey) => {
     if (key === sortKey) {
-      setSortDirection(current => (current === "asc" ? "desc" : "asc"));
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
       return;
     }
 
@@ -187,8 +174,7 @@ export function Fahrschueler({
     setStatusFilter("aktiv");
   };
 
-  const openStudent = (student: StudentRecord) =>
-    navigate(`/fahrschueler/${student.id}`);
+  const openStudent = (student: StudentRecord) => navigate(`/fahrschueler/${student.id}`);
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
@@ -196,14 +182,14 @@ export function Fahrschueler({
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <Input
             value={query}
-            onChange={event => setQuery(event.target.value)}
+            onChange={(event) => setQuery(event.target.value)}
             placeholder="Name, Telefon, Klasse oder Vertrag suchen"
             className="h-8 w-80 max-w-full"
           />
           <ToggleGroup
             type="single"
             value={statusFilter}
-            onValueChange={value => {
+            onValueChange={(value) => {
               if (value === "aktiv" || value === "inaktiv") {
                 setStatusFilter(value);
               }
@@ -220,12 +206,7 @@ export function Fahrschueler({
               Inaktiv
             </ToggleGroupItem>
           </ToggleGroup>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={resetFilters}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
             Zurücksetzen
           </Button>
         </div>
@@ -311,7 +292,7 @@ export function Fahrschueler({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStudents.map(student => {
+                {filteredStudents.map((student) => {
                   const hasDebt = student.balance.startsWith("-");
 
                   return (
@@ -320,15 +301,19 @@ export function Fahrschueler({
                       tabIndex={0}
                       className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
                       onClick={() => openStudent(student)}
-                      onKeyDown={event => {
+                      onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
                           openStudent(student);
                         }
                       }}
                     >
-                      <TableCell className="pl-4 pr-1 font-medium">{student.firstName}</TableCell>
-                      <TableCell className="px-1 font-medium">{student.lastName}</TableCell>
+                      <TableCell className="pl-4 pr-1 font-medium">
+                        {student.firstName}
+                      </TableCell>
+                      <TableCell className="px-1 font-medium">
+                        {student.lastName}
+                      </TableCell>
                       <TableCell className="px-1">{student.classes}</TableCell>
                       <TableCell className="pl-1 pr-4">
                         <Badge
@@ -357,7 +342,7 @@ export function Fahrschueler({
                             variant="ghost"
                             size="icon-sm"
                             aria-label={`${student.contractNumber} drucken`}
-                            onClick={event => {
+                            onClick={(event) => {
                               event.stopPropagation();
                               setVertragStudent(student);
                             }}
@@ -374,10 +359,7 @@ export function Fahrschueler({
           </div>
         </div>
       </div>
-      <VertragDialog
-        student={vertragStudent}
-        onClose={() => setVertragStudent(null)}
-      />
+      <VertragDialog student={vertragStudent} onClose={() => setVertragStudent(null)} />
     </div>
   );
 }

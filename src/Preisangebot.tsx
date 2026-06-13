@@ -32,12 +32,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -97,7 +92,7 @@ function PlanCard({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {plan.components.map(component => (
+              {plan.components.map((component) => (
                 <TableRow key={component.label}>
                   <TableCell>
                     {component.label}
@@ -129,9 +124,7 @@ export function Preisangebot() {
   const { plans, loading, refresh } = usePricePlans();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editPlan, setEditPlan] = useState<PricePlanRecord | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<PricePlanRecord | null>(
-    null
-  );
+  const [deleteTarget, setDeleteTarget] = useState<PricePlanRecord | null>(null);
 
   const openCreate = () => {
     setEditPlan(null);
@@ -150,9 +143,7 @@ export function Preisangebot() {
       toast.success(`Preisplan „${deleteTarget.name}" gelöscht.`);
       await refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     } finally {
       setDeleteTarget(null);
     }
@@ -191,7 +182,7 @@ export function Preisangebot() {
           </Empty>
         ) : (
           <div className="animate-enter grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-3">
-            {plans.map(plan => (
+            {plans.map((plan) => (
               <PlanCard
                 key={plan.id}
                 plan={plan}
@@ -212,25 +203,21 @@ export function Preisangebot() {
 
       <AlertDialog
         open={deleteTarget !== null}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Preisplan „{deleteTarget?.name}" löschen?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Preisplan „{deleteTarget?.name}" löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              Fahrschüler mit diesem Tarif fallen auf den Standardtarif
-              zurück. Diese Aktion kann nicht rückgängig gemacht werden.
+              Fahrschüler mit diesem Tarif fallen auf den Standardtarif zurück. Diese
+              Aktion kann nicht rückgängig gemacht werden.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>
-              Löschen
-            </AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete}>Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

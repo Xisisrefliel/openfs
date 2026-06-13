@@ -50,6 +50,7 @@ import { Preisangebot } from "./Preisangebot";
 import { Profil } from "./Profil";
 import { Schulprofil } from "./Schulprofil";
 import { Statistik } from "./Statistik";
+import { Anfrage } from "./Anfrage";
 import { Terminanfragen } from "./Terminanfragen";
 import { Theorie } from "./Theorie";
 import { Vertraege } from "./Vertraege";
@@ -97,13 +98,11 @@ const navItems: { label: string; Icon: IconCmp; route?: string }[] = [
 const navGroups: {
   label: string;
   Icon: IconCmp;
-  iconColor: string;
   items: { label: string; Icon: IconCmp; route?: string }[];
 }[] = [
   {
     label: "Marketing",
     Icon: Megaphone,
-    iconColor: "text-rose-500!",
     items: [
       { label: "Marketing", Icon: Megaphone, route: "/marketing" },
       { label: "Schulprofil", Icon: Building2, route: "/schulprofil" },
@@ -114,7 +113,6 @@ const navGroups: {
   {
     label: "Verwaltung",
     Icon: CalendarClock,
-    iconColor: "text-green-700!",
     items: [
       { label: "Terminanfragen", Icon: CalendarClock, route: "/terminanfragen" },
       { label: "Fahrschule", Icon: Building2, route: "/fahrschule" },
@@ -205,40 +203,41 @@ function AppSidebar({
           </SidebarMenu>
         </SidebarGroup>
 
-        {navGroups.map(({ label, Icon, iconColor, items }) => (
+        {navGroups.map(({ label, Icon, items }) => (
           <SidebarGroup key={label}>
             <SidebarMenu>
               <Collapsible defaultOpen className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton tooltip={label}>
-                      <Icon className={iconColor} />
+                      <Icon />
                       <span>{label}</span>
                       <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {items.map(
-                        ({ label: subLabel, Icon: SubIcon, route }) => (
-                          <SidebarMenuSubItem key={subLabel}>
-                            <SidebarMenuSubButton asChild>
-                              <a
-                                href={route ?? "#"}
-                                aria-disabled={!route}
-                                tabIndex={route ? undefined : -1}
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  if (route) navigate(route);
-                                }}
-                              >
-                                <SubIcon className={iconColor} />
-                                <span>{subLabel}</span>
-                              </a>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ),
-                      )}
+                      {items.map(({ label: subLabel, Icon: SubIcon, route }) => (
+                        <SidebarMenuSubItem key={subLabel}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={route ? path === route : false}
+                          >
+                            <a
+                              href={route ?? "#"}
+                              aria-disabled={!route}
+                              tabIndex={route ? undefined : -1}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                if (route) navigate(route);
+                              }}
+                            >
+                              <SubIcon />
+                              <span>{subLabel}</span>
+                            </a>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -256,7 +255,7 @@ function AppSidebar({
                 isActive={path === "/archiv"}
                 onClick={() => navigate("/archiv")}
               >
-                <Archive className="text-amber-600!" />
+                <Archive />
                 <span>Archiv</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -314,9 +313,7 @@ function ShellControls() {
   }, []);
 
   return (
-    <div
-      className="pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2 pt-2.5"
-    >
+    <div className="pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2 pt-2.5">
       {/* The backdrop slides in lockstep with the sidebar — same distance
           (its own width), duration and easing as sidebar-container — so it
           covers scrolled sidebar items on every animation frame instead of
@@ -324,7 +321,7 @@ function ShellControls() {
       <div
         className={cn(
           "absolute inset-0 bg-sidebar transition-transform duration-300 ease-drawer motion-reduce:transition-none",
-          state === "expanded" ? "translate-x-0" : "-translate-x-full"
+          state === "expanded" ? "translate-x-0" : "-translate-x-full",
         )}
       >
         {/* Scroll fade on the bottom edge — not a shadow (gray on the
@@ -338,11 +335,15 @@ function ShellControls() {
             "absolute inset-x-0 top-full h-10 bg-gradient-to-b from-sidebar via-sidebar/70 to-transparent transition-opacity duration-300",
             !isMobile && state === "expanded" && sidebarScrolled
               ? "opacity-100"
-              : "opacity-0"
+              : "opacity-0",
           )}
         />
       </div>
-      <div className="pointer-events-auto relative flex items-center gap-1">
+      {/* w-fit keeps the clickable area to the buttons themselves — the
+          strip container spans the full sidebar width, and a full-width
+          pointer-events-auto row would swallow clicks meant for header
+          content underneath when the sidebar is collapsed. */}
+      <div className="pointer-events-auto relative flex w-fit items-center gap-1">
         <SidebarTrigger className="size-7 bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent" />
         <Button
           type="button"
@@ -429,6 +430,8 @@ export function App() {
     ) : (
       <Dashboard />
     );
+
+  if (path === "/anfrage") return <Anfrage />;
 
   return (
     <TooltipProvider delayDuration={300}>

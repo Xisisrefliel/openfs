@@ -1,13 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  groupEventsByDay,
-  layoutDay,
-  type CalEvent,
-} from "./calendar-data";
+import { groupEventsByDay, layoutDay, type CalEvent } from "./calendar-data";
 
 /* Minimal CalEvent factory for test fixtures. */
-function makeEvent(overrides: Partial<CalEvent> & { id: string; date: string; start: string; end: string }): CalEvent {
+function makeEvent(
+  overrides: Partial<CalEvent> & { id: string; date: string; start: string; end: string },
+): CalEvent {
   return {
     title: "Fahrstunde",
     instructor: "Mustermann",
@@ -23,9 +21,24 @@ describe("groupEventsByDay", () => {
   });
 
   test("events on two days group correctly and preserve input order within a day", () => {
-    const monday1 = makeEvent({ id: "1", date: "2026-06-08", start: "08:00", end: "08:45" });
-    const monday2 = makeEvent({ id: "2", date: "2026-06-08", start: "10:00", end: "11:30" });
-    const tuesday  = makeEvent({ id: "3", date: "2026-06-09", start: "09:00", end: "09:45" });
+    const monday1 = makeEvent({
+      id: "1",
+      date: "2026-06-08",
+      start: "08:00",
+      end: "08:45",
+    });
+    const monday2 = makeEvent({
+      id: "2",
+      date: "2026-06-08",
+      start: "10:00",
+      end: "11:30",
+    });
+    const tuesday = makeEvent({
+      id: "3",
+      date: "2026-06-09",
+      start: "09:00",
+      end: "09:45",
+    });
 
     const result = groupEventsByDay([monday1, monday2, tuesday]);
 
@@ -35,7 +48,12 @@ describe("groupEventsByDay", () => {
   });
 
   test("single event ends up in its own day bucket", () => {
-    const event = makeEvent({ id: "1", date: "2026-06-10", start: "14:00", end: "15:00" });
+    const event = makeEvent({
+      id: "1",
+      date: "2026-06-10",
+      start: "14:00",
+      end: "15:00",
+    });
     const result = groupEventsByDay([event]);
     expect(result.get("2026-06-10")).toEqual([event]);
     expect(result.size).toBe(1);
@@ -51,7 +69,7 @@ describe("layoutDay", () => {
     const { placed, columns } = layoutDay([a, b, c]);
 
     expect(columns).toBe(1);
-    expect(placed.every(p => p.column === 0)).toBe(true);
+    expect(placed.every((p) => p.column === 0)).toBe(true);
   });
 
   test("two overlapping events get columns 0 and 1, columns === 2", () => {
@@ -62,7 +80,7 @@ describe("layoutDay", () => {
     const { placed, columns } = layoutDay([a, b]);
 
     expect(columns).toBe(2);
-    const usedColumns = placed.map(p => p.column).sort();
+    const usedColumns = placed.map((p) => p.column).sort();
     expect(usedColumns).toEqual([0, 1]);
   });
 
@@ -74,7 +92,7 @@ describe("layoutDay", () => {
     const { placed, columns } = layoutDay([a, b]);
 
     expect(columns).toBe(1);
-    expect(placed.every(p => p.column === 0)).toBe(true);
+    expect(placed.every((p) => p.column === 0)).toBe(true);
   });
 
   test("empty input returns placed: [], columns: 1", () => {

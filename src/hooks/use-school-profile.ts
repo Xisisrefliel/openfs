@@ -7,10 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { parseOrThrow } from "@/lib/api";
-import type {
-  OpeningHoursEntry,
-  SchoolProfile,
-} from "@/server/school-profile";
+import type { OpeningHoursEntry, SchoolProfile } from "@/server/school-profile";
 
 export type { OpeningHoursEntry, SchoolProfile };
 
@@ -33,7 +30,7 @@ export const EMPTY_SCHOOL_PROFILE: SchoolProfile = {
   instagram: "",
   facebook: "",
   google_maps_url: "",
-  opening_hours: WEEK_DAYS.map(day => ({ day, hours: "" })),
+  opening_hours: WEEK_DAYS.map((day) => ({ day, hours: "" })),
   services: [],
   highlights: [],
 };
@@ -42,15 +39,13 @@ export async function fetchSchoolProfile(): Promise<SchoolProfile> {
   return parseOrThrow<SchoolProfile>(await fetch("/api/school-profile"));
 }
 
-export async function saveSchoolProfile(
-  profile: SchoolProfile
-): Promise<SchoolProfile> {
+export async function saveSchoolProfile(profile: SchoolProfile): Promise<SchoolProfile> {
   return parseOrThrow<SchoolProfile>(
     await fetch("/api/school-profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(profile),
-    })
+    }),
   );
 }
 

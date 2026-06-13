@@ -25,6 +25,26 @@ export type PricePlanInput = {
 
 export type PricePlanRecord = PricePlanInput & { id: number };
 
+/**
+ * Resolve the price for a practical lesson component from a student's
+ * price plan. Returns the matching component and its price in cents, or
+ * null when the plan is missing, the component is not found, or the
+ * component's priceCents is null (included / no separate charge).
+ *
+ * @param plan       The student's price plan (or undefined if none assigned).
+ * @param componentLabel  Label of the component to look up (default: "Fahrübungsstunde").
+ */
+export function resolveLessonPrice(
+  plan: PricePlanRecord | undefined,
+  componentLabel = "Fahrübungsstunde",
+): { component: PriceComponent; priceCents: number } | null {
+  if (!plan) return null;
+  const component = plan.components.find((c) => c.label === componentLabel);
+  if (!component) return null;
+  if (component.priceCents == null) return null;
+  return { component, priceCents: component.priceCents };
+}
+
 export const PRICE_PLAN_SEED: PricePlanInput[] = [
   {
     name: "Standard Tarif",

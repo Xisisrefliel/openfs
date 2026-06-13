@@ -13,29 +13,12 @@ import {
   getCalendarEvent,
   listCalendarEvents,
 } from "./calendar-events";
-import {
-  createConversation,
-  ensureChatTables,
-  getConversation,
-} from "./chat";
+import { createConversation, ensureChatTables, getConversation } from "./chat";
 import { openDb } from "./db";
 import { ValidationError } from "./engine";
-import {
-  createInstructor,
-  deleteInstructor,
-  listInstructors,
-} from "./instructors";
-import {
-  createPricePlan,
-  deletePricePlan,
-} from "./price-plans";
-import {
-  createStudent,
-  deleteStudent,
-  getStudent,
-  listStudents,
-  updateStudent,
-} from "./students";
+import { createInstructor, deleteInstructor, listInstructors } from "./instructors";
+import { createPricePlan, deletePricePlan } from "./price-plans";
+import { createStudent, deleteStudent, getStudent, updateStudent } from "./students";
 import {
   createTheoryGroup,
   ensureTheoryGroupTables,
@@ -101,7 +84,7 @@ describe("archive", () => {
     deleteCalendarEvent(db, Number(event.id));
     expect(listCalendarEvents(db).length).toBe(countBefore - 1);
 
-    const entry = listArchive(db).find(item => item.entity === "calendar_event")!;
+    const entry = listArchive(db).find((item) => item.entity === "calendar_event")!;
     expect(entry.label).toContain(EVENT.title);
 
     restoreArchived(db, entry.id);
@@ -117,10 +100,10 @@ describe("archive", () => {
     // sits in the archive.
     createStudent(db, input);
 
-    const entry = listArchive(db).find(item => item.entity === "student")!;
+    const entry = listArchive(db).find((item) => item.entity === "student")!;
     expect(() => restoreArchived(db, entry.id)).toThrow(ValidationError);
     // The snapshot must survive the failed restore.
-    expect(listArchive(db).some(item => item.id === entry.id)).toBe(true);
+    expect(listArchive(db).some((item) => item.id === entry.id)).toBe(true);
   });
 
   test("restoring an instructor re-links students that were unassigned by the delete", () => {
@@ -150,10 +133,10 @@ describe("archive", () => {
     // that assignment must survive the restore.
     updateStudent(db, reassigned.id, { instructor: "Ben Anders" });
 
-    const entry = listArchive(db).find(item => item.entity === "instructor")!;
+    const entry = listArchive(db).find((item) => item.entity === "instructor")!;
     restoreArchived(db, entry.id);
 
-    expect(listInstructors(db).some(i => i.id === instructor.id)).toBe(true);
+    expect(listInstructors(db).some((i) => i.id === instructor.id)).toBe(true);
     expect(getStudent(db, assigned.id).instructor).toBe("Anna Relink");
     expect(getStudent(db, reassigned.id).instructor).toBe("Ben Anders");
   });
@@ -182,13 +165,13 @@ describe("archive", () => {
     deleteVehicle(db, vehicle.id);
     expect(getStudent(db, student.id).vehicle).toBe("Nicht zugeteilt");
 
-    const entry = listArchive(db).find(item => item.entity === "vehicle")!;
+    const entry = listArchive(db).find((item) => item.entity === "vehicle")!;
     restoreArchived(db, entry.id);
 
     expect(getStudent(db, student.id).vehicle).toBe("Relink-Mobil");
-    expect(
-      listInstructors(db).find(i => i.id === instructor.id)!.vehicle
-    ).toBe("Relink-Mobil");
+    expect(listInstructors(db).find((i) => i.id === instructor.id)!.vehicle).toBe(
+      "Relink-Mobil",
+    );
   });
 
   test("restoring a price plan re-links students that fell back to no plan", () => {
@@ -205,7 +188,7 @@ describe("archive", () => {
     deletePricePlan(db, plan.id);
     expect(getStudent(db, student.id).pricePlanId).toBeNull();
 
-    const entry = listArchive(db).find(item => item.entity === "price_plan")!;
+    const entry = listArchive(db).find((item) => item.entity === "price_plan")!;
     restoreArchived(db, entry.id);
 
     expect(getStudent(db, student.id).pricePlanId).toBe(plan.id);
@@ -234,7 +217,7 @@ describe("archive", () => {
     // The chat thread survives as history, only the live link is cut.
     expect(getConversation(db, conversation.id).studentId).toBeNull();
 
-    const entry = listArchive(db).find(item => item.entity === "student")!;
+    const entry = listArchive(db).find((item) => item.entity === "student")!;
     restoreArchived(db, entry.id);
 
     expect(getTheoryGroup(db, group.id).studentIds).toContain(student.id);
@@ -257,7 +240,7 @@ describe("archive", () => {
     deleteStudent(db, original.id);
     updateTheoryGroup(db, group.id, { studentIds: [replacement.id] });
 
-    const entry = listArchive(db).find(item => item.entity === "student")!;
+    const entry = listArchive(db).find((item) => item.entity === "student")!;
     restoreArchived(db, entry.id);
 
     // The seat is taken — the restored student must not exceed capacity.
@@ -287,7 +270,7 @@ describe("archive", () => {
     deleteInstructor(db, instructor.id);
     expect(getTheoryGroup(db, group.id).instructor).toBe("Nicht zugeteilt");
 
-    const entry = listArchive(db).find(item => item.entity === "instructor")!;
+    const entry = listArchive(db).find((item) => item.entity === "instructor")!;
     restoreArchived(db, entry.id);
 
     expect(getTheoryGroup(db, group.id).instructor).toBe("Theo Gruppenleiter");
@@ -299,7 +282,7 @@ describe("archive", () => {
 
     const entry = listArchive(db)[0]!;
     purgeArchived(db, entry.id);
-    expect(listArchive(db).some(item => item.id === entry.id)).toBe(false);
+    expect(listArchive(db).some((item) => item.id === entry.id)).toBe(false);
     expect(() => purgeArchived(db, entry.id)).toThrow(ValidationError);
   });
 });

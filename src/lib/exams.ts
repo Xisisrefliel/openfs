@@ -40,20 +40,15 @@ export const isExamEvent = (event: { type: EventType }): boolean =>
 export function upcomingExams(
   events: CalEvent[],
   todayISO: string,
-  horizonDays = 60
+  horizonDays = 60,
 ): CalEvent[] {
   const horizonISO = toISODate(addDays(parseISODate(todayISO), horizonDays));
   return events
     .filter(
-      event =>
-        isExamEvent(event) &&
-        event.date >= todayISO &&
-        event.date <= horizonISO
+      (event) => isExamEvent(event) && event.date >= todayISO && event.date <= horizonISO,
     )
     .toSorted(
-      (a, b) =>
-        a.date.localeCompare(b.date) ||
-        toMinutes(a.start) - toMinutes(b.start)
+      (a, b) => a.date.localeCompare(b.date) || toMinutes(a.start) - toMinutes(b.start),
     );
 }
 
@@ -75,15 +70,11 @@ export function groupExamsByDate(exams: CalEvent[]): ExamDayGroup[] {
 }
 
 /* Exams inside the calendar week (Mon–Sun) that contains todayISO. */
-export function countExamsThisWeek(
-  exams: CalEvent[],
-  todayISO: string
-): number {
+export function countExamsThisWeek(exams: CalEvent[], todayISO: string): number {
   const weekStart = startOfWeek(parseISODate(todayISO));
   const fromISO = toISODate(weekStart);
   const toISO = toISODate(addDays(weekStart, 6));
-  return exams.filter(exam => exam.date >= fromISO && exam.date <= toISO)
-    .length;
+  return exams.filter((exam) => exam.date >= fromISO && exam.date <= toISO).length;
 }
 
 export type ExamStats = {
@@ -97,12 +88,11 @@ export type ExamStats = {
    filtered) upcoming exam list. */
 export function examStats(exams: CalEvent[], todayISO: string): ExamStats {
   return {
-    theory: exams.filter(exam => exam.type === "Theorieprüfung").length,
-    practical: exams.filter(
-      exam => exam.type === "Vorstellung zur prakt. Prüfung"
-    ).length,
+    theory: exams.filter((exam) => exam.type === "Theorieprüfung").length,
+    practical: exams.filter((exam) => exam.type === "Vorstellung zur prakt. Prüfung")
+      .length,
     thisWeek: countExamsThisWeek(exams, todayISO),
-    tentative: exams.filter(exam => exam.tentative).length,
+    tentative: exams.filter((exam) => exam.tentative).length,
   };
 }
 
@@ -120,23 +110,17 @@ export type ReadinessStudent = {
 
 /* Active students sorted by practical progress (desc), theory progress
    as tie-breaker — the order the "Prüfungsreife" panel displays. */
-export function rankByReadiness<T extends ReadinessStudent>(
-  students: T[]
-): T[] {
+export function rankByReadiness<T extends ReadinessStudent>(students: T[]): T[] {
   return students
-    .filter(student => student.status === "aktiv")
-    .toSorted(
-      (a, b) =>
-        b.progress - a.progress || b.theory.progress - a.theory.progress
-    );
+    .filter((student) => student.status === "aktiv")
+    .toSorted((a, b) => b.progress - a.progress || b.theory.progress - a.theory.progress);
 }
 
 /* Which exam type to suggest for a student: once the theory course is
    "Bereit" (or already past, "In Prüfung"), the practical exam is the
    next step — otherwise the theory exam comes first. */
 export function suggestedExamType(student: ReadinessStudent): ExamEventType {
-  return student.theory.status === "Bereit" ||
-    student.theory.status === "In Prüfung"
+  return student.theory.status === "Bereit" || student.theory.status === "In Prüfung"
     ? "Vorstellung zur prakt. Prüfung"
     : "Theorieprüfung";
 }

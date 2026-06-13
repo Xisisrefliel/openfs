@@ -9,10 +9,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PricePlanInput, PricePlanRecord } from "@/lib/price-plan";
-import {
-  createPricePlan,
-  updatePricePlan,
-} from "@/hooks/use-price-plans";
+import { createPricePlan, updatePricePlan } from "@/hooks/use-price-plans";
 import { formatCents, parseEuroToCents } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,11 +33,10 @@ const emptyRow: ComponentDraft = { label: "", duration: "", price: "" };
 
 function toDrafts(plan: PricePlanRecord | null): ComponentDraft[] {
   if (!plan) return [{ ...emptyRow }];
-  return plan.components.map(component => ({
+  return plan.components.map((component) => ({
     label: component.label,
     duration: component.durationMin == null ? "" : String(component.durationMin),
-    price:
-      component.priceCents == null ? "" : formatCents(component.priceCents),
+    price: component.priceCents == null ? "" : formatCents(component.priceCents),
   }));
 }
 
@@ -70,16 +66,16 @@ export function PricePlanDialog({
   }, [open, plan]);
 
   const updateRow = (index: number, patch: Partial<ComponentDraft>) => {
-    setRows(current =>
-      current.map((row, i) => (i === index ? { ...row, ...patch } : row))
+    setRows((current) =>
+      current.map((row, i) => (i === index ? { ...row, ...patch } : row)),
     );
   };
 
   const removeRow = (index: number) => {
-    setRows(current => current.filter((_, i) => i !== index));
+    setRows((current) => current.filter((_, i) => i !== index));
   };
 
-  const addRow = () => setRows(current => [...current, { ...emptyRow }]);
+  const addRow = () => setRows((current) => [...current, { ...emptyRow }]);
 
   const submit = async () => {
     if (!name.trim()) {
@@ -105,7 +101,7 @@ export function PricePlanDialog({
         const minutes = Number(row.duration);
         if (!Number.isInteger(minutes) || minutes <= 0) {
           toast.error(
-            `Dauer von „${row.label.trim()}" muss eine positive Minutenzahl sein.`
+            `Dauer von „${row.label.trim()}" muss eine positive Minutenzahl sein.`,
           );
           return;
         }
@@ -115,9 +111,7 @@ export function PricePlanDialog({
       if (row.price.trim()) {
         priceCents = parseEuroToCents(row.price);
         if (priceCents == null) {
-          toast.error(
-            `Preis von „${row.label.trim()}" ist ungültig (z. B. 75,00).`
-          );
+          toast.error(`Preis von „${row.label.trim()}" ist ungültig (z. B. 75,00).`);
           return;
         }
       }
@@ -146,9 +140,7 @@ export function PricePlanDialog({
       onSaved();
       onClose();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Speichern fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Speichern fehlgeschlagen.");
     } finally {
       setSubmitting(false);
     }
@@ -157,15 +149,13 @@ export function PricePlanDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={value => {
+      onOpenChange={(value) => {
         if (!value) onClose();
       }}
     >
       <DialogContent className="max-h-[calc(100svh-2rem)] overflow-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>
-            {plan ? "Preisplan bearbeiten" : "Preisplan anlegen"}
-          </DialogTitle>
+          <DialogTitle>{plan ? "Preisplan bearbeiten" : "Preisplan anlegen"}</DialogTitle>
           <DialogDescription>
             Preise gelten brutto; ein leerer Preis bedeutet „inklusive".
           </DialogDescription>
@@ -178,7 +168,7 @@ export function PricePlanDialog({
               <Input
                 id="plan-name"
                 value={name}
-                onChange={event => setName(event.target.value)}
+                onChange={(event) => setName(event.target.value)}
                 placeholder="z. B. Standard Tarif"
               />
             </div>
@@ -188,7 +178,7 @@ export function PricePlanDialog({
                 id="plan-months"
                 inputMode="numeric"
                 value={months}
-                onChange={event => setMonths(event.target.value)}
+                onChange={(event) => setMonths(event.target.value)}
                 placeholder="z. B. 240"
               />
             </div>
@@ -208,23 +198,21 @@ export function PricePlanDialog({
               >
                 <Input
                   value={row.label}
-                  onChange={event => updateRow(index, { label: event.target.value })}
+                  onChange={(event) => updateRow(index, { label: event.target.value })}
                   placeholder="z. B. Nachtfahrt"
                   aria-label={`Bezeichnung Komponente ${index + 1}`}
                 />
                 <Input
                   inputMode="numeric"
                   value={row.duration}
-                  onChange={event =>
-                    updateRow(index, { duration: event.target.value })
-                  }
+                  onChange={(event) => updateRow(index, { duration: event.target.value })}
                   placeholder="45"
                   aria-label={`Dauer Komponente ${index + 1}`}
                 />
                 <Input
                   inputMode="decimal"
                   value={row.price}
-                  onChange={event => updateRow(index, { price: event.target.value })}
+                  onChange={(event) => updateRow(index, { price: event.target.value })}
                   placeholder="inklusive"
                   aria-label={`Preis Komponente ${index + 1}`}
                 />

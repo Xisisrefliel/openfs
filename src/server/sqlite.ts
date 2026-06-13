@@ -9,13 +9,7 @@
 
 import { Database as BunDatabase } from "bun:sqlite";
 
-export type SQLQueryBindings =
-  | string
-  | number
-  | bigint
-  | boolean
-  | null
-  | Uint8Array;
+export type SQLQueryBindings = string | number | bigint | boolean | null | Uint8Array;
 
 export interface Statement<
   Row = unknown,
@@ -32,20 +26,20 @@ export interface Statement<
 export interface Database {
   /** Like prepare(); kept as a separate method because bun:sqlite
    *  caches query() statements per Database instance. */
-  query<
-    Row = unknown,
-    Params extends SQLQueryBindings[] = SQLQueryBindings[],
-  >(sql: string): Statement<Row, Params>;
-  prepare<
-    Row = unknown,
-    Params extends SQLQueryBindings[] = SQLQueryBindings[],
-  >(sql: string): Statement<Row, Params>;
+  query<Row = unknown, Params extends SQLQueryBindings[] = SQLQueryBindings[]>(
+    sql: string,
+  ): Statement<Row, Params>;
+  prepare<Row = unknown, Params extends SQLQueryBindings[] = SQLQueryBindings[]>(
+    sql: string,
+  ): Statement<Row, Params>;
   exec(sql: string): void;
   run(
     sql: string,
     ...params: SQLQueryBindings[]
   ): { changes: number; lastInsertRowid: number | bigint };
   transaction<Result>(fn: () => Result): () => Result;
+  /** Snapshot the database as a Uint8Array (calls sqlite3_serialize). */
+  serialize(): Uint8Array;
   close(): void;
 }
 

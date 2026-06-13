@@ -30,6 +30,8 @@ export type ContractRow = {
   /** Epoch ms parsed from DD.MM.YYYY — NaN when unparseable. */
   registrationTime: number;
   status: StudentStatus;
+  /** Real Guthaben from the ledger in cents; null = no ledger activity. */
+  balanceCents: number | null;
 };
 
 export type ContractKpis = {
@@ -61,8 +63,8 @@ export function splitClasses(classes: string): string[] {
     ...new Set(
       classes
         .split(/[,/]+/)
-        .map(part => part.trim())
-        .filter(Boolean)
+        .map((part) => part.trim())
+        .filter(Boolean),
     ),
   ];
 }
@@ -70,18 +72,20 @@ export function splitClasses(classes: string): string[] {
 /** Mirrors PreiseTab: assigned plan, else the first plan as default. */
 export function resolvePlanName(
   pricePlanId: number | null | undefined,
-  plans: PricePlanRecord[]
+  plans: PricePlanRecord[],
 ): string {
   const plan =
-    plans.find(candidate => candidate.id === pricePlanId) ?? plans[0] ?? null;
+    plans.find((candidate) => candidate.id === pricePlanId) ?? plans[0] ?? null;
   return plan?.name ?? "—";
 }
 
 export function deriveContractRows(
   students: StudentRecord[],
-  plans: PricePlanRecord[]
+  plans: PricePlanRecord[],
+  /** Map from customerNumber → balanceCents, e.g. from /api/student-balances. */
+  balances: Map<string, number> = new Map(),
 ): ContractRow[] {
-  return students.map(student => ({
+  return students.map((student) => ({
     studentId: student.id,
     contractNumber: student.contractNumber,
     customerNumber: student.customerNumber,
@@ -93,6 +97,9 @@ export function deriveContractRows(
     registrationDate: student.registrationDate,
     registrationTime: parseGermanDate(student.registrationDate),
     status: student.status,
+    balanceCents: balances.has(student.customerNumber)
+      ? (balances.get(student.customerNumber) ?? null)
+      : null,
   }));
 }
 
@@ -100,15 +107,12 @@ export function deriveContractRows(
 export function isInMonth(registrationTime: number, now: Date): boolean {
   if (Number.isNaN(registrationTime)) return false;
   const date = new Date(registrationTime);
-  return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth()
-  );
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
 
 export function computeContractKpis(
   rows: ContractRow[],
-  now: Date = new Date()
+  now: Date = new Date(),
 ): ContractKpis {
   let active = 0;
   let inactive = 0;
@@ -127,20 +131,14 @@ export type ContractStatusFilter = StudentStatus | "alle";
 export function filterContractRows(
   rows: ContractRow[],
   query: string,
-  status: ContractStatusFilter
+  status: ContractStatusFilter,
 ): ContractRow[] {
   const normalizedQuery = query.trim().toLowerCase();
-  return rows.filter(row => {
+  return rows.filter((row) => {
     const matchesStatus = status === "alle" || row.status === status;
     if (!matchesStatus) return false;
     if (normalizedQuery.length === 0) return true;
-    return [
-      row.firstName,
-      row.lastName,
-      row.name,
-      row.contractNumber,
-      row.customerNumber,
-    ]
+    return [row.firstName, row.lastName, row.name, row.contractNumber, row.customerNumber]
       .join(" ")
       .toLowerCase()
       .includes(normalizedQuery);

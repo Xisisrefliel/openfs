@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
+  CheckSquare,
   Clock,
   DoorOpen,
   GraduationCap,
@@ -22,6 +23,10 @@ import {
   createTheoryGroup,
   updateTheoryGroup,
   deleteTheoryGroup,
+  fetchAttendance,
+  putAttendance,
+  type AttendanceEntry,
+  type AttendanceSession,
   type TheoryGroup,
   type TheoryGroupInput,
   type TheoryGroupStatus,
@@ -38,6 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardAction,
@@ -160,7 +166,7 @@ function GroupEditDialog({
   }, [open, group?.id]);
 
   function update<Key extends keyof GroupDraft>(key: Key, value: GroupDraft[Key]) {
-    setDraft(current => (current ? { ...current, [key]: value } : current));
+    setDraft((current) => (current ? { ...current, [key]: value } : current));
   }
 
   if (!draft) {
@@ -187,15 +193,12 @@ function GroupEditDialog({
             <Input
               id="group-name"
               value={draft.name}
-              onChange={event => update("name", event.target.value)}
+              onChange={(event) => update("name", event.target.value)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="group-class">Klasse</FieldLabel>
-            <Select
-              value={draft.klass}
-              onValueChange={value => update("klass", value)}
-            >
+            <Select value={draft.klass} onValueChange={(value) => update("klass", value)}>
               <SelectTrigger id="group-class" className="w-full">
                 <SelectValue />
               </SelectTrigger>
@@ -204,7 +207,7 @@ function GroupEditDialog({
                   {(CLASS_OPTIONS.includes(draft.klass as never)
                     ? [...CLASS_OPTIONS]
                     : [draft.klass, ...CLASS_OPTIONS]
-                  ).map(option => (
+                  ).map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
                     </SelectItem>
@@ -217,14 +220,14 @@ function GroupEditDialog({
             <FieldLabel htmlFor="group-weekday">Wochentag</FieldLabel>
             <Select
               value={draft.weekday}
-              onValueChange={value => update("weekday", value)}
+              onValueChange={(value) => update("weekday", value)}
             >
               <SelectTrigger id="group-weekday" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {WEEKDAYS.map(weekday => (
+                  {WEEKDAYS.map((weekday) => (
                     <SelectItem key={weekday} value={weekday}>
                       {weekday}
                     </SelectItem>
@@ -239,7 +242,7 @@ function GroupEditDialog({
               id="group-time"
               type="time"
               value={draft.time}
-              onChange={event => update("time", event.target.value)}
+              onChange={(event) => update("time", event.target.value)}
             />
           </Field>
           <Field>
@@ -248,14 +251,14 @@ function GroupEditDialog({
               id="group-room"
               value={draft.room}
               placeholder="z. B. Schulungsraum 1"
-              onChange={event => update("room", event.target.value)}
+              onChange={(event) => update("room", event.target.value)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="group-instructor">Fahrlehrer/in</FieldLabel>
             <Select
               value={draft.instructor}
-              onValueChange={value => update("instructor", value)}
+              onValueChange={(value) => update("instructor", value)}
             >
               <SelectTrigger id="group-instructor" className="w-full">
                 <SelectValue />
@@ -265,7 +268,7 @@ function GroupEditDialog({
                   {(instructorOptions.includes(draft.instructor)
                     ? instructorOptions
                     : [draft.instructor, ...instructorOptions]
-                  ).map(option => (
+                  ).map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
                     </SelectItem>
@@ -281,16 +284,14 @@ function GroupEditDialog({
               type="number"
               min={1}
               value={draft.capacity}
-              onChange={event => update("capacity", event.target.value)}
+              onChange={(event) => update("capacity", event.target.value)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="group-status">Status</FieldLabel>
             <Select
               value={draft.status}
-              onValueChange={value =>
-                update("status", value as TheoryGroupStatus)
-              }
+              onValueChange={(value) => update("status", value as TheoryGroupStatus)}
             >
               <SelectTrigger id="group-status" className="w-full">
                 <SelectValue />
@@ -321,7 +322,7 @@ function GroupEditDialog({
                 toast.error(
                   error instanceof Error
                     ? error.message
-                    : "Gruppe konnte nicht gespeichert werden."
+                    : "Gruppe konnte nicht gespeichert werden.",
                 );
               }
             }}
@@ -361,7 +362,7 @@ function MembersDialog({
   const availableStudents = useMemo(() => {
     if (!group) return [];
     const memberIds = new Set(group.studentIds);
-    return students.filter(student => !memberIds.has(student.id));
+    return students.filter((student) => !memberIds.has(student.id));
   }, [group, students]);
 
   if (!group) {
@@ -382,7 +383,7 @@ function MembersDialog({
       toast.error(
         error instanceof Error
           ? error.message
-          : "Teilnehmerliste konnte nicht aktualisiert werden."
+          : "Teilnehmerliste konnte nicht aktualisiert werden.",
       );
     } finally {
       setBusy(false);
@@ -402,9 +403,7 @@ function MembersDialog({
         <div className="flex flex-col gap-4">
           <div className="flex items-end gap-2">
             <Field className="min-w-0 flex-1">
-              <FieldLabel htmlFor="member-select">
-                Fahrschüler/in hinzufügen
-              </FieldLabel>
+              <FieldLabel htmlFor="member-select">Fahrschüler/in hinzufügen</FieldLabel>
               <Select
                 value={selectedId}
                 onValueChange={setSelectedId}
@@ -423,7 +422,7 @@ function MembersDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {availableStudents.map(student => (
+                    {availableStudents.map((student) => (
                       <SelectItem key={student.id} value={String(student.id)}>
                         {student.firstName} {student.lastName}
                       </SelectItem>
@@ -438,7 +437,7 @@ function MembersDialog({
               onClick={() =>
                 void change(
                   [...group.studentIds, Number(selectedId)],
-                  "Teilnehmer/in hinzugefügt."
+                  "Teilnehmer/in hinzugefügt.",
                 )
               }
             >
@@ -455,14 +454,12 @@ function MembersDialog({
             </p>
           ) : (
             <ul className="flex max-h-72 flex-col gap-1 overflow-auto">
-              {group.members.map(member => (
+              {group.members.map((member) => (
                 <li
                   key={member.id}
                   className="flex items-center justify-between gap-2 rounded-md border px-3 py-1.5"
                 >
-                  <span className="truncate text-sm font-medium">
-                    {member.name}
-                  </span>
+                  <span className="truncate text-sm font-medium">{member.name}</span>
                   <Button
                     type="button"
                     variant="ghost"
@@ -472,8 +469,8 @@ function MembersDialog({
                     disabled={busy}
                     onClick={() =>
                       void change(
-                        group.studentIds.filter(id => id !== member.id),
-                        "Teilnehmer/in entfernt."
+                        group.studentIds.filter((id) => id !== member.id),
+                        "Teilnehmer/in entfernt.",
                       )
                     }
                   >
@@ -498,6 +495,210 @@ function MembersDialog({
 }
 
 /* ------------------------------------------------------------------ */
+/* Attendance helpers                                                  */
+/* ------------------------------------------------------------------ */
+
+const WEEKDAY_ISO: Record<string, number> = {
+  Montag: 1,
+  Dienstag: 2,
+  Mittwoch: 3,
+  Donnerstag: 4,
+  Freitag: 5,
+  Samstag: 6,
+  Sonntag: 0,
+};
+
+/** Returns the ISO "YYYY-MM-DD" of today or the most recent past occurrence
+ *  of the given weekday name (German). */
+function lastOccurrence(weekday: string): string {
+  const targetDow = WEEKDAY_ISO[weekday] ?? 1;
+  const today = new Date();
+  const todayDow = today.getDay(); // 0=Sun…6=Sat
+  const diff = (todayDow - targetDow + 7) % 7;
+  const date = new Date(today);
+  date.setDate(today.getDate() - diff);
+  return date.toISOString().slice(0, 10);
+}
+
+/* ------------------------------------------------------------------ */
+/* Attendance dialog                                                   */
+/* ------------------------------------------------------------------ */
+
+function AttendanceDialog({
+  group,
+  open,
+  onOpenChange,
+}: {
+  group: TheoryGroup | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
+  const [sessionDate, setSessionDate] = useState<string>("");
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Load attendance whenever the dialog opens for a group
+  useEffect(() => {
+    if (!open || !group) {
+      setSessions([]);
+      setChecked({});
+      return;
+    }
+
+    const defaultDate = lastOccurrence(group.weekday);
+    setSessionDate(defaultDate);
+
+    setLoading(true);
+    fetchAttendance(group.id)
+      .then((fetched) => {
+        setSessions(fetched);
+        // Pre-fill the checkboxes from the most recent session for this date
+        const existing = fetched.find((s) => s.sessionDate === defaultDate);
+        if (existing) {
+          const map: Record<number, boolean> = {};
+          for (const e of existing.entries) map[e.studentId] = e.attended;
+          setChecked(map);
+        } else {
+          // Default: all members checked (present)
+          const map: Record<number, boolean> = {};
+          for (const m of group.members) map[m.id] = true;
+          setChecked(map);
+        }
+      })
+      .catch(() => toast.error("Anwesenheit konnte nicht geladen werden."))
+      .finally(() => setLoading(false));
+  }, [open, group?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When the date changes, re-populate checkboxes from existing session data
+  function handleDateChange(date: string) {
+    setSessionDate(date);
+    if (!group) return;
+    const existing = sessions.find((s) => s.sessionDate === date);
+    if (existing) {
+      const map: Record<number, boolean> = {};
+      for (const e of existing.entries) map[e.studentId] = e.attended;
+      setChecked(map);
+    } else {
+      const map: Record<number, boolean> = {};
+      for (const m of group.members) map[m.id] = true;
+      setChecked(map);
+    }
+  }
+
+  async function save() {
+    if (!group || !sessionDate) return;
+    setBusy(true);
+    try {
+      const entries: AttendanceEntry[] = group.members.map((m) => ({
+        studentId: m.id,
+        attended: checked[m.id] ?? false,
+      }));
+      const updated = await putAttendance(group.id, sessionDate, entries);
+      setSessions(updated);
+      toast.success("Anwesenheit gespeichert.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Anwesenheit konnte nicht gespeichert werden.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!group) return null;
+
+  // Build per-member attended counts from all sessions
+  const countByMember: Record<number, number> = {};
+  for (const session of sessions) {
+    for (const entry of session.entries) {
+      if (entry.attended) {
+        countByMember[entry.studentId] = (countByMember[entry.studentId] ?? 0) + 1;
+      }
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Anwesenheit</DialogTitle>
+          <DialogDescription>{group.name}</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-4">
+          <Field>
+            <FieldLabel htmlFor="attendance-date">Datum</FieldLabel>
+            <Input
+              id="attendance-date"
+              type="date"
+              value={sessionDate}
+              onChange={(e) => handleDateChange(e.target.value)}
+            />
+          </Field>
+
+          <Separator />
+
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Lade Anwesenheit…</p>
+          ) : group.members.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Keine Teilnehmer in dieser Gruppe.
+            </p>
+          ) : (
+            <ul className="flex max-h-64 flex-col gap-1 overflow-auto">
+              {group.members.map((member) => (
+                <li
+                  key={member.id}
+                  className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Checkbox
+                      id={`attendance-${member.id}`}
+                      checked={checked[member.id] ?? false}
+                      onCheckedChange={(value) =>
+                        setChecked((prev) => ({ ...prev, [member.id]: !!value }))
+                      }
+                    />
+                    <label
+                      htmlFor={`attendance-${member.id}`}
+                      className="truncate text-sm font-medium cursor-pointer"
+                    >
+                      {member.name}
+                    </label>
+                  </div>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {countByMember[member.id] ?? 0} Einheiten
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline">
+              Schließen
+            </Button>
+          </DialogClose>
+          <Button
+            type="button"
+            disabled={busy || loading || group.members.length === 0 || !sessionDate}
+            onClick={() => void save()}
+          >
+            Speichern
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Group card                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -505,18 +706,18 @@ function GroupCard({
   group,
   onEdit,
   onMembers,
+  onAttendance,
   onDelete,
 }: {
   group: TheoryGroup;
   onEdit: () => void;
   onMembers: () => void;
+  onAttendance: () => void;
   onDelete: () => void;
 }) {
   const occupied = group.members.length;
   const percent =
-    group.capacity > 0
-      ? Math.min(100, Math.round((occupied / group.capacity) * 100))
-      : 0;
+    group.capacity > 0 ? Math.min(100, Math.round((occupied / group.capacity) * 100)) : 0;
 
   const details = [
     { Icon: CalendarDays, label: "Wochentag", value: group.weekday },
@@ -593,10 +794,21 @@ function GroupCard({
           </div>
           <Progress value={percent} className="h-1.5" />
         </div>
-        <Button type="button" variant="outline" onClick={onMembers}>
-          <Users data-icon="inline-start" />
-          Teilnehmer verwalten
-        </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" className="flex-1" onClick={onMembers}>
+            <Users data-icon="inline-start" />
+            Teilnehmer verwalten
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            onClick={onAttendance}
+          >
+            <CheckSquare data-icon="inline-start" />
+            Anwesenheit
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -614,15 +826,17 @@ export function TheorieGruppen() {
   const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [membersGroupId, setMembersGroupId] = useState<number | null>(null);
+  const [attendanceGroupId, setAttendanceGroupId] = useState<number | null>(null);
   const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
 
   const editingMode: "create" | "edit" = isCreateOpen ? "create" : "edit";
   const editingGroup = isCreateOpen
     ? null
-    : groups.find(group => group.id === editingGroupId) ?? null;
+    : (groups.find((group) => group.id === editingGroupId) ?? null);
   const isEditDialogOpen = isCreateOpen || editingGroup !== null;
-  const membersGroup = groups.find(group => group.id === membersGroupId) ?? null;
-  const deleteGroup = groups.find(group => group.id === deleteGroupId) ?? null;
+  const membersGroup = groups.find((group) => group.id === membersGroupId) ?? null;
+  const attendanceGroup = groups.find((group) => group.id === attendanceGroupId) ?? null;
+  const deleteGroup = groups.find((group) => group.id === deleteGroupId) ?? null;
 
   async function saveGroup(payload: Partial<TheoryGroupInput>) {
     if (editingMode === "create") {
@@ -651,9 +865,7 @@ export function TheorieGruppen() {
       await refresh();
       toast.success("Gruppe gelöscht.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     } finally {
       setDeleteGroupId(null);
       if (editingGroupId === deleteGroup.id) setEditingGroupId(null);
@@ -683,16 +895,14 @@ export function TheorieGruppen() {
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="stagger-in grid gap-4 md:grid-cols-2 2xl:gap-5">
           {loading && (
-            <div className="text-sm text-muted-foreground">
-              Lade Theorie-Gruppen…
-            </div>
+            <div className="text-sm text-muted-foreground">Lade Theorie-Gruppen…</div>
           )}
           {!loading && groups.length === 0 && (
             <div className="text-sm text-muted-foreground">
               Noch keine Theorie-Gruppen angelegt.
             </div>
           )}
-          {groups.map(group => (
+          {groups.map((group) => (
             <GroupCard
               key={group.id}
               group={group}
@@ -701,6 +911,7 @@ export function TheorieGruppen() {
                 setEditingGroupId(group.id);
               }}
               onMembers={() => setMembersGroupId(group.id)}
+              onAttendance={() => setAttendanceGroupId(group.id)}
               onDelete={() => setDeleteGroupId(group.id)}
             />
           ))}
@@ -712,7 +923,7 @@ export function TheorieGruppen() {
         instructorOptions={instructorOptions}
         mode={editingMode}
         open={isEditDialogOpen}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) {
             setEditingGroupId(null);
             setIsCreateOpen(false);
@@ -725,15 +936,23 @@ export function TheorieGruppen() {
         group={membersGroup}
         students={students}
         open={membersGroup !== null}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) setMembersGroupId(null);
         }}
         onChangeMembers={changeMembers}
       />
 
+      <AttendanceDialog
+        group={attendanceGroup}
+        open={attendanceGroup !== null}
+        onOpenChange={(open) => {
+          if (!open) setAttendanceGroupId(null);
+        }}
+      />
+
       <AlertDialog
         open={deleteGroup !== null}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) setDeleteGroupId(null);
         }}
       >
@@ -741,16 +960,13 @@ export function TheorieGruppen() {
           <AlertDialogHeader>
             <AlertDialogTitle>Gruppe löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deleteGroup?.name}“ wird dauerhaft gelöscht. Die Fahrschüler
-              selbst bleiben erhalten.
+              „{deleteGroup?.name}“ wird dauerhaft gelöscht. Die Fahrschüler selbst
+              bleiben erhalten.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => void confirmDelete()}
-            >
+            <AlertDialogAction variant="destructive" onClick={() => void confirmDelete()}>
               Löschen
             </AlertDialogAction>
           </AlertDialogFooter>

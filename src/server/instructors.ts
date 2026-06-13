@@ -61,9 +61,7 @@ export function listInstructors(db: Database): Instructor[] {
 }
 
 export function getInstructor(db: Database, id: number): Instructor {
-  const row = db
-    .query<InstructorRow, [number]>(`${SELECT} WHERE id = ?`)
-    .get(id);
+  const row = db.query<InstructorRow, [number]>(`${SELECT} WHERE id = ?`).get(id);
   if (!row) throw new ValidationError("Fahrlehrer/in nicht gefunden.");
   return toInstructor(row);
 }
@@ -72,7 +70,7 @@ export function getInstructor(db: Database, id: number): Instructor {
    rejecting anything that would leave the record unusable. */
 function normalize(
   input: Partial<InstructorInput>,
-  current: InstructorInput
+  current: InstructorInput,
 ): InstructorInput {
   const str = (key: keyof InstructorInput): string => {
     const value = input[key];
@@ -121,13 +119,16 @@ const EMPTY: InstructorInput = {
 
 export function createInstructor(
   db: Database,
-  input: Partial<InstructorInput>
+  input: Partial<InstructorInput>,
 ): Instructor {
   const data = normalize(input, EMPTY);
   const row = db
-    .query<{ id: number }, [string, string, string, string, string, string, string, string]>(
+    .query<
+      { id: number },
+      [string, string, string, string, string, string, string, string]
+    >(
       `INSERT INTO instructors (first_name, last_name, phone, email, classes, vehicle, since, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     )
     .get(
       data.firstName,
@@ -137,7 +138,7 @@ export function createInstructor(
       data.classes,
       data.vehicle,
       data.since,
-      data.status
+      data.status,
     )!;
   return getInstructor(db, row.id);
 }
@@ -145,7 +146,7 @@ export function createInstructor(
 export function updateInstructor(
   db: Database,
   id: number,
-  input: Partial<InstructorInput>
+  input: Partial<InstructorInput>,
 ): Instructor {
   const current = getInstructor(db, id);
   const data = normalize(input, current);
@@ -155,7 +156,7 @@ export function updateInstructor(
     db.prepare(
       `UPDATE instructors
        SET first_name = ?, last_name = ?, phone = ?, email = ?, classes = ?, vehicle = ?, since = ?, status = ?
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(
       data.firstName,
       data.lastName,
@@ -165,22 +166,30 @@ export function updateInstructor(
       data.vehicle,
       data.since,
       data.status,
-      id
+      id,
     );
     // Students, Termine and theory groups reference instructors by
     // display name — a rename must follow, or they keep pointing at a
     // name that no longer exists. (Namesakes would be carried along
     // too; the name-keyed schema cannot tell them apart.)
     if (newName !== oldName && oldName) {
-      db.prepare(
-        "UPDATE students SET instructor = ? WHERE instructor = ?"
-      ).run(newName, oldName);
-      db.prepare(
-        "UPDATE calendar_events SET instructor = ? WHERE instructor = ?"
-      ).run(newName, oldName);
+      db.prepare("UPDATE students SET instructor = ? WHERE instructor = ?").run(
+        newName,
+        oldName,
+      );
+      db.prepare("UPDATE calendar_events SET instructor = ? WHERE instructor = ?").run(
+        newName,
+        oldName,
+      );
       if (tableExists(db, "theory_groups")) {
+        db.prepare("UPDATE theory_groups SET instructor = ? WHERE instructor = ?").run(
+          newName,
+          oldName,
+        );
+      }
+      if (tableExists(db, "lesson_attestations")) {
         db.prepare(
-          "UPDATE theory_groups SET instructor = ? WHERE instructor = ?"
+          "UPDATE lesson_attestations SET instructor = ? WHERE instructor = ?",
         ).run(newName, oldName);
       }
     }
@@ -196,25 +205,23 @@ export function deleteInstructor(db: Database, id: number): void {
   const remove = db.transaction(() => {
     // Remember who was assigned so a restore can re-link them.
     const students = db
-      .query<{ id: number }, [string]>(
-        "SELECT id FROM students WHERE instructor = ?"
-      )
+      .query<{ id: number }, [string]>("SELECT id FROM students WHERE instructor = ?")
       .all(name)
-      .map(row => row.id);
+      .map((row) => row.id);
     const theoryGroups = tableExists(db, "theory_groups")
       ? db
           .query<{ id: number }, [string]>(
-            "SELECT id FROM theory_groups WHERE instructor = ?"
+            "SELECT id FROM theory_groups WHERE instructor = ?",
           )
           .all(name)
-          .map(row => row.id)
+          .map((row) => row.id)
       : [];
     const calendarEvents = db
       .query<{ id: number }, [string]>(
-        "SELECT id FROM calendar_events WHERE instructor = ?"
+        "SELECT id FROM calendar_events WHERE instructor = ?",
       )
       .all(name)
-      .map(row => row.id);
+      .map((row) => row.id);
     archiveRow(db, "instructor", id, name || "Fahrlehrer/in", {
       students,
       theoryGroups,
@@ -222,18 +229,22 @@ export function deleteInstructor(db: Database, id: number): void {
     });
     db.prepare("UPDATE students SET instructor = ? WHERE instructor = ?").run(
       UNASSIGNED_INSTRUCTOR,
-      name
+      name,
     );
     if (theoryGroups.length > 0) {
-      db.prepare(
-        "UPDATE theory_groups SET instructor = ? WHERE instructor = ?"
-      ).run(UNASSIGNED_INSTRUCTOR, name);
+      db.prepare("UPDATE theory_groups SET instructor = ? WHERE instructor = ?").run(
+        UNASSIGNED_INSTRUCTOR,
+        name,
+      );
     }
     if (calendarEvents.length > 0) {
-      db.prepare(
-        "UPDATE calendar_events SET instructor = ? WHERE instructor = ?"
-      ).run(UNASSIGNED_INSTRUCTOR, name);
+      db.prepare("UPDATE calendar_events SET instructor = ? WHERE instructor = ?").run(
+        UNASSIGNED_INSTRUCTOR,
+        name,
+      );
     }
+    // lesson_attestations keep the instructor name on purpose: they record
+    // who actually gave the lesson — rewriting would falsify a compliance record.
     db.prepare("DELETE FROM instructors WHERE id = ?").run(id);
   });
 

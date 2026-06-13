@@ -5,47 +5,24 @@ import {
   CalendarDays,
   Car,
   Check,
-  ClipboardList,
-  FileText,
   GraduationCap,
   Mail,
   MapPin,
   Phone,
-  Sparkles,
-  User,
 } from "lucide-react";
 
+import { FormSection as Section, FormSectionIndex } from "./components/FormSection.tsx";
 import { PageHeader } from "./components/PageHeader.tsx";
 import { useInstructors } from "@/hooks/use-instructors";
 import { useVehicleOptions } from "@/hooks/use-vehicle-options";
-import {
-  createStudent,
-  useStudents,
-  type StudentRecord,
-} from "@/hooks/use-students";
+import { createStudent, useStudents, type StudentRecord } from "@/hooks/use-students";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -66,8 +43,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
-type IconCmp = React.ComponentType<{ className?: string }>;
-
 const classOptions = ["A", "B", "B197", "BE"];
 const documentOptions = ["Personalausweis", "Passbild", "Sehtest", "Vertrag"];
 
@@ -81,7 +56,7 @@ const requiredLessons = [
 
 const now = new Date();
 const TODAY = `${String(now.getDate()).padStart(2, "0")}.${String(
-  now.getMonth() + 1
+  now.getMonth() + 1,
 ).padStart(2, "0")}.${now.getFullYear()}`;
 
 const formatDate = (date: Date) =>
@@ -102,11 +77,11 @@ const parseDate = (value: string): Date | undefined => {
 function nextIds(students: StudentRecord[]) {
   const maxCustomer = students.reduce(
     (max, s) => Math.max(max, Number(s.customerNumber) || 0),
-    10058
+    10058,
   );
   const maxContract = students.reduce(
     (max, s) => Math.max(max, Number(s.contractNumber.split("-").pop()) || 0),
-    1042
+    1042,
   );
   return {
     customerNumber: String(maxCustomer + 1),
@@ -154,39 +129,25 @@ const initialForm: FormState = {
   documents: [],
 };
 
-function Section({
-  title,
-  description,
-  Icon,
-  accent,
-  className,
-  children,
-}: {
-  title: string;
-  description?: string;
-  Icon: IconCmp;
-  accent: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
+const sections = [
+  { id: "stammdaten", label: "Stammdaten" },
+  { id: "zuteilung", label: "Zuteilung" },
+  { id: "kontakt", label: "Kontakt" },
+  { id: "dokumente", label: "Dokumente" },
+  { id: "ausbildung", label: "Ausbildung" },
+  { id: "vertrag", label: "Vertrag" },
+];
+
+/* System-assigned identifier, shown read-only. IDs keep the mono face. */
+function AutoNumber({ label, value }: { label: string; value: string }) {
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <span
-            className={cn(
-              "flex size-6 items-center justify-center rounded-md",
-              accent
-            )}
-          >
-            <Icon className="size-3.5" />
-          </span>
-          {title}
-        </CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+    <Field>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex h-8 items-center rounded-lg border bg-muted/40 px-3 font-mono text-[13px] tabular-nums text-muted-foreground">
+        {value}
+      </div>
+      <FieldDescription>Automatisch vergeben</FieldDescription>
+    </Field>
   );
 }
 
@@ -204,20 +165,20 @@ export function NeueSchueler() {
 
   // The system-assigned numbers continue the DB range, which loads async.
   useEffect(() => {
-    setForm(current => ({ ...current, ...nextIds(students) }));
+    setForm((current) => ({ ...current, ...nextIds(students) }));
   }, [students]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm(current => ({ ...current, [key]: value }));
+    setForm((current) => ({ ...current, [key]: value }));
     setDirty(true);
   };
 
   const toggleDocument = (doc: string, checked: boolean) => {
-    setForm(current => ({
+    setForm((current) => ({
       ...current,
       documents: checked
         ? [...current.documents, doc]
-        : current.documents.filter(item => item !== doc),
+        : current.documents.filter((item) => item !== doc),
     }));
     setDirty(true);
   };
@@ -228,9 +189,7 @@ export function NeueSchueler() {
   };
 
   const canSubmit =
-    !submitting &&
-    form.firstName.trim() !== "" &&
-    form.lastName.trim() !== "";
+    !submitting && form.firstName.trim() !== "" && form.lastName.trim() !== "";
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -239,7 +198,7 @@ export function NeueSchueler() {
       await createStudent({
         ...form,
         progress: 0,
-        lessons: requiredLessons.map(lesson => ({
+        lessons: requiredLessons.map((lesson) => ({
           label: lesson.label,
           done: lesson.target,
         })),
@@ -250,9 +209,7 @@ export function NeueSchueler() {
       await refresh();
       reset();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Anlegen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Anlegen fehlgeschlagen.");
     } finally {
       setSubmitting(false);
     }
@@ -281,258 +238,237 @@ export function NeueSchueler() {
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
-        <div className="stagger-in mx-auto grid w-full max-w-[1080px] gap-4 lg:grid-cols-6 2xl:gap-5">
-          {/* Stammdaten */}
-          <Section
-            title="Stammdaten"
-            description="Persönliche Angaben des Fahrschülers"
-            Icon={User}
-            accent="bg-indigo-500/10 text-indigo-600"
-            className="lg:col-span-4"
-          >
-            <FieldGroup className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="firstName">Vorname</FieldLabel>
-                <Input
-                  id="firstName"
-                  value={form.firstName}
-                  onChange={event => update("firstName", event.target.value)}
-                  placeholder="Lena"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="lastName">Nachname</FieldLabel>
-                <Input
-                  id="lastName"
-                  value={form.lastName}
-                  onChange={event => update("lastName", event.target.value)}
-                  placeholder="Braun"
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="birthday">Geburtsdatum</FieldLabel>
-                <Input
-                  id="birthday"
-                  value={form.birthday}
-                  onChange={event => update("birthday", event.target.value)}
-                  placeholder="TT.MM.JJJJ"
-                />
-              </Field>
-              <Field>
-                <FieldLabel>Klasse</FieldLabel>
-                <Select
-                  value={form.classes}
-                  onValueChange={value => update("classes", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {classOptions.map(option => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </FieldGroup>
-          </Section>
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
+        <div className="mx-auto flex w-full max-w-[1080px] gap-10">
+          <FormSectionIndex sections={sections} />
 
-          {/* Zuteilung */}
-          <Section
-            title="Zuteilung"
-            description="Fahrlehrer/in und Fahrzeug"
-            Icon={GraduationCap}
-            accent="bg-amber-500/10 text-amber-600"
-            className="lg:col-span-2"
-          >
-            <FieldGroup className="gap-3">
-              <Field>
-                <FieldLabel>Fahrlehrer/in</FieldLabel>
-                <Select
-                  value={form.instructor}
-                  onValueChange={value => update("instructor", value)}
-                >
-                  <SelectTrigger>
-                    <GraduationCap className="text-muted-foreground" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {instructorOptions.map(option => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel>Fahrzeug</FieldLabel>
-                <Select
-                  value={form.vehicle}
-                  onValueChange={value => update("vehicle", value)}
-                >
-                  <SelectTrigger>
-                    <Car className="text-muted-foreground" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {vehicleOptions.map(option => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </FieldGroup>
-          </Section>
-
-          {/* Kontakt */}
-          <Section
-            title="Kontakt"
-            Icon={Phone}
-            accent="bg-sky-500/10 text-sky-600"
-            className="lg:col-span-2"
-          >
-            <FieldGroup className="gap-3">
-              <Field>
-                <FieldLabel htmlFor="phone">Telefon</FieldLabel>
-                <div className="relative">
-                  <Phone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="stagger-in flex min-w-0 flex-1 flex-col gap-8 pb-4">
+            {/* Stammdaten */}
+            <Section
+              id="stammdaten"
+              title="Stammdaten"
+              description="Persönliche Angaben des Fahrschülers."
+            >
+              <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="firstName">Vorname</FieldLabel>
                   <Input
-                    id="phone"
-                    className="pl-9"
-                    value={form.phone}
-                    onChange={event => update("phone", event.target.value)}
-                    placeholder="+49 151 23456780"
+                    id="firstName"
+                    value={form.firstName}
+                    onChange={(event) => update("firstName", event.target.value)}
+                    placeholder="Lena"
                   />
-                </div>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="email">E-Mail</FieldLabel>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="lastName">Nachname</FieldLabel>
                   <Input
-                    id="email"
-                    type="email"
-                    className="pl-9"
-                    value={form.email}
-                    onChange={event => update("email", event.target.value)}
-                    placeholder="lena.braun@example.com"
+                    id="lastName"
+                    value={form.lastName}
+                    onChange={(event) => update("lastName", event.target.value)}
+                    placeholder="Braun"
                   />
-                </div>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="address">Adresse</FieldLabel>
-                <div className="relative">
-                  <MapPin className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
-                  <Textarea
-                    id="address"
-                    className="min-h-16 pl-9"
-                    value={form.address}
-                    onChange={event => update("address", event.target.value)}
-                    placeholder="Weidingweg 31, 64297 Darmstadt"
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="birthday">Geburtsdatum</FieldLabel>
+                  <Input
+                    id="birthday"
+                    value={form.birthday}
+                    onChange={(event) => update("birthday", event.target.value)}
+                    placeholder="TT.MM.JJJJ"
+                    className="tabular-nums"
                   />
-                </div>
-              </Field>
-            </FieldGroup>
-          </Section>
-
-          {/* Dokumente */}
-          <Section
-            title="Dokumente"
-            description="Vorliegende Unterlagen"
-            Icon={FileText}
-            accent="bg-emerald-500/10 text-emerald-600"
-            className="lg:col-span-2"
-          >
-            <div className="flex flex-col gap-2">
-              {documentOptions.map(doc => {
-                const checked = form.documents.includes(doc);
-                return (
-                  <Label
-                    key={doc}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-2.5 rounded-lg border p-2.5 text-sm font-normal transition-colors",
-                      checked ? "border-emerald-500/40 bg-emerald-500/5" : "hover:bg-muted"
-                    )}
+                </Field>
+                <Field>
+                  <FieldLabel>Klasse</FieldLabel>
+                  <ToggleGroup
+                    type="single"
+                    variant="outline"
+                    value={form.classes}
+                    onValueChange={(value) => {
+                      if (value) update("classes", value);
+                    }}
+                    className="justify-start gap-2"
+                    aria-label="Führerscheinklasse"
                   >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={value => toggleDocument(doc, value === true)}
+                    {classOptions.map((option) => (
+                      <ToggleGroupItem
+                        key={option}
+                        value={option}
+                        className="rounded-md data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                      >
+                        {option}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </Field>
+              </FieldGroup>
+            </Section>
+
+            {/* Zuteilung */}
+            <Section
+              id="zuteilung"
+              title="Zuteilung"
+              description="Fahrlehrer/in und Fahrzeug."
+            >
+              <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel>Fahrlehrer/in</FieldLabel>
+                  <Select
+                    value={form.instructor}
+                    onValueChange={(value) => update("instructor", value)}
+                  >
+                    <SelectTrigger>
+                      <GraduationCap className="text-muted-foreground" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {instructorOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel>Fahrzeug</FieldLabel>
+                  <Select
+                    value={form.vehicle}
+                    onValueChange={(value) => update("vehicle", value)}
+                  >
+                    <SelectTrigger>
+                      <Car className="text-muted-foreground" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {vehicleOptions.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FieldGroup>
+            </Section>
+
+            {/* Kontakt */}
+            <Section id="kontakt" title="Kontakt">
+              <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="phone">Telefon</FieldLabel>
+                  <div className="relative">
+                    <Phone className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      className="pl-9 tabular-nums"
+                      value={form.phone}
+                      onChange={(event) => update("phone", event.target.value)}
+                      placeholder="+49 151 23456780"
                     />
-                    {doc}
-                  </Label>
-                );
-              })}
-            </div>
-          </Section>
+                  </div>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="email">E-Mail</FieldLabel>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      className="pl-9"
+                      value={form.email}
+                      onChange={(event) => update("email", event.target.value)}
+                      placeholder="lena.braun@example.com"
+                    />
+                  </div>
+                </Field>
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="address">Adresse</FieldLabel>
+                  <div className="relative">
+                    <MapPin className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
+                    <Textarea
+                      id="address"
+                      className="min-h-16 pl-9"
+                      value={form.address}
+                      onChange={(event) => update("address", event.target.value)}
+                      placeholder="Weidingweg 31, 64297 Darmstadt"
+                    />
+                  </div>
+                </Field>
+              </FieldGroup>
+            </Section>
 
-          {/* Ausbildung */}
-          <Section
-            title="Ausbildung"
-            description="Pflichtstunden zum Start der Ausbildung"
-            Icon={ClipboardList}
-            accent="bg-violet-500/10 text-violet-600"
-            className="lg:col-span-2"
-          >
-            <div className="overflow-hidden rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableHead>Bereich</TableHead>
-                    <TableHead className="text-right">Stand</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requiredLessons.map(lesson => (
-                    <TableRow key={lesson.label}>
-                      <TableCell>{lesson.label}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {lesson.target}
-                      </TableCell>
+            {/* Dokumente */}
+            <Section
+              id="dokumente"
+              title="Dokumente"
+              description="Vorliegende Unterlagen."
+            >
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {documentOptions.map((doc) => {
+                  const checked = form.documents.includes(doc);
+                  return (
+                    <Label
+                      key={doc}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-2.5 rounded-lg border p-2.5 text-sm font-normal transition-colors",
+                        checked
+                          ? "border-primary bg-secondary"
+                          : "hover:border-ring hover:bg-muted",
+                      )}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value) => toggleDocument(doc, value === true)}
+                      />
+                      {doc}
+                    </Label>
+                  );
+                })}
+              </div>
+            </Section>
+
+            {/* Ausbildung */}
+            <Section
+              id="ausbildung"
+              title="Ausbildung"
+              description="Pflichtstunden zum Start der Ausbildung."
+            >
+              <div className="overflow-hidden rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead>Bereich</TableHead>
+                      <TableHead className="text-right">Stand</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </Section>
+                  </TableHeader>
+                  <TableBody>
+                    {requiredLessons.map((lesson) => (
+                      <TableRow key={lesson.label}>
+                        <TableCell>{lesson.label}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">
+                          {lesson.target}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </Section>
 
-          {/* Vertrag */}
-          <Section
-            title="Vertrag"
-            description="Vertragsdaten, Fahrschule und Abrechnungszuordnung"
-            Icon={Building2}
-            accent="bg-rose-500/10 text-rose-600"
-            className="lg:col-span-6"
-          >
-            <div className="flex flex-col gap-4">
+            {/* Vertrag */}
+            <Section
+              id="vertrag"
+              title="Vertrag"
+              description="Vertragsdaten, Fahrschule und Abrechnungszuordnung."
+            >
               <FieldGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Field>
-                  <FieldLabel>Kundennummer</FieldLabel>
-                  <div className="flex h-8 items-center gap-2 rounded-lg border bg-muted/40 px-3 font-mono text-sm tabular-nums text-muted-foreground">
-                    <Sparkles className="size-3.5 shrink-0 text-muted-foreground/70" />
-                    {form.customerNumber}
-                  </div>
-                  <FieldDescription>Automatisch vergeben</FieldDescription>
-                </Field>
-                <Field>
-                  <FieldLabel>Vertragsnummer</FieldLabel>
-                  <div className="flex h-8 items-center gap-2 rounded-lg border bg-muted/40 px-3 font-mono text-sm tabular-nums text-muted-foreground">
-                    <Sparkles className="size-3.5 shrink-0 text-muted-foreground/70" />
-                    {form.contractNumber}
-                  </div>
-                  <FieldDescription>Automatisch vergeben</FieldDescription>
-                </Field>
+                <AutoNumber label="Kundennummer" value={form.customerNumber} />
+                <AutoNumber label="Vertragsnummer" value={form.contractNumber} />
                 <Field>
                   <FieldLabel>Anmeldedatum</FieldLabel>
                   <Popover>
@@ -543,8 +479,13 @@ export function NeueSchueler() {
                         className="h-8 justify-start px-2.5 font-normal data-[empty=true]:text-muted-foreground"
                         data-empty={!form.registrationDate}
                       >
-                        <CalendarDays data-icon="inline-start" className="text-muted-foreground" />
-                        {form.registrationDate || "Datum wählen"}
+                        <CalendarDays
+                          data-icon="inline-start"
+                          className="text-muted-foreground"
+                        />
+                        <span className="tabular-nums">
+                          {form.registrationDate || "Datum wählen"}
+                        </span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -553,7 +494,7 @@ export function NeueSchueler() {
                         selected={parseDate(form.registrationDate)}
                         defaultMonth={parseDate(form.registrationDate)}
                         weekStartsOn={1}
-                        onSelect={date => {
+                        onSelect={(date) => {
                           if (date) update("registrationDate", formatDate(date));
                         }}
                       />
@@ -568,7 +509,7 @@ export function NeueSchueler() {
                       id="drivingSchool"
                       className="pl-9"
                       value={form.drivingSchool}
-                      onChange={event => update("drivingSchool", event.target.value)}
+                      onChange={(event) => update("drivingSchool", event.target.value)}
                     />
                   </div>
                 </Field>
@@ -576,16 +517,17 @@ export function NeueSchueler() {
                   <FieldLabel htmlFor="balance">Bilanz</FieldLabel>
                   <Input
                     id="balance"
+                    className="tabular-nums"
                     value={form.balance}
-                    onChange={event => update("balance", event.target.value)}
+                    onChange={(event) => update("balance", event.target.value)}
                   />
                 </Field>
-                <Field className="md:col-span-1">
+                <Field>
                   <FieldLabel>Status</FieldLabel>
                   <ToggleGroup
                     type="single"
                     value={form.status}
-                    onValueChange={value => {
+                    onValueChange={(value) => {
                       if (value === "aktiv" || value === "inaktiv") {
                         update("status", value);
                       }
@@ -605,8 +547,8 @@ export function NeueSchueler() {
                   </ToggleGroup>
                 </Field>
               </FieldGroup>
-            </div>
-          </Section>
+            </Section>
+          </div>
         </div>
       </div>
     </div>

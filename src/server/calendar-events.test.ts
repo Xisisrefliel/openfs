@@ -11,10 +11,14 @@ import {
   deleteCalendarEvent,
   getCalendarEvent,
   listCalendarEvents,
+  markEventBilled,
+  recordExamResult,
   updateCalendarEvent,
 } from "./calendar-events";
 import { openDb } from "./db";
-import { ValidationError } from "./engine";
+import { createTransaction, stornoTransaction, ValidationError } from "./engine";
+import { createAttestation, ensureAttestationTables } from "./ausbildungsnachweis";
+import type { StudentRef } from "@/lib/accounting-types";
 
 let db: Database;
 
@@ -79,43 +83,43 @@ describe("createCalendarEvent", () => {
 
   test("missing/invalid date → ValidationError", () => {
     expect(() => createCalendarEvent(db, { ...VALID, date: "10.06.2026" })).toThrow(
-      ValidationError
+      ValidationError,
     );
   });
 
   test("end before start → ValidationError 'Ende muss nach Beginn liegen.'", () => {
     expect(() =>
-      createCalendarEvent(db, { ...VALID, start: "12:00", end: "11:00" })
+      createCalendarEvent(db, { ...VALID, start: "12:00", end: "11:00" }),
     ).toThrow("Ende muss nach Beginn liegen.");
   });
 
   test("equal start and end → ValidationError", () => {
     expect(() =>
-      createCalendarEvent(db, { ...VALID, start: "09:00", end: "09:00" })
+      createCalendarEvent(db, { ...VALID, start: "09:00", end: "09:00" }),
     ).toThrow(ValidationError);
   });
 
   test("malformed time → ValidationError", () => {
     expect(() => createCalendarEvent(db, { ...VALID, start: "9:00" })).toThrow(
-      ValidationError
+      ValidationError,
     );
   });
 
   test("empty title → ValidationError 'Titel ist ein Pflichtfeld.'", () => {
     expect(() => createCalendarEvent(db, { ...VALID, title: "   " })).toThrow(
-      "Titel ist ein Pflichtfeld."
+      "Titel ist ein Pflichtfeld.",
     );
   });
 
   test("invalid type → ValidationError 'Ungültiger Termin-Typ.'", () => {
-    expect(() =>
-      createCalendarEvent(db, { ...VALID, type: "Quatsch" as never })
-    ).toThrow("Ungültiger Termin-Typ.");
+    expect(() => createCalendarEvent(db, { ...VALID, type: "Quatsch" as never })).toThrow(
+      "Ungültiger Termin-Typ.",
+    );
   });
 
   test("non-boolean tentative → ValidationError", () => {
     expect(() =>
-      createCalendarEvent(db, { ...VALID, tentative: "yes" as never })
+      createCalendarEvent(db, { ...VALID, tentative: "yes" as never }),
     ).toThrow(ValidationError);
   });
 });
@@ -151,14 +155,14 @@ describe("updateCalendarEvent", () => {
 
   test("invalid update is rejected", () => {
     const created = createCalendarEvent(db, VALID);
-    expect(() =>
-      updateCalendarEvent(db, Number(created.id), { end: "08:00" })
-    ).toThrow("Ende muss nach Beginn liegen.");
+    expect(() => updateCalendarEvent(db, Number(created.id), { end: "08:00" })).toThrow(
+      "Ende muss nach Beginn liegen.",
+    );
   });
 
   test("update on missing id → ValidationError", () => {
     expect(() => updateCalendarEvent(db, 999999, { title: "x" })).toThrow(
-      "Termin nicht gefunden."
+      "Termin nicht gefunden.",
     );
   });
 });
@@ -170,12 +174,280 @@ describe("deleteCalendarEvent", () => {
     deleteCalendarEvent(db, Number(created.id));
     expect(listCalendarEvents(db).length).toBe(before - 1);
     expect(() => getCalendarEvent(db, Number(created.id))).toThrow(
-      "Termin nicht gefunden."
+      "Termin nicht gefunden.",
     );
   });
 
   test("delete on missing id → ValidationError", () => {
     expect(() => deleteCalendarEvent(db, 999999)).toThrow("Termin nicht gefunden.");
+  });
+
+  test("delete on event with lesson_attestation → ValidationError", () => {
+    ensureAttestationTables(db);
+    const sid = insertStudent(db);
+    const event = createCalendarEvent(db, { ...VALID, studentId: sid });
+    createAttestation(db, {
+      eventId: Number(event.id),
+      studentId: sid,
+      instructor: VALID.instructor,
+      content: "Stadtfahrt",
+      durationMin: 45,
+      signatureDataUrl: "data:image/png;base64,abc123",
+    });
+    expect(() => deleteCalendarEvent(db, Number(event.id))).toThrow(
+      /Ausbildungsnachweis/,
+    );
+    // The event must still exist.
+    expect(getCalendarEvent(db, Number(event.id)).id).toBe(event.id);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* studentId + billed_transaction_id new tests                        */
+/* ------------------------------------------------------------------ */
+
+/** Inserts a minimal student and returns their id. */
+function insertStudent(db: Database, firstName = "Lena", lastName = "Braun"): number {
+  const row = db
+    .query<{ id: number }, [string, string]>(
+      `INSERT INTO students
+         (first_name, last_name, birthday, phone, email, address, classes,
+          driving_school, registration_date, contract_number, customer_number)
+       VALUES (?, ?, '', '', '', '', 'B', 'Fahrschule', '01.01.2026', 'V-TEST-001', 'C001')
+       RETURNING id`,
+    )
+    .get(firstName, lastName)!;
+  return row.id;
+}
+
+function makeStudentRef(db: Database, studentId: number): StudentRef {
+  const s = db
+    .query<
+      {
+        contract_number: string;
+        customer_number: string;
+        first_name: string;
+        last_name: string;
+        classes: string;
+      },
+      [number]
+    >(
+      "SELECT contract_number, customer_number, first_name, last_name, classes FROM students WHERE id = ?",
+    )
+    .get(studentId)!;
+  return {
+    customerNo: s.customer_number,
+    name: `${s.first_name} ${s.last_name}`,
+    address: "",
+    contractNo: s.contract_number,
+    classes: s.classes,
+  };
+}
+
+describe("studentId wire shape", () => {
+  test("createCalendarEvent with valid studentId carries through", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    expect(event.studentId).toBe(sid);
+  });
+
+  test("optional studentId is omitted when not set", () => {
+    const event = createCalendarEvent(db, VALID);
+    expect(event.studentId).toBeUndefined();
+  });
+
+  test("createCalendarEvent with unknown studentId → ValidationError", () => {
+    expect(() => createCalendarEvent(db, { ...VALID, studentId: 999999 })).toThrow(
+      ValidationError,
+    );
+  });
+
+  test("createCalendarEvent with non-integer studentId → ValidationError", () => {
+    expect(() =>
+      createCalendarEvent(db, { ...VALID, studentId: 1.5 as unknown as number }),
+    ).toThrow(ValidationError);
+  });
+
+  test("updateCalendarEvent can set studentId", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const created = createCalendarEvent(fresh, VALID);
+    const updated = updateCalendarEvent(fresh, Number(created.id), { studentId: sid });
+    expect(updated.studentId).toBe(sid);
+  });
+
+  test("updateCalendarEvent with studentId: null clears the link", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const created = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    expect(created.studentId).toBe(sid);
+    // The UI sends an explicit null over the wire to unlink (JSON drops
+    // undefined keys, which would keep the stored value instead).
+    const updated = updateCalendarEvent(fresh, Number(created.id), {
+      studentId: null as unknown as number,
+    });
+    expect(updated.studentId).toBeUndefined();
+  });
+});
+
+describe("markEventBilled + delete-guard", () => {
+  test("markEventBilled sets billedTransactionId and billedActive=true", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    const ref = makeStudentRef(fresh, sid);
+    const tx = createTransaction(fresh, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: ref,
+      description: `FS ${ref.name} - ${ref.classes}, Fahrübungsstunde (45)`,
+    });
+    const billed = markEventBilled(fresh, Number(event.id), tx.id);
+    expect(billed.billedTransactionId).toBe(tx.id);
+    expect(billed.billedActive).toBe(true);
+  });
+
+  test("delete of billed (active) event → ValidationError 'abgerechnet'", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    const ref = makeStudentRef(fresh, sid);
+    const tx = createTransaction(fresh, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: ref,
+      description: `FS ${ref.name} - ${ref.classes}, Fahrübungsstunde (45)`,
+    });
+    markEventBilled(fresh, Number(event.id), tx.id);
+    expect(() => deleteCalendarEvent(fresh, Number(event.id))).toThrow(
+      "Termin ist abgerechnet — zuerst stornieren.",
+    );
+  });
+
+  test("delete allowed after linked transaction is storniert", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    const ref = makeStudentRef(fresh, sid);
+    const tx = createTransaction(fresh, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: ref,
+      description: `FS ${ref.name} - ${ref.classes}, Fahrübungsstunde (45)`,
+    });
+    markEventBilled(fresh, Number(event.id), tx.id);
+    stornoTransaction(fresh, tx.id, "Test-Storno", "2026-06-10");
+
+    // After storno the event should be deletable.
+    expect(() => deleteCalendarEvent(fresh, Number(event.id))).not.toThrow();
+  });
+
+  test("billedActive is false after transaction is storniert", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const sid = insertStudent(fresh);
+    const event = createCalendarEvent(fresh, { ...VALID, studentId: sid });
+    const ref = makeStudentRef(fresh, sid);
+    const tx = createTransaction(fresh, {
+      type: "guthaben_uebertragung",
+      date: "2026-06-10",
+      amountCents: 6500,
+      habenKonto: "4400",
+      student: ref,
+      description: `FS ${ref.name} - ${ref.classes}, Fahrübungsstunde (45)`,
+    });
+    markEventBilled(fresh, Number(event.id), tx.id);
+    stornoTransaction(fresh, tx.id, "Test-Storno", "2026-06-10");
+
+    const reloaded = getCalendarEvent(fresh, Number(event.id));
+    expect(reloaded.billedTransactionId).toBe(tx.id);
+    expect(reloaded.billedActive).toBe(false);
+  });
+});
+
+describe("recordExamResult", () => {
+  const EXAM_BASE = {
+    date: "2026-06-10",
+    start: "09:00",
+    end: "11:00",
+    title: "Theorieprüfung",
+    instructor: "Köksal Gül",
+  };
+
+  test("records 'bestanden' on a Theorieprüfung event", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, {
+      ...EXAM_BASE,
+      type: "Theorieprüfung",
+    });
+    const updated = recordExamResult(fresh, Number(event.id), "bestanden");
+    expect(updated.examResult).toBe("bestanden");
+    // persisted
+    expect(getCalendarEvent(fresh, Number(event.id)).examResult).toBe("bestanden");
+  });
+
+  test("records 'nicht_bestanden' on a Vorstellung event", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, {
+      ...EXAM_BASE,
+      title: "Praktische Prüfung",
+      type: "Vorstellung zur prakt. Prüfung",
+    });
+    const updated = recordExamResult(fresh, Number(event.id), "nicht_bestanden");
+    expect(updated.examResult).toBe("nicht_bestanden");
+  });
+
+  test("clears result by passing null", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, { ...EXAM_BASE, type: "Theorieprüfung" });
+    recordExamResult(fresh, Number(event.id), "bestanden");
+    const cleared = recordExamResult(fresh, Number(event.id), null);
+    expect(cleared.examResult).toBeUndefined();
+  });
+
+  test("rejects recording on a non-exam event type (Praktisch)", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, { ...VALID, type: "Praktisch" });
+    expect(() => recordExamResult(fresh, Number(event.id), "bestanden")).toThrow(
+      ValidationError,
+    );
+  });
+
+  test("rejects recording on Theorie type", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, {
+      ...EXAM_BASE,
+      title: "Theoriestunde",
+      type: "Theorie",
+    });
+    expect(() => recordExamResult(fresh, Number(event.id), "bestanden")).toThrow(
+      ValidationError,
+    );
+  });
+
+  test("examResult is omitted on wire when not set", () => {
+    const fresh = openDb(":memory:");
+    fresh.exec("DELETE FROM calendar_events");
+    const event = createCalendarEvent(fresh, { ...EXAM_BASE, type: "Theorieprüfung" });
+    expect(event.examResult).toBeUndefined();
   });
 });
 

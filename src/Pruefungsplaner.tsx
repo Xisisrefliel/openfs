@@ -29,11 +29,12 @@ import { EventEditDialog } from "./components/EventEditDialog.tsx";
 import {
   createCalendarEvent,
   deleteCalendarEvent,
+  recordExamResult,
   updateCalendarEvent,
   useCalendarEvents,
 } from "@/hooks/use-calendar-events";
 import { useInstructors, UNASSIGNED_INSTRUCTOR } from "@/hooks/use-instructors";
-import { useStudents, type StudentRecord } from "@/hooks/use-students";
+import { updateStudent, useStudents, type StudentRecord } from "@/hooks/use-students";
 import { useVehicleOptions } from "@/hooks/use-vehicle-options";
 import {
   TODAY,
@@ -125,7 +126,13 @@ const dayHeading = (iso: string) => {
 function StatCards({ exams }: { exams: CalEvent[] }) {
   const stats = examStats(exams, toISODate(TODAY));
 
-  const cards: { label: string; value: number; hint: string; Icon: IconCmp; iconClass: string }[] = [
+  const cards: {
+    label: string;
+    value: number;
+    hint: string;
+    Icon: IconCmp;
+    iconClass: string;
+  }[] = [
     {
       label: "Anstehende Theorieprüfungen",
       value: stats.theory,
@@ -164,7 +171,7 @@ function StatCards({ exams }: { exams: CalEvent[] }) {
             <div
               className={cn(
                 "flex size-9 items-center justify-center rounded-lg",
-                iconClass
+                iconClass,
               )}
             >
               <Icon className="size-[18px]" />
@@ -189,14 +196,72 @@ function StatCards({ exams }: { exams: CalEvent[] }) {
 /* Upcoming exam list                                                  */
 /* ------------------------------------------------------------------ */
 
+function ExamResultControl({
+  result,
+  onChange,
+}: {
+  result: "bestanden" | "nicht_bestanden" | undefined;
+  onChange: (result: "bestanden" | "nicht_bestanden" | null) => void;
+}) {
+  const current = result ?? "offen";
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              current === "bestanden"
+                ? "bg-emerald-500"
+                : current === "nicht_bestanden"
+                  ? "bg-rose-500"
+                  : "bg-muted-foreground/40",
+            )}
+          />
+          {current === "bestanden"
+            ? "Bestanden"
+            : current === "nicht_bestanden"
+              ? "Nicht bestanden"
+              : "Offen"}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {(
+          [
+            { value: "bestanden" as const, label: "Bestanden", dot: "bg-emerald-500" },
+            {
+              value: "nicht_bestanden" as const,
+              label: "Nicht bestanden",
+              dot: "bg-rose-500",
+            },
+            { value: null, label: "Offen", dot: "bg-muted-foreground/40" },
+          ] as const
+        ).map((opt) => (
+          <DropdownMenuItem
+            key={opt.label}
+            onSelect={() => onChange(opt.value)}
+            className="gap-2"
+          >
+            <span className={cn("size-2 rounded-full", opt.dot)} />
+            {opt.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function ExamRow({
   exam,
   onEdit,
   onDelete,
+  onResult,
 }: {
   exam: CalEvent;
   onEdit: () => void;
   onDelete: () => void;
+  onResult: (result: "bestanden" | "nicht_bestanden" | null) => void;
 }) {
   const typeLabel = examTypeLabel[exam.type as ExamEventType] ?? exam.type;
 
@@ -241,6 +306,8 @@ function ExamRow({
           Vorläufig
         </Badge>
       )}
+
+      <ExamResultControl result={exam.examResult} onChange={onResult} />
 
       <div className="flex items-center gap-1.5">
         <Button
@@ -303,8 +370,8 @@ function ReadinessPanel({
           Prüfungsreife
         </CardTitle>
         <CardDescription>
-          Aktive Fahrschüler nach Ausbildungsstand — wer ist bereit für die
-          nächste Prüfung?
+          Aktive Fahrschüler nach Ausbildungsstand — wer ist bereit für die nächste
+          Prüfung?
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -320,8 +387,8 @@ function ReadinessPanel({
               </EmptyMedia>
               <EmptyTitle>Keine aktiven Fahrschüler</EmptyTitle>
               <EmptyDescription>
-                Sobald Fahrschüler aktiv sind, erscheinen sie hier sortiert
-                nach Fortschritt.
+                Sobald Fahrschüler aktiv sind, erscheinen sie hier sortiert nach
+                Fortschritt.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -356,8 +423,7 @@ function ReadinessPanel({
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate text-xs text-muted-foreground">
-                    Theorie {student.theory.progress}% · Prüfung:{" "}
-                    {student.theory.exam}
+                    Theorie {student.theory.progress}% · Prüfung: {student.theory.exam}
                   </span>
                   <Button
                     type="button"
@@ -392,17 +458,17 @@ export function Pruefungsplaner() {
   const todayISO = toISODate(TODAY);
   const exams = useMemo(
     () => upcomingExams(events, todayISO, HORIZON_DAYS),
-    [events, todayISO]
+    [events, todayISO],
   );
   const dayGroups = useMemo(() => groupExamsByDate(exams), [exams]);
 
   // Same option list the calendar's edit dialog uses.
   const studentOptions = useMemo(
     () =>
-      Array.from(
-        new Set(students.map(studentName).filter(Boolean))
-      ).toSorted((left, right) => left.localeCompare(right, "de")),
-    [students]
+      Array.from(new Set(students.map(studentName).filter(Boolean))).toSorted(
+        (left, right) => left.localeCompare(right, "de"),
+      ),
+    [students],
   );
 
   const openCreateDialog = (type: ExamEventType, student?: string) => {
@@ -423,7 +489,7 @@ export function Pruefungsplaner() {
           type,
           tentative: true,
         }),
-      0
+      0,
     );
   };
 
@@ -455,7 +521,7 @@ export function Pruefungsplaner() {
   const handleEventDelete = (exam: CalEvent) => {
     const label = examTypeLabel[exam.type as ExamEventType] ?? exam.type;
     const confirmed = window.confirm(
-      `${label} am ${dayHeading(exam.date)} um ${exam.start} Uhr wirklich löschen?`
+      `${label} am ${dayHeading(exam.date)} um ${exam.start} Uhr wirklich löschen?`,
     );
     if (!confirmed) return;
 
@@ -467,6 +533,39 @@ export function Pruefungsplaner() {
       .catch(() => {
         toast.error("Prüfung konnte nicht gelöscht werden.");
         void refresh();
+      });
+  };
+
+  const handleExamResult = (
+    exam: CalEvent,
+    result: "bestanden" | "nicht_bestanden" | null,
+  ) => {
+    void recordExamResult(exam.id, result)
+      .then((updated) => {
+        void refresh();
+        // If a practical exam was just marked bestanden AND has a student,
+        // offer to set the license date.
+        if (
+          result === "bestanden" &&
+          updated.type === "Vorstellung zur prakt. Prüfung" &&
+          updated.studentId != null
+        ) {
+          const confirmed = window.confirm(
+            "Führerschein-Datum setzen? Datum des Prüfungstermins wird als Ausstellungsdatum gespeichert.",
+          );
+          if (confirmed) {
+            void updateStudent(updated.studentId, { licenseDate: updated.date })
+              .then(() => {
+                toast.success("Führerschein-Datum gespeichert.");
+              })
+              .catch(() => {
+                toast.error("Führerschein-Datum konnte nicht gespeichert werden.");
+              });
+          }
+        }
+      })
+      .catch(() => {
+        toast.error("Ergebnis konnte nicht gespeichert werden.");
       });
   };
 
@@ -482,16 +581,9 @@ export function Pruefungsplaner() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {EXAM_EVENT_TYPES.map(type => (
-                <DropdownMenuItem
-                  key={type}
-                  onSelect={() => openCreateDialog(type)}
-                >
-                  {type === "Theorieprüfung" ? (
-                    <GraduationCap />
-                  ) : (
-                    <Car />
-                  )}
+              {EXAM_EVENT_TYPES.map((type) => (
+                <DropdownMenuItem key={type} onSelect={() => openCreateDialog(type)}>
+                  {type === "Theorieprüfung" ? <GraduationCap /> : <Car />}
                   {examTypeLabel[type]}
                 </DropdownMenuItem>
               ))}
@@ -514,8 +606,8 @@ export function Pruefungsplaner() {
                   Anstehende Prüfungen
                 </CardTitle>
                 <CardDescription>
-                  Theorieprüfungen und Vorstellungen zur praktischen Prüfung
-                  der nächsten {HORIZON_DAYS} Tage.
+                  Theorieprüfungen und Vorstellungen zur praktischen Prüfung der nächsten{" "}
+                  {HORIZON_DAYS} Tage.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -529,25 +621,25 @@ export function Pruefungsplaner() {
                       </EmptyMedia>
                       <EmptyTitle>Keine Prüfungen geplant</EmptyTitle>
                       <EmptyDescription>
-                        In den nächsten {HORIZON_DAYS} Tagen stehen keine
-                        Prüfungen an. Über „Prüfung planen“ legen Sie den
-                        ersten Termin an.
+                        In den nächsten {HORIZON_DAYS} Tagen stehen keine Prüfungen an.
+                        Über „Prüfung planen“ legen Sie den ersten Termin an.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
                 ) : (
                   <div className="stagger-in flex flex-col gap-4">
-                    {dayGroups.map(group => (
+                    {dayGroups.map((group) => (
                       <section key={group.date} className="flex flex-col gap-2">
                         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           {dayHeading(group.date)}
                         </h3>
-                        {group.exams.map(exam => (
+                        {group.exams.map((exam) => (
                           <ExamRow
                             key={exam.id}
                             exam={exam}
                             onEdit={() => setEditingEvent(exam)}
                             onDelete={() => handleEventDelete(exam)}
+                            onResult={(result) => handleExamResult(exam, result)}
                           />
                         ))}
                       </section>
@@ -569,7 +661,7 @@ export function Pruefungsplaner() {
       <EventEditDialog
         event={editingEvent}
         open={editingEvent !== null}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) setEditingEvent(null);
         }}
         onSave={handleEventSave}

@@ -108,7 +108,7 @@ function addMinutes(time: string, minutes: number): string {
   const [h = 0, m = 0] = time.split(":").map(Number);
   const total = h * 60 + m + minutes;
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(
-    total % 60
+    total % 60,
   ).padStart(2, "0")}`;
 }
 
@@ -151,11 +151,8 @@ function AcceptDialog({
     setDraft(open && request ? draftFromRequest(request) : null);
   }, [open, request?.id]);
 
-  function update<Key extends keyof AcceptDraft>(
-    key: Key,
-    value: AcceptDraft[Key]
-  ) {
-    setDraft(current => (current ? { ...current, [key]: value } : current));
+  function update<Key extends keyof AcceptDraft>(key: Key, value: AcceptDraft[Key]) {
+    setDraft((current) => (current ? { ...current, [key]: value } : current));
   }
 
   if (!request || !draft) {
@@ -168,8 +165,8 @@ function AcceptDialog({
         <DialogHeader>
           <DialogTitle>Terminanfrage annehmen</DialogTitle>
           <DialogDescription>
-            {request.name} · {request.type} — Datum, Uhrzeit und Fahrlehrer/in
-            vor dem Bestätigen anpassen. Der Termin landet im Kalender.
+            {request.name} · {request.type} — Datum, Uhrzeit und Fahrlehrer/in vor dem
+            Bestätigen anpassen. Der Termin landet im Kalender.
           </DialogDescription>
         </DialogHeader>
 
@@ -180,7 +177,7 @@ function AcceptDialog({
               id="accept-date"
               type="date"
               value={draft.date}
-              onChange={event => update("date", event.target.value)}
+              onChange={(event) => update("date", event.target.value)}
             />
           </Field>
           <Field>
@@ -189,9 +186,7 @@ function AcceptDialog({
               id="accept-start"
               type="time"
               value={draft.start}
-              onChange={event =>
-                update("start", event.target.value)
-              }
+              onChange={(event) => update("start", event.target.value)}
             />
           </Field>
           <Field>
@@ -200,14 +195,14 @@ function AcceptDialog({
               id="accept-end"
               type="time"
               value={draft.end}
-              onChange={event => update("end", event.target.value)}
+              onChange={(event) => update("end", event.target.value)}
             />
           </Field>
           <Field className="sm:col-span-2">
             <FieldLabel htmlFor="accept-instructor">Fahrlehrer/in</FieldLabel>
             <Select
               value={draft.instructor}
-              onValueChange={value => update("instructor", value)}
+              onValueChange={(value) => update("instructor", value)}
             >
               <SelectTrigger id="accept-instructor" className="w-full">
                 <SelectValue />
@@ -217,7 +212,7 @@ function AcceptDialog({
                   {(instructorOptions.includes(draft.instructor)
                     ? instructorOptions
                     : [draft.instructor, ...instructorOptions]
-                  ).map(option => (
+                  ).map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
                     </SelectItem>
@@ -264,7 +259,7 @@ function RequestCard({
   const contact = [
     { Icon: Phone, value: request.phone },
     { Icon: Mail, value: request.email },
-  ].filter(item => item.value);
+  ].filter((item) => item.value);
 
   return (
     <Card>
@@ -273,7 +268,7 @@ function RequestCard({
           <div
             className={cn(
               "flex size-11 shrink-0 items-center justify-center rounded-lg",
-              typeAccents[request.type] ?? typeAccents.Andere
+              typeAccents[request.type] ?? typeAccents.Andere,
             )}
           >
             <Inbox className="size-6" />
@@ -310,7 +305,7 @@ function RequestCard({
               Terminkonflikt — zur Wunschzeit ist bereits belegt:
             </span>
             <ul className="flex flex-col gap-0.5 pl-[22px]">
-              {request.conflicts.map(conflict => (
+              {request.conflicts.map((conflict) => (
                 <li key={conflict.id}>
                   {conflict.start}–{conflict.end} Uhr · {conflict.title} (
                   {conflict.instructor})
@@ -366,17 +361,14 @@ function RequestCard({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Terminanfrage löschen?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Die Anfrage von {request.name} (
-                    {formatDate(request.requestedDate)}, {request.requestedTime}{" "}
-                    Uhr) wird endgültig entfernt. Bereits angelegte
-                    Kalendertermine bleiben bestehen.
+                    Die Anfrage von {request.name} ({formatDate(request.requestedDate)},{" "}
+                    {request.requestedTime} Uhr) wird endgültig entfernt. Bereits
+                    angelegte Kalendertermine bleiben bestehen.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                  <AlertDialogAction onClick={onDelete}>
-                    Löschen
-                  </AlertDialogAction>
+                  <AlertDialogAction onClick={onDelete}>Löschen</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -408,12 +400,11 @@ export function Terminanfragen() {
     () =>
       statusFilter === "alle"
         ? requests
-        : requests.filter(request => request.status === statusFilter),
-    [requests, statusFilter]
+        : requests.filter((request) => request.status === statusFilter),
+    [requests, statusFilter],
   );
 
-  const acceptingRequest =
-    requests.find(request => request.id === acceptingId) ?? null;
+  const acceptingRequest = requests.find((request) => request.id === acceptingId) ?? null;
 
   const run = async (action: () => Promise<unknown>, success: string) => {
     setSaving(true);
@@ -422,9 +413,7 @@ export function Terminanfragen() {
       await refresh();
       toast.success(success);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Aktion fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Aktion fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
@@ -437,7 +426,7 @@ export function Terminanfragen() {
           <ToggleGroup
             type="single"
             value={statusFilter}
-            onValueChange={value => {
+            onValueChange={(value) => {
               if (
                 value === "alle" ||
                 value === "offen" ||
@@ -493,7 +482,7 @@ export function Terminanfragen() {
           </div>
         ) : (
           <div className="stagger-in flex flex-col gap-4 2xl:gap-5">
-            {visibleRequests.map(request => (
+            {visibleRequests.map((request) => (
               <RequestCard
                 key={request.id}
                 request={request}
@@ -502,13 +491,13 @@ export function Terminanfragen() {
                 onDecline={() =>
                   void run(
                     () => declineAppointmentRequest(request.id),
-                    "Anfrage abgelehnt."
+                    "Anfrage abgelehnt.",
                   )
                 }
                 onDelete={() =>
                   void run(
                     () => deleteAppointmentRequest(request.id),
-                    "Anfrage gelöscht."
+                    "Anfrage gelöscht.",
                   )
                 }
               />
@@ -522,10 +511,10 @@ export function Terminanfragen() {
         open={acceptingId !== null && acceptingRequest !== null}
         saving={saving}
         instructorOptions={instructorOptions}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) setAcceptingId(null);
         }}
-        onConfirm={draft =>
+        onConfirm={(draft) =>
           void run(async () => {
             await acceptAppointmentRequest(acceptingId!, {
               date: draft.date,

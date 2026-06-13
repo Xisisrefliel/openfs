@@ -176,24 +176,124 @@ type AccountSeed = {
 };
 
 export const SKR04_ACCOUNTS: AccountSeed[] = [
-  { number: "1370", name: "Durchlaufende Posten", kind: "durchlaufend", vatRate: null, vatLabel: "Durchlaufende Posten" },
-  { number: "1406", name: "Abziehbare Vorsteuer 19 %", kind: "steuer", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "1460", name: "Geldtransit", kind: "transit", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "1600", name: "Kasse", kind: "geldkonto", vatRate: null, vatLabel: "Nicht zutreffend", openingCents: 348457, openingDate: "2026-01-01" },
-  { number: "1800", name: "Bank", kind: "geldkonto", vatRate: null, vatLabel: "Nicht zutreffend", openingCents: 1600000, openingDate: "2026-01-01" },
-  { number: "2100", name: "Privatentnahmen allgemein", kind: "privat", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "2180", name: "Privateinlagen", kind: "privat", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "3272", name: "Erhaltene Anzahlungen 19 % USt", kind: "anzahlung", vatRate: 19, vatLabel: "19%" },
-  { number: "3806", name: "Umsatzsteuer 19 %", kind: "steuer", vatRate: null, vatLabel: "Nicht zutreffend" },
-  { number: "4100", name: "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG (Ausbildung § 4 Nr. 21)", kind: "erloes", vatRate: 0, vatLabel: "steuerfrei § 4 UStG" },
+  {
+    number: "1370",
+    name: "Durchlaufende Posten",
+    kind: "durchlaufend",
+    vatRate: null,
+    vatLabel: "Durchlaufende Posten",
+  },
+  {
+    number: "1406",
+    name: "Abziehbare Vorsteuer 19 %",
+    kind: "steuer",
+    vatRate: null,
+    vatLabel: "Nicht zutreffend",
+  },
+  {
+    number: "1460",
+    name: "Geldtransit",
+    kind: "transit",
+    vatRate: null,
+    vatLabel: "Nicht zutreffend",
+  },
+  {
+    number: "1600",
+    name: "Kasse",
+    kind: "geldkonto",
+    vatRate: null,
+    vatLabel: "Nicht zutreffend",
+    openingCents: 348457,
+    openingDate: "2026-01-01",
+  },
+  {
+    number: "1800",
+    name: "Bank",
+    kind: "geldkonto",
+    vatRate: null,
+    vatLabel: "Nicht zutreffend",
+    openingCents: 1600000,
+    openingDate: "2026-01-01",
+  },
+  {
+    number: "2100",
+    name: "Privatentnahmen allgemein",
+    kind: "privat",
+    vatRate: null,
+    vatLabel: "Nicht zutreffend",
+  },
+  {
+    number: "2180",
+    name: "Privateinlagen",
+    kind: "privat",
+    vatRate: null,
+    vatLabel: "Nicht zutreffend",
+  },
+  {
+    number: "3272",
+    name: "Erhaltene Anzahlungen 19 % USt",
+    kind: "anzahlung",
+    vatRate: 19,
+    vatLabel: "19%",
+  },
+  {
+    number: "3806",
+    name: "Umsatzsteuer 19 %",
+    kind: "steuer",
+    vatRate: null,
+    vatLabel: "Nicht zutreffend",
+  },
+  {
+    number: "4100",
+    name: "Steuerfreie Umsätze § 4 Nr. 8 ff. UStG (Ausbildung § 4 Nr. 21)",
+    kind: "erloes",
+    vatRate: 0,
+    vatLabel: "steuerfrei § 4 UStG",
+  },
   { number: "4300", name: "Erlöse 7 % USt", kind: "erloes", vatRate: 7, vatLabel: "7%" },
-  { number: "4400", name: "Erlöse 19 % USt", kind: "erloes", vatRate: 19, vatLabel: "19%" },
-  { number: "6310", name: "Miete (unbewegliche Wirtschaftsgüter)", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
-  { number: "6520", name: "Kfz-Versicherungen", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
-  { number: "6530", name: "Laufende Kfz-Betriebskosten", kind: "aufwand", vatRate: 19, vatLabel: "19%" },
-  { number: "6540", name: "Kfz-Reparaturen", kind: "aufwand", vatRate: 19, vatLabel: "19%" },
+  {
+    number: "4400",
+    name: "Erlöse 19 % USt",
+    kind: "erloes",
+    vatRate: 19,
+    vatLabel: "19%",
+  },
+  {
+    number: "6310",
+    name: "Miete (unbewegliche Wirtschaftsgüter)",
+    kind: "aufwand",
+    vatRate: 0,
+    vatLabel: "0%",
+  },
+  {
+    number: "6520",
+    name: "Kfz-Versicherungen",
+    kind: "aufwand",
+    vatRate: 0,
+    vatLabel: "0%",
+  },
+  {
+    number: "6530",
+    name: "Laufende Kfz-Betriebskosten",
+    kind: "aufwand",
+    vatRate: 19,
+    vatLabel: "19%",
+  },
+  {
+    number: "6540",
+    name: "Kfz-Reparaturen",
+    kind: "aufwand",
+    vatRate: 19,
+    vatLabel: "19%",
+  },
   { number: "6815", name: "Bürobedarf", kind: "aufwand", vatRate: 19, vatLabel: "19%" },
-  { number: "7310", name: "Zinsaufwendungen für kurzfristige Verbindlichkeiten", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
+  {
+    number: "7310",
+    name: "Zinsaufwendungen für kurzfristige Verbindlichkeiten",
+    kind: "aufwand",
+    vatRate: 0,
+    vatLabel: "0%",
+  },
   { number: "7685", name: "Kfz-Steuern", kind: "aufwand", vatRate: 0, vatLabel: "0%" },
 ];
 
@@ -228,7 +328,7 @@ export function migrateSkr03ToSkr04(db: Database) {
   const has = (number: string) =>
     db
       .query<{ n: number }, [string]>(
-        "SELECT count(*) AS n FROM accounts WHERE number = ?"
+        "SELECT count(*) AS n FROM accounts WHERE number = ?",
       )
       .get(number)!.n > 0;
   if (!has("8400") || has("4400")) return;
@@ -242,14 +342,12 @@ export function migrateSkr03ToSkr04(db: Database) {
     // for accounts AND bookings before any new number is assigned —
     // otherwise a freshly assigned number (e.g. 1800 Bank) would be
     // re-matched by a later rule (alt 1800 Privatentnahmen → 2100).
-    const accountTemp = db.prepare(
-      "UPDATE accounts SET number = ? WHERE number = ?"
-    );
+    const accountTemp = db.prepare("UPDATE accounts SET number = ? WHERE number = ?");
     const sollTemp = db.prepare(
-      "UPDATE bookings SET soll_account = ? WHERE soll_account = ?"
+      "UPDATE bookings SET soll_account = ? WHERE soll_account = ?",
     );
     const habenTemp = db.prepare(
-      "UPDATE bookings SET haben_account = ? WHERE haben_account = ?"
+      "UPDATE bookings SET haben_account = ? WHERE haben_account = ?",
     );
     for (const [oldNr] of SKR03_TO_SKR04) {
       accountTemp.run(`alt:${oldNr}`, oldNr);
@@ -286,6 +384,13 @@ export function openDb(path = "data/fahrschule.db"): Database {
   db.exec(DDL);
   migrateSkr03ToSkr04(db);
   migrateStudentPricePlan(db);
+  migrateCalendarEventBilling(db);
+  // student_id is added by migrateCalendarEventBilling, so this index can
+  // only be created after that migration — not in the base DDL string.
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_calendar_events_student ON calendar_events(student_id);",
+  );
+  migrateExamResults(db);
   initAccounts(db);
   initSequences(db);
   initSettings(db);
@@ -308,7 +413,7 @@ export function repairSoftReferences(db: Database) {
   const tableExists = (name: string) =>
     db
       .query<{ name: string }, [string]>(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?"
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
       )
       .get(name) !== null;
 
@@ -339,26 +444,26 @@ export function repairSoftReferences(db: Database) {
     // Drop member ids whose student is gone — ghosts block group capacity.
     const groups = db
       .query<{ id: number; student_ids: string }, []>(
-        "SELECT id, student_ids FROM theory_groups"
+        "SELECT id, student_ids FROM theory_groups",
       )
       .all();
     const studentExists = db.query<{ n: number }, [number]>(
-      "SELECT count(*) AS n FROM students WHERE id = ?"
+      "SELECT count(*) AS n FROM students WHERE id = ?",
     );
     const updateGroup = db.prepare(
-      "UPDATE theory_groups SET student_ids = ? WHERE id = ?"
+      "UPDATE theory_groups SET student_ids = ? WHERE id = ?",
     );
     for (const group of groups) {
       let members: number[];
       try {
         const parsed = JSON.parse(group.student_ids) as unknown;
         members = Array.isArray(parsed)
-          ? parsed.map(Number).filter(n => Number.isInteger(n) && n > 0)
+          ? parsed.map(Number).filter((n) => Number.isInteger(n) && n > 0)
           : [];
       } catch {
         members = [];
       }
-      const alive = members.filter(sid => studentExists.get(sid)!.n > 0);
+      const alive = members.filter((sid) => studentExists.get(sid)!.n > 0);
       if (alive.length !== members.length) {
         updateGroup.run(JSON.stringify(alive), group.id);
       }
@@ -377,13 +482,71 @@ export function repairSoftReferences(db: Database) {
 /* Databases created before price plans existed lack the column on
    students — CREATE TABLE IF NOT EXISTS won't add it, so ALTER does. */
 export function migrateStudentPricePlan(db: Database) {
-  const columns = db
-    .query<{ name: string }, []>("PRAGMA table_info(students)")
-    .all();
-  if (columns.some(column => column.name === "price_plan_id")) return;
+  const columns = db.query<{ name: string }, []>("PRAGMA table_info(students)").all();
+  if (columns.some((column) => column.name === "price_plan_id")) return;
   db.exec(
-    "ALTER TABLE students ADD COLUMN price_plan_id INTEGER REFERENCES price_plans(id)"
+    "ALTER TABLE students ADD COLUMN price_plan_id INTEGER REFERENCES price_plans(id)",
   );
+}
+
+/* Databases created before lesson-billing existed lack the student_id
+   and billed_transaction_id columns on calendar_events. Adds them when
+   absent and runs a best-effort one-time back-fill: links events to a
+   student where the subtitle matches exactly one student's full name;
+   leaves NULL on 0 or >1 matches (safe for money). Idempotent. */
+export function migrateCalendarEventBilling(db: Database) {
+  const columns = db
+    .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+    .all();
+  const hasStudentId = columns.some((c) => c.name === "student_id");
+  const hasBilledId = columns.some((c) => c.name === "billed_transaction_id");
+
+  if (!hasStudentId) {
+    db.exec(
+      "ALTER TABLE calendar_events ADD COLUMN student_id INTEGER REFERENCES students(id)",
+    );
+    // Best-effort back-fill: set student_id where subtitle matches exactly
+    // one student's trimmed full name; leave NULL on 0 or >1 matches.
+    db.exec(`
+      UPDATE calendar_events
+      SET student_id = (
+        SELECT id FROM students
+        WHERE trim(first_name || ' ' || last_name) = trim(calendar_events.subtitle)
+      )
+      WHERE subtitle != ''
+        AND (
+          SELECT count(*) FROM students
+          WHERE trim(first_name || ' ' || last_name) = trim(calendar_events.subtitle)
+        ) = 1
+    `);
+  }
+
+  if (!hasBilledId) {
+    db.exec(
+      "ALTER TABLE calendar_events ADD COLUMN billed_transaction_id INTEGER REFERENCES transactions(id)",
+    );
+  }
+}
+
+/* Databases created before exam-result tracking existed lack the
+   exam_result column on calendar_events and the license_date column on
+   students. Adds each when absent. Idempotent. */
+export function migrateExamResults(db: Database) {
+  const eventCols = db
+    .query<{ name: string }, []>("PRAGMA table_info(calendar_events)")
+    .all()
+    .map((c) => c.name);
+  if (!eventCols.includes("exam_result")) {
+    db.exec("ALTER TABLE calendar_events ADD COLUMN exam_result TEXT");
+  }
+
+  const studentCols = db
+    .query<{ name: string }, []>("PRAGMA table_info(students)")
+    .all()
+    .map((c) => c.name);
+  if (!studentCols.includes("license_date")) {
+    db.exec("ALTER TABLE students ADD COLUMN license_date TEXT");
+  }
 }
 
 /* Seed price plans — the demo tariffs from src/lib/price-plan.ts. After
@@ -395,14 +558,10 @@ function initPricePlans(db: Database) {
   if (count > 0) return;
   const insert = db.prepare(
     `INSERT INTO price_plans (name, guaranteed_months, components)
-     VALUES (?, ?, ?)`
+     VALUES (?, ?, ?)`,
   );
   for (const plan of PRICE_PLAN_SEED) {
-    insert.run(
-      plan.name,
-      plan.guaranteedMonths,
-      JSON.stringify(plan.components)
-    );
+    insert.run(plan.name, plan.guaranteedMonths, JSON.stringify(plan.components));
   }
 }
 
@@ -456,11 +615,11 @@ const VEHICLE_SEED = [
 
 function initVehicles(db: Database) {
   const hasPlate = db.query<{ n: number }, [string]>(
-    "SELECT count(*) AS n FROM vehicles WHERE plate = ?"
+    "SELECT count(*) AS n FROM vehicles WHERE plate = ?",
   );
   const insert = db.prepare(
     `INSERT INTO vehicles (model, plate, klass, status, accent, details)
-     VALUES (?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?)`,
   );
   for (const vehicle of VEHICLE_SEED) {
     const exists = hasPlate.get(vehicle.plate)!.n > 0;
@@ -471,7 +630,7 @@ function initVehicles(db: Database) {
       vehicle.klass,
       vehicle.status,
       vehicle.accent,
-      JSON.stringify(vehicle.details)
+      JSON.stringify(vehicle.details),
     );
   }
 }
@@ -607,13 +766,13 @@ function initCalendarEvents(db: Database) {
   monday.setDate(today.getDate() - offset);
   const toISODate = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-      date.getDate()
+      date.getDate(),
     ).padStart(2, "0")}`;
 
   const insert = db.prepare(
     `INSERT INTO calendar_events
        (date, start, "end", title, subtitle, location, instructor, vehicle, type, tentative)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const event of CALENDAR_EVENT_SEED) {
     const date = new Date(monday);
@@ -628,7 +787,7 @@ function initCalendarEvents(db: Database) {
       event.instructor,
       event.vehicle ?? "",
       event.type,
-      event.tentative ? 1 : 0
+      event.tentative ? 1 : 0,
     );
   }
 }
@@ -646,7 +805,7 @@ function initStudents(db: Database) {
        driving_school, registration_date, contract_number, customer_number,
        status, instructor, vehicle, balance, last_lesson, next_lesson,
        progress, lessons, documents, theory
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const s of STUDENT_SEED) {
     insert.run(
@@ -670,17 +829,53 @@ function initStudents(db: Database) {
       s.progress,
       JSON.stringify(s.lessons),
       JSON.stringify(s.documents),
-      JSON.stringify(s.theory)
+      JSON.stringify(s.theory),
     );
   }
 }
 
 /* Seed instructors — the same people the demo calendar/students reference. */
 const INSTRUCTOR_SEED = [
-  { firstName: "Köksal", lastName: "Gül", phone: "+49 176 2016 2780", email: "koeksal@fahrschule-guel.de", classes: "B, B197", vehicle: "VW Golf", since: "03/2008", status: "aktiv" },
-  { firstName: "Nadine", lastName: "Aksoy", phone: "+49 151 5566 7788", email: "nadine@fahrschule-guel.de", classes: "B", vehicle: "VW Golf", since: "08/2019", status: "aktiv" },
-  { firstName: "Emre", lastName: "Gül", phone: "+49 160 9988 7766", email: "emre@fahrschule-guel.de", classes: "A, B", vehicle: "Audi A3", since: "05/2021", status: "aktiv" },
-  { firstName: "Sven", lastName: "Kappel", phone: "+49 171 2233 4455", email: "sven@fahrschule-guel.de", classes: "B197", vehicle: "Cupra Born", since: "02/2024", status: "aktiv" },
+  {
+    firstName: "Köksal",
+    lastName: "Gül",
+    phone: "+49 176 2016 2780",
+    email: "koeksal@fahrschule-guel.de",
+    classes: "B, B197",
+    vehicle: "VW Golf",
+    since: "03/2008",
+    status: "aktiv",
+  },
+  {
+    firstName: "Nadine",
+    lastName: "Aksoy",
+    phone: "+49 151 5566 7788",
+    email: "nadine@fahrschule-guel.de",
+    classes: "B",
+    vehicle: "VW Golf",
+    since: "08/2019",
+    status: "aktiv",
+  },
+  {
+    firstName: "Emre",
+    lastName: "Gül",
+    phone: "+49 160 9988 7766",
+    email: "emre@fahrschule-guel.de",
+    classes: "A, B",
+    vehicle: "Audi A3",
+    since: "05/2021",
+    status: "aktiv",
+  },
+  {
+    firstName: "Sven",
+    lastName: "Kappel",
+    phone: "+49 171 2233 4455",
+    email: "sven@fahrschule-guel.de",
+    classes: "B197",
+    vehicle: "Cupra Born",
+    since: "02/2024",
+    status: "aktiv",
+  },
 ] as const;
 
 function initInstructors(db: Database) {
@@ -690,10 +885,19 @@ function initInstructors(db: Database) {
   if (count > 0) return;
   const insert = db.prepare(
     `INSERT INTO instructors (first_name, last_name, phone, email, classes, vehicle, since, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const i of INSTRUCTOR_SEED) {
-    insert.run(i.firstName, i.lastName, i.phone, i.email, i.classes, i.vehicle, i.since, i.status);
+    insert.run(
+      i.firstName,
+      i.lastName,
+      i.phone,
+      i.email,
+      i.classes,
+      i.vehicle,
+      i.since,
+      i.status,
+    );
   }
 }
 
@@ -704,7 +908,7 @@ function initAccounts(db: Database) {
   if (count > 0) return;
   const insert = db.prepare(
     `INSERT INTO accounts (number, name, kind, vat_rate, vat_label, active, opening_cents, opening_date)
-     VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, 1, ?, ?)`,
   );
   for (const a of SKR04_ACCOUNTS) {
     insert.run(
@@ -714,14 +918,14 @@ function initAccounts(db: Database) {
       a.vatRate,
       a.vatLabel,
       a.openingCents ?? null,
-      a.openingDate ?? null
+      a.openingDate ?? null,
     );
   }
 }
 
 function initSequences(db: Database) {
   const insert = db.prepare(
-    "INSERT OR IGNORE INTO sequences (name, value) VALUES (?, ?)"
+    "INSERT OR IGNORE INTO sequences (name, value) VALUES (?, ?)",
   );
   // Start below the demo numbers so the seed lines up with the old UI
   // (first allocated Beleg becomes T0000124A, first Buchung 00000219A).
@@ -730,19 +934,17 @@ function initSequences(db: Database) {
 }
 
 function initSettings(db: Database) {
-  db.prepare(
-    "INSERT OR IGNORE INTO settings (key, value) VALUES ('company', ?)"
-  ).run(JSON.stringify(DEFAULT_COMPANY));
+  db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('company', ?)").run(
+    JSON.stringify(DEFAULT_COMPANY),
+  );
 }
 
 /** Gapless sequence — call inside the surrounding write transaction. */
 export function nextSequence(db: Database, name: string): number {
-  db.prepare("INSERT OR IGNORE INTO sequences (name, value) VALUES (?, 0)").run(
-    name
-  );
+  db.prepare("INSERT OR IGNORE INTO sequences (name, value) VALUES (?, 0)").run(name);
   const row = db
     .query<{ value: number }, [string]>(
-      "UPDATE sequences SET value = value + 1 WHERE name = ? RETURNING value"
+      "UPDATE sequences SET value = value + 1 WHERE name = ? RETURNING value",
     )
     .get(name);
   return row!.value;
@@ -762,15 +964,13 @@ export function nextQuittungNr(db: Database, year: number): string {
 
 export function getCompany(db: Database): CompanyProfile {
   const row = db
-    .query<{ value: string }, []>(
-      "SELECT value FROM settings WHERE key = 'company'"
-    )
+    .query<{ value: string }, []>("SELECT value FROM settings WHERE key = 'company'")
     .get();
   return { ...DEFAULT_COMPANY, ...(row ? JSON.parse(row.value) : {}) };
 }
 
 export function setCompany(db: Database, profile: CompanyProfile) {
   db.prepare(
-    "INSERT INTO settings (key, value) VALUES ('company', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    "INSERT INTO settings (key, value) VALUES ('company', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
   ).run(JSON.stringify(profile));
 }

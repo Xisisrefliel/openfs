@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------ */
 /* Fahrschüler detail — Zahlungserfassung tab. The student-scoped view */
 /* of the accounting ledger: payments land in the same booking engine  */
-/* as /buchhaltung (PaymentDialog → SKR 03), with Quittung + Storno.   */
+/* as /buchhaltung (PaymentDialog → SKR 04), with Quittung + Storno.   */
 /* ------------------------------------------------------------------ */
 
 import { useState } from "react";
@@ -13,12 +13,7 @@ import type { LedgerRow } from "@/lib/accounting-types";
 import { formatEuro, formatCents } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -29,17 +24,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import {
-  accountingApi,
-  formatIsoDate,
-  useApi,
-} from "@/components/buchhaltung/api";
+import { accountingApi, formatIsoDate, useApi } from "@/components/buchhaltung/api";
 import { PaymentDialog } from "@/components/buchhaltung/PaymentDialog";
 import { QuittungDialog } from "@/components/buchhaltung/QuittungDialog";
-import {
-  StornoDialog,
-  type StornoTarget,
-} from "@/components/buchhaltung/StornoDialog";
+import { StornoDialog, type StornoTarget } from "@/components/buchhaltung/StornoDialog";
 
 function Money({
   cents,
@@ -55,7 +43,7 @@ function Money({
         "font-medium tabular-nums",
         tone === "negative"
           ? "text-destructive"
-          : "text-emerald-600 dark:text-emerald-400"
+          : "text-emerald-600 dark:text-emerald-400",
       )}
     >
       {formatCents(cents)}
@@ -75,21 +63,22 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
   const query = `?q=${encodeURIComponent(fullName)}`;
   const ledger = useApi(() => accountingApi.ledger(query), [query, refresh]);
   const accounts = useApi(() => accountingApi.accounts(), []);
+  const balancesData = useApi(() => accountingApi.studentBalances(), [refresh]);
 
-  const refetch = () => setRefresh(value => value + 1);
+  const refetch = () => setRefresh((value) => value + 1);
 
   const rows = ledger.data?.rows ?? [];
-  const activeRows = rows.filter(row => !row.storniert && !row.isStorno);
-  const paidCents = activeRows.reduce(
-    (sum, row) => sum + (row.incomeCents ?? 0),
-    0
+  const activeRows = rows.filter((row) => !row.storniert && !row.isStorno);
+  const paidCents = activeRows.reduce((sum, row) => sum + (row.incomeCents ?? 0), 0);
+  const chargedCents = activeRows.reduce((sum, row) => sum + (row.expenseCents ?? 0), 0);
+  const printableIds = rows.filter((row) => row.printable).map((row) => row.id);
+
+  // Real balance from the ledger; null = no ledger activity yet.
+  const balanceEntry = balancesData.data?.balances.find(
+    (b) => b.customerNo === student.customerNumber,
   );
-  const chargedCents = activeRows.reduce(
-    (sum, row) => sum + (row.expenseCents ?? 0),
-    0
-  );
-  const printableIds = rows.filter(row => row.printable).map(row => row.id);
-  const hasDebt = student.balance.startsWith("-");
+  const balanceCents = balanceEntry?.balanceCents ?? null;
+  const hasDebt = balanceCents != null && balanceCents < 0;
 
   const printFiltered = () => {
     if (!printableIds.length) {
@@ -111,26 +100,26 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
       label: "Datum",
       className: "pl-4",
       cellClassName: "pl-4 text-muted-foreground",
-      render: row => formatIsoDate(row.date),
+      render: (row) => formatIsoDate(row.date),
     },
     {
       key: "receipt",
       label: "Belegnummer",
       cellClassName: "text-muted-foreground",
-      render: row => row.belegNr ?? "-",
+      render: (row) => row.belegNr ?? "-",
     },
     {
       key: "type",
       label: "Typ",
       cellClassName: "text-muted-foreground",
-      render: row => row.typeLabel,
+      render: (row) => row.typeLabel,
     },
     {
       key: "description",
       label: "Beschreibung",
       className: "min-w-64",
       cellClassName: "max-w-80",
-      render: row => (
+      render: (row) => (
         <span className={cn(row.storniert && "line-through")}>
           {row.description || "-"}
         </span>
@@ -140,24 +129,24 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
       key: "vat",
       label: "Inkl. MwSt",
       cellClassName: "text-muted-foreground",
-      render: row => row.vatLabel,
+      render: (row) => row.vatLabel,
     },
     {
       key: "income",
       label: "Zahlung, EUR",
-      render: row => <Money cents={row.incomeCents} />,
+      render: (row) => <Money cents={row.incomeCents} />,
     },
     {
       key: "expense",
       label: "Kosten, EUR",
-      render: row => <Money cents={row.expenseCents} tone="negative" />,
+      render: (row) => <Money cents={row.expenseCents} tone="negative" />,
     },
     {
       key: "actions",
       label: "Aktionen",
       className: "pr-4",
       cellClassName: "pr-4",
-      render: row => (
+      render: (row) => (
         <div className="flex items-center gap-1">
           {row.printable && (
             <Button
@@ -203,12 +192,10 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
               <span
                 className={cn(
                   "text-base font-semibold tabular-nums",
-                  hasDebt
-                    ? "text-destructive"
-                    : "text-emerald-600 dark:text-emerald-400"
+                  hasDebt ? "text-destructive" : "text-emerald-600 dark:text-emerald-400",
                 )}
               >
-                {student.balance}
+                {balanceCents != null ? formatCents(balanceCents) : "—"}
               </span>
             </CardContent>
           </Card>
@@ -259,8 +246,7 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
               {ledger.error ? "Fehler beim Laden" : "Keine Buchungen"}
             </EmptyTitle>
             <EmptyDescription>
-              {ledger.error ??
-                `Für ${fullName} wurden noch keine Zahlungen erfasst.`}
+              {ledger.error ?? `Für ${fullName} wurden noch keine Zahlungen erfasst.`}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -269,7 +255,7 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
           <Table className="min-w-[64rem] text-xs">
             <TableHeader>
               <TableRow className="bg-background hover:bg-background">
-                {columns.map(column => (
+                {columns.map((column) => (
                   <TableHead key={column.key} className={column.className}>
                     {column.label}
                   </TableHead>
@@ -277,21 +263,18 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map(row => (
+              {rows.map((row) => (
                 <TableRow
                   key={row.id}
                   className={cn(
                     "border-0 even:bg-muted/30 hover:bg-muted/50",
-                    (row.storniert || row.isStorno) && "opacity-60"
+                    (row.storniert || row.isStorno) && "opacity-60",
                   )}
                 >
-                  {columns.map(column => (
+                  {columns.map((column) => (
                     <TableCell
                       key={column.key}
-                      className={cn(
-                        "h-12 whitespace-normal",
-                        column.cellClassName
-                      )}
+                      className={cn("h-12 whitespace-normal", column.cellClassName)}
                     >
                       {column.render(row)}
                     </TableCell>
@@ -308,7 +291,7 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
         onClose={() => setPaymentOpen(false)}
         accounts={accounts.data?.accounts ?? []}
         defaultCustomerNo={student.customerNumber}
-        onCreated={printableId => {
+        onCreated={(printableId) => {
           refetch();
           if (printableId != null) setQuittungIds([printableId]);
         }}
@@ -318,10 +301,7 @@ export function ZahlungTab({ student }: { student: StudentRecord }) {
         onClose={() => setStornoTarget(null)}
         onDone={refetch}
       />
-      <QuittungDialog
-        transactionIds={quittungIds}
-        onClose={() => setQuittungIds([])}
-      />
+      <QuittungDialog transactionIds={quittungIds} onClose={() => setQuittungIds([])} />
     </div>
   );
 }

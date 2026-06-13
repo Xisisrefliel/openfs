@@ -89,11 +89,8 @@ export function UebersichtTab({
   const hasDebt = editValue.balance.startsWith("-");
   const age = formatAge(editValue.birthday);
 
-  const updateDraft = (
-    key: Exclude<keyof StudentEdit, "documents">,
-    value: string
-  ) => {
-    setDraft(current => ({ ...(current ?? student), [key]: value }));
+  const updateDraft = (key: Exclude<keyof StudentEdit, "documents">, value: string) => {
+    setDraft((current) => ({ ...(current ?? student), [key]: value }));
   };
 
   const startEditing = () => {
@@ -134,9 +131,7 @@ export function UebersichtTab({
       toast.success("Änderungen gespeichert.");
     } catch (error) {
       // Stay in edit mode so nothing typed is lost.
-      toast.error(
-        error instanceof Error ? error.message : "Speichern fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Speichern fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
@@ -150,9 +145,9 @@ export function UebersichtTab({
             <ToggleGroup
               type="single"
               value={editValue.status}
-              onValueChange={value => {
+              onValueChange={(value) => {
                 if (value === "aktiv" || value === "inaktiv") {
-                  setDraft(current => ({
+                  setDraft((current) => ({
                     ...(current ?? student),
                     status: value,
                   }));
@@ -213,28 +208,28 @@ export function UebersichtTab({
                   label="Geburtsdatum"
                   value={editValue.birthday}
                   editing={editing}
-                  onChange={value => updateDraft("birthday", value)}
+                  onChange={(value) => updateDraft("birthday", value)}
                 />
                 <EditableField
                   id="student-address"
                   label="Anschrift"
                   value={editValue.address}
                   editing={editing}
-                  onChange={value => updateDraft("address", value)}
+                  onChange={(value) => updateDraft("address", value)}
                 />
                 <EditableField
                   id="student-phone"
                   label="Telefon"
                   value={editValue.phone}
                   editing={editing}
-                  onChange={value => updateDraft("phone", value)}
+                  onChange={(value) => updateDraft("phone", value)}
                 />
                 <EditableField
                   id="student-email"
                   label="E-Mail"
                   value={editValue.email}
                   editing={editing}
-                  onChange={value => updateDraft("email", value)}
+                  onChange={(value) => updateDraft("email", value)}
                 />
               </FieldGroup>
             </CardContent>
@@ -251,21 +246,21 @@ export function UebersichtTab({
                   label="Vorname"
                   value={editValue.firstName}
                   editing={editing}
-                  onChange={value => updateDraft("firstName", value)}
+                  onChange={(value) => updateDraft("firstName", value)}
                 />
                 <EditableField
                   id="student-last-name"
                   label="Nachname"
                   value={editValue.lastName}
                   editing={editing}
-                  onChange={value => updateDraft("lastName", value)}
+                  onChange={(value) => updateDraft("lastName", value)}
                 />
                 <EditableSelectField
                   label="Bildungstyp"
                   value={editValue.classes}
                   editing={editing}
                   options={classOptions}
-                  onChange={value => updateDraft("classes", value)}
+                  onChange={(value) => updateDraft("classes", value)}
                 />
                 <DetailItem label="Vertragsnummer" value={student.contractNumber} />
                 <EditableField
@@ -273,14 +268,14 @@ export function UebersichtTab({
                   label="Anmeldedatum"
                   value={editValue.registrationDate}
                   editing={editing}
-                  onChange={value => updateDraft("registrationDate", value)}
+                  onChange={(value) => updateDraft("registrationDate", value)}
                 />
                 <EditableField
                   id="student-driving-school"
                   label="Fahrschule"
                   value={editValue.drivingSchool}
                   editing={editing}
-                  onChange={value => updateDraft("drivingSchool", value)}
+                  onChange={(value) => updateDraft("drivingSchool", value)}
                 />
               </FieldGroup>
             </CardContent>
@@ -315,7 +310,7 @@ export function UebersichtTab({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {student.lessons.map(lesson => (
+                    {student.lessons.map((lesson) => (
                       <TableRow key={lesson.label}>
                         <TableCell>{lesson.label}</TableCell>
                         <TableCell className="text-right text-muted-foreground">
@@ -345,9 +340,7 @@ export function UebersichtTab({
                   </TableHeader>
                   <TableBody>
                     <TableRow>
-                      <TableCell className="font-medium">
-                        {editValue.classes}
-                      </TableCell>
+                      <TableCell className="font-medium">{editValue.classes}</TableCell>
                       <TableCell
                         className={
                           student.theory.exam === "Nicht geplant"
@@ -382,7 +375,7 @@ export function UebersichtTab({
                       value={editValue.instructor}
                       editing
                       options={instructorOptions}
-                      onChange={value => updateDraft("instructor", value)}
+                      onChange={(value) => updateDraft("instructor", value)}
                     />
                   </div>
                 ) : (
@@ -405,7 +398,7 @@ export function UebersichtTab({
                       value={editValue.vehicle}
                       editing
                       options={vehicleOptions}
-                      onChange={value => updateDraft("vehicle", value)}
+                      onChange={(value) => updateDraft("vehicle", value)}
                     />
                   </div>
                 ) : (
@@ -429,7 +422,7 @@ export function UebersichtTab({
                   label="Bilanz"
                   value={editValue.balance}
                   editing
-                  onChange={value => updateDraft("balance", value)}
+                  onChange={(value) => updateDraft("balance", value)}
                 />
               ) : (
                 <div className="flex items-baseline justify-between gap-2">
@@ -448,8 +441,7 @@ export function UebersichtTab({
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Letzte Stunde {student.lastLesson} · Nächste Stunde{" "}
-                {student.nextLesson}
+                Letzte Stunde {student.lastLesson} · Nächste Stunde {student.nextLesson}
               </p>
             </CardContent>
           </Card>
@@ -457,9 +449,7 @@ export function UebersichtTab({
           <Card size="sm">
             <CardHeader>
               <CardTitle>Dokumente</CardTitle>
-              <CardDescription>
-                Verwaltung im Tab „Dokumente"
-              </CardDescription>
+              <CardDescription>Verwaltung im Tab „Dokumente"</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               {student.documents.length === 0 ? (
@@ -474,9 +464,7 @@ export function UebersichtTab({
                   >
                     <FileText />
                     <span className="flex min-w-0 flex-col">
-                      <span className="truncate">
-                        {getStudentDocumentName(document)}
-                      </span>
+                      <span className="truncate">{getStudentDocumentName(document)}</span>
                       <span className="text-xs text-muted-foreground">
                         {getStudentDocumentMeta(document)}
                       </span>

@@ -1,12 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  Eye,
-  EyeOff,
-  MessageSquareText,
-  Reply,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { Eye, EyeOff, MessageSquareText, Reply, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "./components/PageHeader.tsx";
@@ -82,15 +75,13 @@ function Stars({ rating, className }: { rating: number; className?: string }) {
       role="img"
       aria-label={`${rating} von 5 Sternen`}
     >
-      {[1, 2, 3, 4, 5].map(value => (
+      {[1, 2, 3, 4, 5].map((value) => (
         <Star
           key={value}
           aria-hidden
           className={cn(
             "size-4",
-            value <= rating
-              ? "fill-amber-400 text-amber-400"
-              : "fill-muted text-muted"
+            value <= rating ? "fill-amber-400 text-amber-400" : "fill-muted text-muted",
           )}
         />
       ))}
@@ -100,14 +91,12 @@ function Stars({ rating, className }: { rating: number; className?: string }) {
 
 function SummaryCards({ reviews }: { reviews: Review[] }) {
   const total = reviews.length;
-  const newCount = reviews.filter(review => review.status === "neu").length;
+  const newCount = reviews.filter((review) => review.status === "neu").length;
   const average =
-    total > 0
-      ? reviews.reduce((sum, review) => sum + review.rating, 0) / total
-      : 0;
-  const bySource = REVIEW_SOURCES.map(source => ({
+    total > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / total : 0;
+  const bySource = REVIEW_SOURCES.map((source) => ({
     source,
-    count: reviews.filter(review => review.source === source).length,
+    count: reviews.filter((review) => review.source === source).length,
   }));
 
   return (
@@ -116,10 +105,12 @@ function SummaryCards({ reviews }: { reviews: Review[] }) {
         <CardHeader>
           <CardDescription>Durchschnittliche Bewertung</CardDescription>
           <CardTitle className="text-2xl tabular-nums">
-            {total > 0 ? average.toLocaleString("de-DE", {
-              minimumFractionDigits: 1,
-              maximumFractionDigits: 1,
-            }) : "–"}
+            {total > 0
+              ? average.toLocaleString("de-DE", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })
+              : "–"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -193,8 +184,8 @@ function ReplyDialog({
         <DialogHeader>
           <DialogTitle>Auf Bewertung antworten</DialogTitle>
           <DialogDescription>
-            Antwort an {review.author} ({review.source}) verfassen. Die
-            Bewertung wird als „Beantwortet“ markiert.
+            Antwort an {review.author} ({review.source}) verfassen. Die Bewertung wird als
+            „Beantwortet“ markiert.
           </DialogDescription>
         </DialogHeader>
 
@@ -213,7 +204,7 @@ function ReplyDialog({
             rows={5}
             placeholder="Vielen Dank für Ihre Bewertung…"
             value={reply}
-            onChange={event => setReply(event.target.value)}
+            onChange={(event) => setReply(event.target.value)}
           />
         </Field>
 
@@ -256,7 +247,7 @@ function ReviewCard({
           <div
             className={cn(
               "flex size-11 shrink-0 items-center justify-center rounded-lg",
-              SOURCE_ACCENTS[review.source]
+              SOURCE_ACCENTS[review.source],
             )}
           >
             <MessageSquareText className="size-6" />
@@ -270,7 +261,15 @@ function ReviewCard({
         </div>
         <CardAction>
           <div className="flex items-center gap-2">
-            <Badge variant={review.status === "neu" ? "default" : review.status === "beantwortet" ? "secondary" : "outline"}>
+            <Badge
+              variant={
+                review.status === "neu"
+                  ? "default"
+                  : review.status === "beantwortet"
+                    ? "secondary"
+                    : "outline"
+              }
+            >
               {STATUS_LABELS[review.status]}
             </Badge>
             <Button
@@ -336,15 +335,14 @@ export function Bewertungen() {
   const filteredReviews = useMemo(
     () =>
       reviews.filter(
-        review =>
+        (review) =>
           (sourceFilter === "alle" || review.source === sourceFilter) &&
-          (statusFilter === "alle" || review.status === statusFilter)
+          (statusFilter === "alle" || review.status === statusFilter),
       ),
-    [reviews, sourceFilter, statusFilter]
+    [reviews, sourceFilter, statusFilter],
   );
 
-  const replyingReview =
-    reviews.find(review => review.id === replyingId) ?? null;
+  const replyingReview = reviews.find((review) => review.id === replyingId) ?? null;
 
   const mutate = async (action: () => Promise<unknown>, success: string) => {
     setSaving(true);
@@ -354,9 +352,7 @@ export function Bewertungen() {
       toast.success(success);
       return true;
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Aktion fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Aktion fehlgeschlagen.");
       return false;
     } finally {
       setSaving(false);
@@ -367,7 +363,7 @@ export function Bewertungen() {
     if (replyingId === null) return;
     const ok = await mutate(
       () => updateReview(replyingId, { reply, status: "beantwortet" }),
-      "Antwort gespeichert. Bewertung als „Beantwortet“ markiert."
+      "Antwort gespeichert. Bewertung als „Beantwortet“ markiert.",
     );
     if (ok) setReplyingId(null);
   };
@@ -383,13 +379,13 @@ export function Bewertungen() {
       () => updateReview(review.id, { status: nextStatus }),
       nextStatus === "ausgeblendet"
         ? "Bewertung ausgeblendet."
-        : "Bewertung wieder eingeblendet."
+        : "Bewertung wieder eingeblendet.",
     );
   };
 
   const removeReview = (review: Review) => {
     const confirmed = window.confirm(
-      `Bewertung von "${review.author}" (${review.source}) wirklich löschen?`
+      `Bewertung von "${review.author}" (${review.source}) wirklich löschen?`,
     );
     if (!confirmed) return;
     void mutate(() => deleteReview(review.id), "Bewertung gelöscht.");
@@ -401,7 +397,7 @@ export function Bewertungen() {
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <Tabs
             value={statusFilter}
-            onValueChange={value => setStatusFilter(value as StatusFilter)}
+            onValueChange={(value) => setStatusFilter(value as StatusFilter)}
           >
             <TabsList>
               <TabsTrigger value="alle">Alle</TabsTrigger>
@@ -412,7 +408,7 @@ export function Bewertungen() {
           </Tabs>
           <Select
             value={sourceFilter}
-            onValueChange={value => setSourceFilter(value as SourceFilter)}
+            onValueChange={(value) => setSourceFilter(value as SourceFilter)}
           >
             <SelectTrigger size="sm" className="w-40" aria-label="Quelle filtern">
               <SelectValue />
@@ -420,7 +416,7 @@ export function Bewertungen() {
             <SelectContent>
               <SelectGroup>
                 <SelectItem value="alle">Alle Quellen</SelectItem>
-                {REVIEW_SOURCES.map(source => (
+                {REVIEW_SOURCES.map((source) => (
                   <SelectItem key={source} value={source}>
                     {source}
                   </SelectItem>
@@ -450,7 +446,7 @@ export function Bewertungen() {
                 Keine Bewertungen für die gewählten Filter gefunden.
               </div>
             ) : (
-              filteredReviews.map(review => (
+              filteredReviews.map((review) => (
                 <ReviewCard
                   key={review.id}
                   review={review}
@@ -468,10 +464,10 @@ export function Bewertungen() {
         review={replyingReview}
         open={replyingId !== null && replyingReview !== null}
         saving={saving}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) setReplyingId(null);
         }}
-        onSave={reply => void saveReply(reply)}
+        onSave={(reply) => void saveReply(reply)}
       />
     </div>
   );

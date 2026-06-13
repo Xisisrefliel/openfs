@@ -10,7 +10,7 @@
 import type { Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
-import { ValidationError } from "./engine";
+import { handle, json } from "./http";
 
 /* ------------------------------- types ----------------------------- */
 
@@ -77,12 +77,32 @@ export type RevenueStatistics = {
   perMonth: RevenuePerMonth[];
 };
 
+export type ExamTypeStatistics = {
+  /** Event type label. */
+  type: string;
+  total: number;
+  bestanden: number;
+  nicht_bestanden: number;
+  /** Offen = recorded but no result yet (NULL exam_result). */
+  offen: number;
+  /** First-attempt pass rate 0–1; null if no first-attempt data exists.
+      First attempt = chronologically first exam event of this type for a
+      given student_id that has a recorded result. Events without a
+      student_id are excluded from this rate (counted in totals only). */
+  firstAttemptPassRate: number | null;
+};
+
+export type ExamStatistics = {
+  byType: ExamTypeStatistics[];
+};
+
 export type Statistics = {
   students: StudentStatistics;
   lessons: LessonStatistics;
   instructors: InstructorStatistics;
   vehicles: VehicleStatistics;
   revenue: RevenueStatistics;
+  exams: ExamStatistics;
 };
 
 /* ------------------------------ students --------------------------- */
@@ -102,7 +122,7 @@ export function registrationMonth(raw: string): string | null {
 export function studentStatistics(db: Database): StudentStatistics {
   const rows = db
     .query<{ status: string; registration_date: string }, []>(
-      "SELECT status, registration_date FROM students"
+      "SELECT status, registration_date FROM students",
     )
     .all();
 
@@ -142,7 +162,7 @@ export function lessonStatistics(db: Database): LessonStatistics {
       `SELECT substr(date, 1, 7) AS month, type, count(*) AS count
        FROM calendar_events
        GROUP BY month, type
-       ORDER BY month`
+       ORDER BY month`,
     )
     .all();
 
@@ -186,7 +206,7 @@ export function instructorStatistics(db: Database): InstructorStatistics {
     .query<{ total: number; aktiv: number }, []>(
       `SELECT count(*) AS total,
               sum(CASE WHEN status = 'aktiv' THEN 1 ELSE 0 END) AS aktiv
-       FROM instructors`
+       FROM instructors`,
     )
     .get()!;
 
@@ -203,7 +223,7 @@ export function instructorStatistics(db: Database): InstructorStatistics {
        FROM calendar_events
        WHERE instructor <> ''
        GROUP BY instructor
-       ORDER BY minutes DESC, instructor`
+       ORDER BY minutes DESC, instructor`,
     )
     .all();
 
@@ -221,7 +241,7 @@ export function vehicleStatistics(db: Database): VehicleStatistics {
     .query<{ total: number; aktiv: number }, []>(
       `SELECT count(*) AS total,
               sum(CASE WHEN status = 'aktiv' THEN 1 ELSE 0 END) AS aktiv
-       FROM vehicles`
+       FROM vehicles`,
     )
     .get()!;
   const aktiv = row.aktiv ?? 0;
@@ -245,7 +265,7 @@ export function revenueStatistics(db: Database): RevenueStatistics {
          AND t.storno_of IS NULL
          AND t.storniert_by IS NULL
        GROUP BY month
-       ORDER BY month`
+       ORDER BY month`,
     )
     .all();
 
@@ -253,6 +273,61 @@ export function revenueStatistics(db: Database): RevenueStatistics {
     totalCents: perMonth.reduce((sum, row) => sum + row.cents, 0),
     perMonth,
   };
+}
+
+/* ------------------------------- exams ----------------------------- */
+
+const EXAM_EVENT_TYPES = ["Theorieprüfung", "Vorstellung zur prakt. Prüfung"] as const;
+
+export function examStatistics(db: Database): ExamStatistics {
+  const byType: ExamTypeStatistics[] = EXAM_EVENT_TYPES.map((type) => {
+    // Totals row: all events of this type regardless of student_id or result.
+    const totals = db
+      .query<{ total: number; bestanden: number; nicht_bestanden: number }, [string]>(
+        `SELECT
+           count(*) AS total,
+           coalesce(sum(CASE WHEN exam_result = 'bestanden' THEN 1 ELSE 0 END), 0) AS bestanden,
+           coalesce(sum(CASE WHEN exam_result = 'nicht_bestanden' THEN 1 ELSE 0 END), 0) AS nicht_bestanden
+         FROM calendar_events
+         WHERE type = ?`,
+      )
+      .get(type)!;
+
+    const offen = totals.total - totals.bestanden - totals.nicht_bestanden;
+
+    // First-attempt pass rate: only events with a student_id AND an
+    // exam_result. The "first attempt" per student is the event with the
+    // lowest date (then id) that has a recorded result.
+    const firstAttemptRows = db
+      .query<{ student_id: number; exam_result: string }, [string]>(
+        `SELECT student_id, exam_result FROM (
+           SELECT student_id, exam_result,
+                  ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY date, id) AS rn
+           FROM calendar_events
+           WHERE type = ?
+             AND student_id IS NOT NULL
+             AND exam_result IS NOT NULL
+         ) WHERE rn = 1`,
+      )
+      .all(type);
+
+    let firstAttemptPassRate: number | null = null;
+    if (firstAttemptRows.length > 0) {
+      const passed = firstAttemptRows.filter((r) => r.exam_result === "bestanden").length;
+      firstAttemptPassRate = passed / firstAttemptRows.length;
+    }
+
+    return {
+      type,
+      total: totals.total,
+      bestanden: totals.bestanden,
+      nicht_bestanden: totals.nicht_bestanden,
+      offen,
+      firstAttemptPassRate,
+    };
+  });
+
+  return { byType };
 }
 
 /* ------------------------------ payload ---------------------------- */
@@ -264,28 +339,11 @@ export function getStatistics(db: Database): Statistics {
     instructors: instructorStatistics(db),
     vehicles: vehicleStatistics(db),
     revenue: revenueStatistics(db),
+    exams: examStatistics(db),
   };
 }
 
 /* ------------------------------- HTTP ------------------------------ */
-
-function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status });
-}
-
-function handle(fn: () => Response | Promise<Response>) {
-  return async () => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        return json({ error: error.message }, 400);
-      }
-      console.error(error);
-      return json({ error: "Interner Fehler." }, 500);
-    }
-  };
-}
 
 export function statisticsRoutes(db: Database) {
   return {

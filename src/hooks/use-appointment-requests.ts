@@ -64,67 +64,69 @@ export type AcceptResult = {
 
 export async function fetchAppointmentRequests(): Promise<AppointmentRequest[]> {
   const data = await parseOrThrow<{ requests: AppointmentRequest[] }>(
-    await fetch("/api/appointment-requests")
+    await fetch("/api/appointment-requests"),
   );
   return data.requests;
 }
 
 export async function createAppointmentRequest(
-  input: Partial<AppointmentRequestInput>
+  input: Partial<AppointmentRequestInput>,
 ): Promise<AppointmentRequest> {
   return parseOrThrow<AppointmentRequest>(
     await fetch("/api/appointment-requests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function updateAppointmentRequest(
   id: number,
-  input: Partial<AppointmentRequestInput>
+  input: Partial<AppointmentRequestInput>,
 ): Promise<AppointmentRequest> {
   return parseOrThrow<AppointmentRequest>(
     await fetch(`/api/appointment-requests/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function deleteAppointmentRequest(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/appointment-requests/${id}`, { method: "DELETE" })
+    await fetch(`/api/appointment-requests/${id}`, { method: "DELETE" }),
   );
 }
 
 export async function acceptAppointmentRequest(
   id: number,
-  overrides: AcceptOverrides = {}
+  overrides: AcceptOverrides = {},
 ): Promise<AcceptResult> {
   return parseOrThrow<AcceptResult>(
     await fetch(`/api/appointment-requests/${id}/accept`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(overrides),
-    })
+    }),
   );
 }
 
-export async function declineAppointmentRequest(
-  id: number
-): Promise<AppointmentRequest> {
+export async function declineAppointmentRequest(id: number): Promise<AppointmentRequest> {
   return parseOrThrow<AppointmentRequest>(
-    await fetch(`/api/appointment-requests/${id}/decline`, { method: "POST" })
+    await fetch(`/api/appointment-requests/${id}/decline`, { method: "POST" }),
   );
 }
 
 export function useAppointmentRequests() {
-  const { items: requests, loading, refresh } = useFetchList(
+  const {
+    items: requests,
+    loading,
+    refresh,
+  } = useFetchList(
     fetchAppointmentRequests,
-    "Terminanfragen konnten nicht geladen werden"
+    "Terminanfragen konnten nicht geladen werden",
   );
   return { requests, loading, refresh };
 }

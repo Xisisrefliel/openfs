@@ -24,12 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   Select,
   SelectContent,
@@ -62,9 +57,8 @@ export function PreiseTab({
   const [assigning, setAssigning] = useState(false);
 
   const assignedPlan: PricePlanRecord | null =
-    plans.find(plan => plan.id === student.pricePlanId) ?? plans[0] ?? null;
-  const isFallback =
-    assignedPlan != null && assignedPlan.id !== student.pricePlanId;
+    plans.find((plan) => plan.id === student.pricePlanId) ?? plans[0] ?? null;
+  const isFallback = assignedPlan != null && assignedPlan.id !== student.pricePlanId;
 
   const assignPlan = async (value: string) => {
     const id = Number(value);
@@ -72,12 +66,10 @@ export function PreiseTab({
     setAssigning(true);
     try {
       await onSave({ pricePlanId: id });
-      const plan = plans.find(entry => entry.id === id);
+      const plan = plans.find((entry) => entry.id === id);
       toast.success(`Preisplan „${plan?.name ?? id}" zugewiesen.`);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Zuweisen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Zuweisen fehlgeschlagen.");
     } finally {
       setAssigning(false);
     }
@@ -118,9 +110,7 @@ export function PreiseTab({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           Datum des Fahrschulvertrages{" "}
-          <span className="font-medium text-foreground">
-            {student.registrationDate}
-          </span>
+          <span className="font-medium text-foreground">{student.registrationDate}</span>
         </p>
         <div className="flex items-center gap-2">
           <Select
@@ -133,7 +123,7 @@ export function PreiseTab({
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {plans.map(plan => (
+                {plans.map((plan) => (
                   <SelectItem key={plan.id} value={String(plan.id)}>
                     {plan.name}
                   </SelectItem>
@@ -155,8 +145,8 @@ export function PreiseTab({
 
       {isFallback && (
         <p className="text-xs text-muted-foreground">
-          Kein Preisplan zugewiesen — der Standardtarif wird angezeigt. Die
-          Auswahl oben weist ihn fest zu.
+          Kein Preisplan zugewiesen — der Standardtarif wird angezeigt. Die Auswahl oben
+          weist ihn fest zu.
         </p>
       )}
 
@@ -164,8 +154,8 @@ export function PreiseTab({
         <CardHeader>
           <CardTitle>{assignedPlan.name}</CardTitle>
           <CardDescription>
-            Garantierter Zeitraum {assignedPlan.guaranteedMonths} Monate ·
-            Anfangsdatum {student.registrationDate}
+            Garantierter Zeitraum {assignedPlan.guaranteedMonths} Monate · Anfangsdatum{" "}
+            {student.registrationDate}
           </CardDescription>
           <CardAction>
             <div className="flex items-center gap-2">
@@ -192,7 +182,7 @@ export function PreiseTab({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {assignedPlan.components.map(component => (
+                {assignedPlan.components.map((component) => (
                   <TableRow key={component.label}>
                     <TableCell>
                       {component.label}

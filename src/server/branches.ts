@@ -10,6 +10,7 @@ import type { Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import { ValidationError } from "./engine";
+import { handle, json } from "./http";
 
 export type BranchStatus = "offen" | "geschlossen";
 
@@ -57,14 +58,12 @@ CREATE TABLE IF NOT EXISTS branches (
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );`);
 
-  const count = db
-    .query<{ n: number }, []>("SELECT COUNT(*) AS n FROM branches")
-    .get();
+  const count = db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM branches").get();
   if (count && count.n > 0) return;
 
   const insert = db.prepare(
     `INSERT INTO branches (name, address, phone, email, opening_hours, is_main, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   );
   const seed = db.transaction(() => {
     insert.run(
@@ -74,7 +73,7 @@ CREATE TABLE IF NOT EXISTS branches (
       "mitte@fahrschule-guel.de",
       "Mo–Fr 14–18 Uhr, Sa 10–13 Uhr",
       1,
-      "offen"
+      "offen",
     );
     insert.run(
       "Filiale Neukölln",
@@ -83,7 +82,7 @@ CREATE TABLE IF NOT EXISTS branches (
       "neukoelln@fahrschule-guel.de",
       "Di–Fr 15–18 Uhr",
       0,
-      "offen"
+      "offen",
     );
   });
   seed();
@@ -199,16 +198,13 @@ const EMPTY: Branch = {
   createdAt: "",
 };
 
-export function createBranch(
-  db: Database,
-  input: Partial<BranchInput>
-): Branch {
+export function createBranch(db: Database, input: Partial<BranchInput>): Branch {
   const data = normalize(input, EMPTY);
   const write = db.transaction(() => {
     const row = db
       .query<{ id: number }, [string, string, string, string, string, number, string]>(
         `INSERT INTO branches (name, address, phone, email, opening_hours, is_main, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       )
       .get(
         data.name,
@@ -217,7 +213,7 @@ export function createBranch(
         data.email,
         data.openingHours,
         data.isMain ? 1 : 0,
-        data.status
+        data.status,
       )!;
     if (data.isMain) clearOtherMains(db, row.id);
     return row.id;
@@ -228,7 +224,7 @@ export function createBranch(
 export function updateBranch(
   db: Database,
   id: number,
-  input: Partial<BranchInput>
+  input: Partial<BranchInput>,
 ): Branch {
   const current = getBranch(db, id);
   const data = normalize(input, current);
@@ -236,7 +232,7 @@ export function updateBranch(
     db.prepare(
       `UPDATE branches
        SET name = ?, address = ?, phone = ?, email = ?, opening_hours = ?, is_main = ?, status = ?
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(
       data.name,
       data.address,
@@ -245,7 +241,7 @@ export function updateBranch(
       data.openingHours,
       data.isMain ? 1 : 0,
       data.status,
-      id
+      id,
     );
     if (data.isMain) clearOtherMains(db, id);
   });
@@ -255,13 +251,9 @@ export function updateBranch(
 
 export function deleteBranch(db: Database, id: number): void {
   const branch = getBranch(db, id);
-  const count = db
-    .query<{ n: number }, []>("SELECT COUNT(*) AS n FROM branches")
-    .get();
+  const count = db.query<{ n: number }, []>("SELECT COUNT(*) AS n FROM branches").get();
   if (!count || count.n <= 1) {
-    throw new ValidationError(
-      "Der letzte Standort kann nicht gelöscht werden."
-    );
+    throw new ValidationError("Der letzte Standort kann nicht gelöscht werden.");
   }
   const remove = db.transaction(() => {
     db.prepare("DELETE FROM branches WHERE id = ?").run(id);
@@ -270,7 +262,7 @@ export function deleteBranch(db: Database, id: number): void {
     if (branch.isMain) {
       db.prepare(
         `UPDATE branches SET is_main = 1
-         WHERE id = (SELECT id FROM branches ORDER BY created_at, id LIMIT 1)`
+         WHERE id = (SELECT id FROM branches ORDER BY created_at, id LIMIT 1)`,
       ).run();
     }
   });
@@ -280,24 +272,6 @@ export function deleteBranch(db: Database, id: number): void {
 /* ------------------------------------------------------------------ */
 /* HTTP layer — same thin-wrapper shape as routes.ts factories.        */
 /* ------------------------------------------------------------------ */
-
-function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status });
-}
-
-function handle(fn: () => Response | Promise<Response>) {
-  return async () => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        return json({ error: error.message }, 400);
-      }
-      console.error(error);
-      return json({ error: "Interner Fehler." }, 500);
-    }
-  };
-}
 
 function parseId(raw: string): number {
   const id = Number(raw);
@@ -312,11 +286,10 @@ export function branchRoutes(db: Database) {
 
   return {
     "/api/branches": {
-      GET: (req: BunRequest) =>
-        handle(() => json({ branches: listBranches(db) }))(),
+      GET: (req: BunRequest) => handle(() => json({ branches: listBranches(db) }))(),
       POST: (req: BunRequest) =>
         handle(async () =>
-          json(createBranch(db, (await req.json()) as Partial<BranchInput>), 201)
+          json(createBranch(db, (await req.json()) as Partial<BranchInput>), 201),
         )(),
     },
 
@@ -327,9 +300,9 @@ export function branchRoutes(db: Database) {
             updateBranch(
               db,
               parseId(req.params.id),
-              (await req.json()) as Partial<BranchInput>
-            )
-          )
+              (await req.json()) as Partial<BranchInput>,
+            ),
+          ),
         )(),
       DELETE: (req: BunRequest<"/api/branches/:id">) =>
         handle(() => {

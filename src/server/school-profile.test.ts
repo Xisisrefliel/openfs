@@ -34,7 +34,7 @@ function sampleProfile(): SchoolProfile {
     instagram: "https://instagram.com/fahrschule",
     facebook: "https://facebook.com/fahrschule",
     google_maps_url: "https://maps.google.com/?q=Fahrschule",
-    opening_hours: WEEK_DAYS.map(day => ({
+    opening_hours: WEEK_DAYS.map((day) => ({
       day,
       hours: day === "Sonntag" ? "Geschlossen" : "08:00 – 19:00",
     })),
@@ -59,7 +59,7 @@ describe("getSchoolProfile defaults", () => {
   test("defaults contain exactly 7 opening-hours rows, Montag–Sonntag", () => {
     const profile = getSchoolProfile(db);
     expect(profile.opening_hours).toHaveLength(7);
-    expect(profile.opening_hours.map(e => e.day)).toEqual([...WEEK_DAYS]);
+    expect(profile.opening_hours.map((e) => e.day)).toEqual([...WEEK_DAYS]);
     expect(profile.opening_hours[6]!.hours).toBe("Geschlossen");
   });
 
@@ -70,9 +70,7 @@ describe("getSchoolProfile defaults", () => {
   });
 
   test("corrupt JSON in settings falls back to defaults", () => {
-    db.run(
-      "INSERT INTO settings (key, value) VALUES ('school_profile', 'kaputt{')"
-    );
+    db.run("INSERT INTO settings (key, value) VALUES ('school_profile', 'kaputt{')");
     expect(getSchoolProfile(db)).toEqual(DEFAULT_SCHOOL_PROFILE);
   });
 });
@@ -88,7 +86,7 @@ describe("set/getSchoolProfile round-trip", () => {
 
     const row = db
       .query<{ value: string }, []>(
-        "SELECT value FROM settings WHERE key = 'school_profile'"
+        "SELECT value FROM settings WHERE key = 'school_profile'",
       )
       .get();
     expect(row).not.toBeNull();
@@ -103,7 +101,7 @@ describe("set/getSchoolProfile round-trip", () => {
 
     const rows = db
       .query<{ n: number }, []>(
-        "SELECT COUNT(*) AS n FROM settings WHERE key = 'school_profile'"
+        "SELECT COUNT(*) AS n FROM settings WHERE key = 'school_profile'",
       )
       .get();
     expect(rows!.n).toBe(1);
@@ -121,7 +119,7 @@ describe("sanitizeSchoolProfile", () => {
   test("trims string fields", () => {
     const next = sanitizeSchoolProfile(
       { slogan: "  Hallo  ", website: " https://x.de " },
-      current
+      current,
     );
     expect(next.slogan).toBe("Hallo");
     expect(next.website).toBe("https://x.de");
@@ -134,32 +132,32 @@ describe("sanitizeSchoolProfile", () => {
   });
 
   test("non-object body → ValidationError", () => {
-    expect(() => sanitizeSchoolProfile("garbage", current)).toThrow(
-      ValidationError
-    );
+    expect(() => sanitizeSchoolProfile("garbage", current)).toThrow(ValidationError);
     expect(() => sanitizeSchoolProfile(null, current)).toThrow(ValidationError);
-    expect(() => sanitizeSchoolProfile([1, 2], current)).toThrow(
-      ValidationError
-    );
+    expect(() => sanitizeSchoolProfile([1, 2], current)).toThrow(ValidationError);
   });
 
   test("non-string value for a string field → ValidationError", () => {
-    expect(() => sanitizeSchoolProfile({ slogan: 42 }, current)).toThrow(
-      ValidationError
-    );
+    expect(() => sanitizeSchoolProfile({ slogan: 42 }, current)).toThrow(ValidationError);
   });
 
   test("founded_year accepts number, numeric string, and null", () => {
-    expect(sanitizeSchoolProfile({ founded_year: 1998 }, current).founded_year).toBe(1998);
-    expect(sanitizeSchoolProfile({ founded_year: "2005" }, current).founded_year).toBe(2005);
-    expect(sanitizeSchoolProfile({ founded_year: null }, current).founded_year).toBeNull();
+    expect(sanitizeSchoolProfile({ founded_year: 1998 }, current).founded_year).toBe(
+      1998,
+    );
+    expect(sanitizeSchoolProfile({ founded_year: "2005" }, current).founded_year).toBe(
+      2005,
+    );
+    expect(
+      sanitizeSchoolProfile({ founded_year: null }, current).founded_year,
+    ).toBeNull();
     expect(sanitizeSchoolProfile({ founded_year: "" }, current).founded_year).toBeNull();
   });
 
   test("founded_year garbage → ValidationError", () => {
     for (const bad of ["bald", 1850, 9999, 19.98, {}]) {
       expect(() => sanitizeSchoolProfile({ founded_year: bad }, current)).toThrow(
-        ValidationError
+        ValidationError,
       );
     }
   });
@@ -167,41 +165,41 @@ describe("sanitizeSchoolProfile", () => {
   test("services/highlights are trimmed, de-duplicated, empties dropped", () => {
     const next = sanitizeSchoolProfile(
       { services: [" Klasse B ", "Klasse B", "", "Intensivkurse"] },
-      current
+      current,
     );
     expect(next.services).toEqual(["Klasse B", "Intensivkurse"]);
   });
 
   test("services non-array / non-string entries → ValidationError", () => {
     expect(() => sanitizeSchoolProfile({ services: "Klasse B" }, current)).toThrow(
-      ValidationError
+      ValidationError,
     );
     expect(() => sanitizeSchoolProfile({ highlights: [1, 2] }, current)).toThrow(
-      ValidationError
+      ValidationError,
     );
   });
 
   test("opening_hours normalized to 7 canonical days in order", () => {
     const next = sanitizeSchoolProfile(
       { opening_hours: [{ day: "Mittwoch", hours: " 10:00 – 12:00 " }] },
-      current
+      current,
     );
     expect(next.opening_hours).toHaveLength(7);
-    expect(next.opening_hours.map(e => e.day)).toEqual([...WEEK_DAYS]);
+    expect(next.opening_hours.map((e) => e.day)).toEqual([...WEEK_DAYS]);
     expect(next.opening_hours[2]).toEqual({ day: "Mittwoch", hours: "10:00 – 12:00" });
     // Untouched days keep current values.
     expect(next.opening_hours[0]!.hours).toBe(current.opening_hours[0]!.hours);
   });
 
   test("opening_hours garbage → ValidationError", () => {
+    expect(() => sanitizeSchoolProfile({ opening_hours: "Mo-Fr" }, current)).toThrow(
+      ValidationError,
+    );
     expect(() =>
-      sanitizeSchoolProfile({ opening_hours: "Mo-Fr" }, current)
+      sanitizeSchoolProfile({ opening_hours: [{ day: "Funtag", hours: "x" }] }, current),
     ).toThrow(ValidationError);
     expect(() =>
-      sanitizeSchoolProfile({ opening_hours: [{ day: "Funtag", hours: "x" }] }, current)
-    ).toThrow(ValidationError);
-    expect(() =>
-      sanitizeSchoolProfile({ opening_hours: [{ day: "Montag" }] }, current)
+      sanitizeSchoolProfile({ opening_hours: [{ day: "Montag" }] }, current),
     ).toThrow(ValidationError);
   });
 });
@@ -225,7 +223,7 @@ describe("schoolProfileRoutes", () => {
 
   test("GET → 200 with defaults", async () => {
     const res = await routes().GET(
-      new Request("http://localhost/api/school-profile") as BunRequest
+      new Request("http://localhost/api/school-profile") as BunRequest,
     );
     expect(res.status).toBe(200);
     const data = (await res.json()) as SchoolProfile;
@@ -234,7 +232,7 @@ describe("schoolProfileRoutes", () => {
 
   test("PUT valid payload → 200, persists and returns sanitized profile", async () => {
     const res = await routes().PUT(
-      putRequest({ slogan: "  Neu  ", services: [" Klasse BE "] })
+      putRequest({ slogan: "  Neu  ", services: [" Klasse BE "] }),
     );
     expect(res.status).toBe(200);
     const data = (await res.json()) as SchoolProfile;

@@ -9,6 +9,7 @@ import type { Database } from "./sqlite";
 import type { BunRequest } from "bun";
 
 import { ValidationError } from "./engine";
+import { handle, json } from "./http";
 
 export type ChatSender = "schule" | "schueler";
 
@@ -149,12 +150,7 @@ const CONVERSATION_SEED: SeedConversation[] = [
   },
 ];
 
-const FALLBACK_NAMES = [
-  "Lena Braun",
-  "Jonas Meyer",
-  "Aylin Demir",
-  "Tom Richter",
-];
+const FALLBACK_NAMES = ["Lena Braun", "Jonas Meyer", "Aylin Demir", "Tom Richter"];
 
 /* Pull real students for the seed when the students table exists and has
    rows — keeps the demo threads linked to /fahrschueler records. */
@@ -163,24 +159,34 @@ function seedStudents(db: Database): { id: number | null; name: string }[] {
     const rows = db
       .query<{ id: number; name: string }, []>(
         `SELECT id, trim(first_name || ' ' || last_name) AS name
-         FROM students ORDER BY id LIMIT ${CONVERSATION_SEED.length}`
+         FROM students ORDER BY id LIMIT ${CONVERSATION_SEED.length}`,
       )
       .all()
-      .filter(row => row.name.length > 0);
+      .filter((row) => row.name.length > 0);
     if (rows.length > 0) {
       return CONVERSATION_SEED.map(
-        (_, index) => rows[index] ?? { id: null, name: FALLBACK_NAMES[index]! }
+        (_, index) => rows[index] ?? { id: null, name: FALLBACK_NAMES[index]! },
       );
     }
   } catch {
     // No students table (bare DB) — fall through to plain names.
   }
-  return FALLBACK_NAMES.map(name => ({ id: null, name }));
+  return FALLBACK_NAMES.map((name) => ({ id: null, name }));
 }
 
 /** Creates the chat tables and seeds demo conversations — only when empty. */
 export function ensureChatTables(db: Database) {
   db.exec(DDL);
+
+  // Idempotent migration: add the orphaned marker column if absent.
+  const hasOrphaned = db
+    .query<{ name: string }, [string]>(
+      "SELECT name FROM pragma_table_info('conversations') WHERE name = ?",
+    )
+    .get("orphaned");
+  if (!hasOrphaned) {
+    db.exec("ALTER TABLE conversations ADD COLUMN orphaned INTEGER NOT NULL DEFAULT 0");
+  }
 
   const count = db
     .query<{ n: number }, []>("SELECT count(*) AS n FROM conversations")
@@ -190,18 +196,18 @@ export function ensureChatTables(db: Database) {
   const students = seedStudents(db);
   const insertConversation = db.prepare(
     `INSERT INTO conversations (student_id, student_name, last_message_at, unread, created_at)
-     VALUES (?, ?, NULL, ?, datetime('now', ?))`
+     VALUES (?, ?, NULL, ?, datetime('now', ?))`,
   );
   const insertMessage = db.prepare(
     `INSERT INTO chat_messages (conversation_id, sender, text, sent_at)
-     VALUES (?, ?, ?, datetime('now', ?))`
+     VALUES (?, ?, ?, datetime('now', ?))`,
   );
   const syncLastMessage = db.prepare(
     `UPDATE conversations
      SET last_message_at = (
        SELECT max(sent_at) FROM chat_messages WHERE conversation_id = ?
      )
-     WHERE id = ?`
+     WHERE id = ?`,
   );
 
   const seed = db.transaction(() => {
@@ -210,7 +216,7 @@ export function ensureChatTables(db: Database) {
       const firstAge = thread.messages[0]?.age ?? "-10080 minutes";
       const conversationId = Number(
         insertConversation.run(student.id, student.name, thread.unread, firstAge)
-          .lastInsertRowid
+          .lastInsertRowid,
       );
       for (const message of thread.messages) {
         insertMessage.run(conversationId, message.sender, message.text, message.age);
@@ -257,7 +263,7 @@ export function listConversations(db: Database): Conversation[] {
   return db
     .query<ConversationRow, []>(
       `${CONVERSATION_SELECT}
-       ORDER BY coalesce(c.last_message_at, c.created_at) DESC, c.id DESC`
+       ORDER BY coalesce(c.last_message_at, c.created_at) DESC, c.id DESC`,
     )
     .all()
     .map(toConversation);
@@ -293,7 +299,7 @@ export function listMessages(db: Database, conversationId: number): ChatMessage[
     .query<MessageRow, [number]>(
       `SELECT id, conversation_id, sender, text, sent_at
        FROM chat_messages WHERE conversation_id = ?
-       ORDER BY sent_at, id`
+       ORDER BY sent_at, id`,
     )
     .all(conversationId)
     .map(toMessage);
@@ -307,7 +313,7 @@ export function listMessages(db: Database, conversationId: number): ChatMessage[
 export function sendMessage(
   db: Database,
   conversationId: number,
-  text: unknown
+  text: unknown,
 ): ChatMessage {
   getConversation(db, conversationId); // throws when missing
   if (typeof text !== "string" || !text.trim()) {
@@ -320,11 +326,11 @@ export function sendMessage(
       .query<MessageRow, [number, string]>(
         `INSERT INTO chat_messages (conversation_id, sender, text)
          VALUES (?, 'schule', ?)
-         RETURNING id, conversation_id, sender, text, sent_at`
+         RETURNING id, conversation_id, sender, text, sent_at`,
       )
       .get(conversationId, body)!;
     db.prepare(
-      "UPDATE conversations SET last_message_at = ?, unread = 0 WHERE id = ?"
+      "UPDATE conversations SET last_message_at = ?, unread = 0 WHERE id = ?",
     ).run(row.sent_at, conversationId);
     return row;
   });
@@ -333,9 +339,7 @@ export function sendMessage(
 
 export function markRead(db: Database, conversationId: number): Conversation {
   getConversation(db, conversationId); // throws when missing
-  db.prepare("UPDATE conversations SET unread = 0 WHERE id = ?").run(
-    conversationId
-  );
+  db.prepare("UPDATE conversations SET unread = 0 WHERE id = ?").run(conversationId);
   return getConversation(db, conversationId);
 }
 
@@ -343,10 +347,9 @@ export function markRead(db: Database, conversationId: number): Conversation {
  *  (matched by student_id, then by name) instead of creating a duplicate. */
 export function createConversation(
   db: Database,
-  input: Partial<ConversationInput>
+  input: Partial<ConversationInput>,
 ): Conversation {
-  const name =
-    typeof input.student_name === "string" ? input.student_name.trim() : "";
+  const name = typeof input.student_name === "string" ? input.student_name.trim() : "";
   if (!name) {
     throw new ValidationError("Name ist ein Pflichtfeld.");
   }
@@ -355,7 +358,7 @@ export function createConversation(
   if (input.student_id !== undefined && input.student_id !== null) {
     if (!Number.isInteger(input.student_id) || input.student_id <= 0) {
       throw new ValidationError(
-        "Feld 'student_id' muss eine Fahrschüler-ID oder null sein."
+        "Feld 'student_id' muss eine Fahrschüler-ID oder null sein.",
       );
     }
     studentId = input.student_id;
@@ -365,12 +368,12 @@ export function createConversation(
     studentId !== null
       ? db
           .query<{ id: number }, [number]>(
-            "SELECT id FROM conversations WHERE student_id = ? LIMIT 1"
+            "SELECT id FROM conversations WHERE student_id = ? AND orphaned = 0 LIMIT 1",
           )
           .get(studentId)
       : db
           .query<{ id: number }, [string]>(
-            "SELECT id FROM conversations WHERE student_name = ? LIMIT 1"
+            "SELECT id FROM conversations WHERE student_name = ? AND orphaned = 0 LIMIT 1",
           )
           .get(name);
   if (existing) return getConversation(db, existing.id);
@@ -378,7 +381,7 @@ export function createConversation(
   const row = db
     .query<{ id: number }, [number | null, string]>(
       `INSERT INTO conversations (student_id, student_name)
-       VALUES (?, ?) RETURNING id`
+       VALUES (?, ?) RETURNING id`,
     )
     .get(studentId, name)!;
   return getConversation(db, row.id);
@@ -399,24 +402,6 @@ export function deleteConversation(db: Database, id: number): void {
 /* json/handle helpers because routes.ts must stay untouched.           */
 /* ------------------------------------------------------------------ */
 
-function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status });
-}
-
-function handle(fn: () => Response | Promise<Response>) {
-  return async () => {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        return json({ error: error.message }, 400);
-      }
-      console.error(error);
-      return json({ error: "Interner Fehler." }, 500);
-    }
-  };
-}
-
 function parseId(raw: string): number {
   const id = Number(raw);
   if (!Number.isInteger(id)) {
@@ -436,16 +421,14 @@ export function chatRoutes(db: Database) {
         handle(async () =>
           json(
             createConversation(db, (await req.json()) as Partial<ConversationInput>),
-            201
-          )
+            201,
+          ),
         )(),
     },
 
     "/api/conversations/:id/messages": {
       GET: (req: BunRequest<"/api/conversations/:id/messages">) =>
-        handle(() =>
-          json({ messages: listMessages(db, parseId(req.params.id)) })
-        )(),
+        handle(() => json({ messages: listMessages(db, parseId(req.params.id)) }))(),
       POST: (req: BunRequest<"/api/conversations/:id/messages">) =>
         handle(async () => {
           const body = (await req.json()) as { text?: unknown };

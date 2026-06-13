@@ -14,46 +14,45 @@ export type StudentRecord = Student & { id: number };
 
 export async function fetchStudents(): Promise<StudentRecord[]> {
   const data = await parseOrThrow<{ students: StudentRecord[] }>(
-    await fetch("/api/students")
+    await fetch("/api/students"),
   );
   return data.students;
 }
 
-export async function createStudent(
-  input: Partial<Student>
-): Promise<StudentRecord> {
+export async function createStudent(input: Partial<Student>): Promise<StudentRecord> {
   return parseOrThrow<StudentRecord>(
     await fetch("/api/students", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function updateStudent(
   id: number,
-  input: Partial<Student>
+  input: Partial<Student>,
 ): Promise<StudentRecord> {
   return parseOrThrow<StudentRecord>(
     await fetch(`/api/students/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function deleteStudent(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/students/${id}`, { method: "DELETE" })
+    await fetch(`/api/students/${id}`, { method: "DELETE" }),
   );
 }
 
 export function useStudents() {
-  const { items: students, loading, refresh } = useFetchList(
-    fetchStudents,
-    "Fahrschüler konnten nicht geladen werden"
-  );
+  const {
+    items: students,
+    loading,
+    refresh,
+  } = useFetchList(fetchStudents, "Fahrschüler konnten nicht geladen werden");
   return { students, loading, refresh };
 }

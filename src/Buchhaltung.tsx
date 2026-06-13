@@ -15,18 +15,9 @@ import { PageHeader } from "./components/PageHeader.tsx";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   InputGroup,
   InputGroupAddon,
@@ -53,12 +44,7 @@ import {
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import type {
-  Account,
-  AccountKind,
-  JournalRow,
-  LedgerRow,
-} from "@/lib/accounting-types";
+import type { Account, AccountKind, JournalRow, LedgerRow } from "@/lib/accounting-types";
 import { formatCents, formatEuro } from "@/lib/money";
 import {
   accountingApi,
@@ -70,17 +56,9 @@ import {
 } from "./components/buchhaltung/api";
 import { PaymentDialog } from "./components/buchhaltung/PaymentDialog";
 import { QuittungDialog } from "./components/buchhaltung/QuittungDialog";
-import {
-  StornoDialog,
-  type StornoTarget,
-} from "./components/buchhaltung/StornoDialog";
+import { StornoDialog, type StornoTarget } from "./components/buchhaltung/StornoDialog";
 
-type TabKey =
-  | "ledger"
-  | "journal"
-  | "accounts"
-  | "cash-bank"
-  | "invoices";
+type TabKey = "ledger" | "journal" | "accounts" | "cash-bank" | "invoices";
 
 type Column<Row> = {
   key: string;
@@ -125,7 +103,7 @@ function Money({
           ? "text-destructive"
           : tone === "positive"
             ? "text-emerald-600 dark:text-emerald-400"
-            : "text-foreground"
+            : "text-foreground",
       )}
     >
       {formatCents(cents)}
@@ -190,7 +168,7 @@ function AccountingTable<Row>({
       <Table className={cn("text-xs", minWidth)}>
         <TableHeader>
           <TableRow className="bg-background hover:bg-background">
-            {columns.map(column => (
+            {columns.map((column) => (
               <TableHead key={column.key} className={column.className}>
                 {column.label}
               </TableHead>
@@ -198,15 +176,15 @@ function AccountingTable<Row>({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map(row => (
+          {rows.map((row) => (
             <TableRow
               key={rowKey(row)}
               className={cn(
                 "border-0 even:bg-muted/30 hover:bg-muted/50",
-                rowClassName?.(row)
+                rowClassName?.(row),
               )}
             >
-              {columns.map(column => (
+              {columns.map((column) => (
                 <TableCell
                   key={column.key}
                   className={cn("h-12 whitespace-normal", column.cellClassName)}
@@ -254,8 +232,18 @@ function TableState({
 
 const FILTER_YEAR = 2026;
 const monthLabels = [
-  "Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
-  "Jul", "Aug", "Sep", "Okt", "Nov", "Dez",
+  "Jan",
+  "Feb",
+  "Mär",
+  "Apr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Dez",
 ];
 
 function formatDay(date?: Date) {
@@ -310,7 +298,10 @@ function DateRangeFilter({
 
   const presets: { label: string; get: () => DateRange }[] = [
     { label: "Dieser Monat", get: () => monthRange(FILTER_YEAR, new Date().getMonth()) },
-    { label: "Letzter Monat", get: () => monthRange(FILTER_YEAR, new Date().getMonth() - 1) },
+    {
+      label: "Letzter Monat",
+      get: () => monthRange(FILTER_YEAR, new Date().getMonth() - 1),
+    },
     {
       label: "Dieses Quartal",
       get: () => {
@@ -320,7 +311,10 @@ function DateRangeFilter({
     },
     {
       label: "Dieses Jahr",
-      get: () => ({ from: new Date(FILTER_YEAR, 0, 1), to: new Date(FILTER_YEAR, 11, 31) }),
+      get: () => ({
+        from: new Date(FILTER_YEAR, 0, 1),
+        to: new Date(FILTER_YEAR, 11, 31),
+      }),
     },
   ];
 
@@ -344,7 +338,7 @@ function DateRangeFilter({
             <span className="px-1 pb-1 text-xs font-medium text-muted-foreground">
               Schnellauswahl
             </span>
-            {presets.map(preset => (
+            {presets.map((preset) => (
               <Button
                 key={preset.label}
                 type="button"
@@ -388,9 +382,9 @@ function DateRangeFilter({
               weekStartsOn={1}
               className="p-0 [--cell-size:--spacing(8)]"
               formatters={{
-                formatCaption: date =>
+                formatCaption: (date) =>
                   date.toLocaleDateString("de-DE", { month: "long", year: "numeric" }),
-                formatWeekdayName: date =>
+                formatWeekdayName: (date) =>
                   date.toLocaleDateString("de-DE", { weekday: "short" }),
               }}
             />
@@ -459,7 +453,7 @@ function Toolbar({
         <div className="flex flex-wrap items-center gap-2">
           <Select
             value={status}
-            onValueChange={value => onStatusChange(value as StatusFilter)}
+            onValueChange={(value) => onStatusChange(value as StatusFilter)}
           >
             <SelectTrigger className="w-44" size="sm">
               <SelectValue />
@@ -481,12 +475,7 @@ function Toolbar({
 
         <div className="flex flex-wrap items-center gap-2">
           {isBookkeeping && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onDatev}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={onDatev}>
               <Download data-icon="inline-start" />
               DATEV
             </Button>
@@ -495,7 +484,7 @@ function Toolbar({
             <InputGroupInput
               placeholder="Suche"
               value={search}
-              onChange={e => onSearchChange(e.target.value)}
+              onChange={(e) => onSearchChange(e.target.value)}
             />
             <InputGroupAddon align="inline-end">
               <Search />
@@ -546,7 +535,7 @@ function Toolbar({
 export function Buchhaltung() {
   const [tab, setTab] = useState<TabKey>("ledger");
   const [range, setRange] = useState<DateRange | undefined>(() =>
-    monthRange(FILTER_YEAR, new Date().getMonth())
+    monthRange(FILTER_YEAR, new Date().getMonth()),
   );
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -567,13 +556,13 @@ export function Buchhaltung() {
   const journal = useApi(() => accountingApi.journal(query), [query, refresh]);
   const accounts = useApi(() => accountingApi.accounts(), [refresh]);
 
-  const refetch = () => setRefresh(value => value + 1);
+  const refetch = () => setRefresh((value) => value + 1);
 
   const toggleAccount = async (account: Account) => {
     try {
       await accountingApi.setAccountActive(account.number, !account.active);
       toast.success(
-        `Konto ${account.number} ${account.active ? "deaktiviert" : "aktiviert"}.`
+        `Konto ${account.number} ${account.active ? "deaktiviert" : "aktiviert"}.`,
       );
       refetch();
     } catch (error) {
@@ -590,15 +579,12 @@ export function Buchhaltung() {
     try {
       const res = await fetch(`/api/accounting/datev?${params}`);
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as
-          | { error?: string }
-          | null;
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? "DATEV-Export fehlgeschlagen.");
       }
       const filename =
-        res.headers
-          .get("Content-Disposition")
-          ?.match(/filename="([^"]+)"/)?.[1] ?? "EXTF_Buchungsstapel.csv";
+        res.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] ??
+        "EXTF_Buchungsstapel.csv";
       const url = URL.createObjectURL(await res.blob());
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -608,7 +594,7 @@ export function Buchhaltung() {
       toast.success(`DATEV-Buchungsstapel ${filename} exportiert.`);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "DATEV-Export fehlgeschlagen."
+        error instanceof Error ? error.message : "DATEV-Export fehlgeschlagen.",
       );
     }
   };
@@ -617,34 +603,73 @@ export function Buchhaltung() {
     belegNr ? `Beleg ${belegNr}` : description || "Buchung";
 
   const ledgerColumns: Column<LedgerRow>[] = [
-    { key: "date", label: "Datum", className: "pl-4", cellClassName: "pl-4 text-muted-foreground", render: row => formatIsoDate(row.date) },
-    { key: "receipt", label: "Belegnummer", cellClassName: "text-muted-foreground", render: row => row.belegNr ?? "-" },
-    { key: "type", label: "Typ", cellClassName: "text-muted-foreground", render: row => row.typeLabel },
-    { key: "student", label: "Schüler", cellClassName: "font-medium", render: row => row.studentName ?? "-" },
+    {
+      key: "date",
+      label: "Datum",
+      className: "pl-4",
+      cellClassName: "pl-4 text-muted-foreground",
+      render: (row) => formatIsoDate(row.date),
+    },
+    {
+      key: "receipt",
+      label: "Belegnummer",
+      cellClassName: "text-muted-foreground",
+      render: (row) => row.belegNr ?? "-",
+    },
+    {
+      key: "type",
+      label: "Typ",
+      cellClassName: "text-muted-foreground",
+      render: (row) => row.typeLabel,
+    },
+    {
+      key: "student",
+      label: "Schüler",
+      cellClassName: "font-medium",
+      render: (row) => row.studentName ?? "-",
+    },
     {
       key: "description",
       label: "Beschreibung",
       className: "min-w-64",
       cellClassName: "max-w-80",
-      render: row => (
-        <span className={cn(row.storniert && "line-through")}>{row.description || "-"}</span>
+      render: (row) => (
+        <span className={cn(row.storniert && "line-through")}>
+          {row.description || "-"}
+        </span>
       ),
     },
-    { key: "vat", label: "Inkl. MwSt", cellClassName: "text-muted-foreground", render: row => row.vatLabel },
-    { key: "income", label: "Einnahmen, EUR", render: row => <Money cents={row.incomeCents} /> },
-    { key: "expense", label: "Ausgabe, EUR", render: row => <Money cents={row.expenseCents} tone="negative" /> },
+    {
+      key: "vat",
+      label: "Inkl. MwSt",
+      cellClassName: "text-muted-foreground",
+      render: (row) => row.vatLabel,
+    },
+    {
+      key: "income",
+      label: "Einnahmen, EUR",
+      render: (row) => <Money cents={row.incomeCents} />,
+    },
+    {
+      key: "expense",
+      label: "Ausgabe, EUR",
+      render: (row) => <Money cents={row.expenseCents} tone="negative" />,
+    },
     {
       key: "actions",
       label: "Aktionen",
       className: "pr-4",
       cellClassName: "pr-4",
-      render: row => (
+      render: (row) => (
         <RowActions
           printable={row.printable}
           stornoEligible={!row.storniert && !row.isStorno}
           onPrint={() => setQuittungIds([row.id])}
           onStorno={() =>
-            setStornoTarget({ id: row.id, label: stornoLabel(row.belegNr, row.description) })
+            setStornoTarget({
+              id: row.id,
+              label: stornoLabel(row.belegNr, row.description),
+            })
           }
         />
       ),
@@ -652,45 +677,77 @@ export function Buchhaltung() {
   ];
 
   const journalColumns: Column<JournalRow>[] = [
-    { key: "date", label: "Datum", className: "pl-4", cellClassName: "pl-4 text-muted-foreground", render: row => formatIsoDate(row.date) },
-    { key: "receipt", label: "Belegnummer", cellClassName: "text-muted-foreground", render: row => row.belegNr ?? "-" },
-    { key: "booking", label: "Buchungsnummer", cellClassName: "text-muted-foreground", render: row => row.buchungNr },
-    { key: "type", label: "Typ", cellClassName: "text-muted-foreground", render: row => row.typeLabel },
+    {
+      key: "date",
+      label: "Datum",
+      className: "pl-4",
+      cellClassName: "pl-4 text-muted-foreground",
+      render: (row) => formatIsoDate(row.date),
+    },
+    {
+      key: "receipt",
+      label: "Belegnummer",
+      cellClassName: "text-muted-foreground",
+      render: (row) => row.belegNr ?? "-",
+    },
+    {
+      key: "booking",
+      label: "Buchungsnummer",
+      cellClassName: "text-muted-foreground",
+      render: (row) => row.buchungNr,
+    },
+    {
+      key: "type",
+      label: "Typ",
+      cellClassName: "text-muted-foreground",
+      render: (row) => row.typeLabel,
+    },
     {
       key: "description",
       label: "Beschreibung",
       className: "min-w-64",
       cellClassName: "max-w-80",
-      render: row => (
-        <span className={cn(row.storniert && "line-through")}>{row.description || "-"}</span>
+      render: (row) => (
+        <span className={cn(row.storniert && "line-through")}>
+          {row.description || "-"}
+        </span>
       ),
     },
     {
       key: "soll",
       label: "Sollkonto",
       cellClassName: "text-muted-foreground",
-      render: row => `${row.sollKonto} · ${row.sollName}`,
+      render: (row) => `${row.sollKonto} · ${row.sollName}`,
     },
     {
       key: "haben",
       label: "Habenkonto",
       cellClassName: "text-muted-foreground",
-      render: row => `${row.habenKonto} · ${row.habenName}`,
+      render: (row) => `${row.habenKonto} · ${row.habenName}`,
     },
-    { key: "amount", label: "Betrag, EUR", render: row => <Money cents={row.amountCents} tone="neutral" /> },
+    {
+      key: "amount",
+      label: "Betrag, EUR",
+      render: (row) => <Money cents={row.amountCents} tone="neutral" />,
+    },
     {
       key: "vat",
       label: "USt",
       cellClassName: "text-muted-foreground",
-      render: row => (row.vatRate == null ? "-" : `${row.vatRate} %`),
+      render: (row) => (row.vatRate == null ? "-" : `${row.vatRate} %`),
     },
-    { key: "reason", label: "Stornogrund", cellClassName: "text-muted-foreground", render: row => row.stornoReason ?? "-" },
+    {
+      key: "reason",
+      label: "Stornogrund",
+      cellClassName: "text-muted-foreground",
+      render: (row) => row.stornoReason ?? "-",
+    },
     {
       key: "actions",
       label: "Aktionen",
       className: "pr-4",
       cellClassName: "pr-4",
-      render: row => (
+      render: (row) => (
         <RowActions
           printable={row.printable}
           stornoEligible={!row.storniert && !row.isStorno}
@@ -707,18 +764,44 @@ export function Buchhaltung() {
   ];
 
   const accountColumns: Column<Account>[] = [
-    { key: "number", label: "Nummer", className: "pl-4", cellClassName: "pl-4 text-muted-foreground", render: row => row.number },
-    { key: "name", label: "Name", className: "min-w-64", render: row => row.name },
-    { key: "type", label: "Typ", cellClassName: "text-muted-foreground", render: row => KIND_LABELS[row.kind] },
-    { key: "vat", label: "MwSt", cellClassName: "text-muted-foreground", render: row => row.vatLabel },
-    { key: "taxKey", label: "Steuerschlüssel", cellClassName: "text-muted-foreground", render: () => "-" },
-    { key: "status", label: "Status", cellClassName: "text-muted-foreground", render: row => (row.active ? "Aktiv" : "Inaktiv") },
+    {
+      key: "number",
+      label: "Nummer",
+      className: "pl-4",
+      cellClassName: "pl-4 text-muted-foreground",
+      render: (row) => row.number,
+    },
+    { key: "name", label: "Name", className: "min-w-64", render: (row) => row.name },
+    {
+      key: "type",
+      label: "Typ",
+      cellClassName: "text-muted-foreground",
+      render: (row) => KIND_LABELS[row.kind],
+    },
+    {
+      key: "vat",
+      label: "MwSt",
+      cellClassName: "text-muted-foreground",
+      render: (row) => row.vatLabel,
+    },
+    {
+      key: "taxKey",
+      label: "Steuerschlüssel",
+      cellClassName: "text-muted-foreground",
+      render: () => "-",
+    },
+    {
+      key: "status",
+      label: "Status",
+      cellClassName: "text-muted-foreground",
+      render: (row) => (row.active ? "Aktiv" : "Inaktiv"),
+    },
     {
       key: "actions",
       label: "Aktionen",
       className: "pr-4",
       cellClassName: "pr-4",
-      render: row => (
+      render: (row) => (
         <Switch
           checked={row.active}
           aria-label={`Konto ${row.number} aktivieren/deaktivieren`}
@@ -729,33 +812,49 @@ export function Buchhaltung() {
   ];
 
   const cashBankColumns: Column<Account>[] = [
-    { key: "name", label: "Name", className: "pl-4", cellClassName: "pl-4", render: row => row.name },
-    { key: "number", label: "Nummer", cellClassName: "text-muted-foreground", render: row => row.number },
+    {
+      key: "name",
+      label: "Name",
+      className: "pl-4",
+      cellClassName: "pl-4",
+      render: (row) => row.name,
+    },
+    {
+      key: "number",
+      label: "Nummer",
+      cellClassName: "text-muted-foreground",
+      render: (row) => row.number,
+    },
     {
       key: "type",
       label: "Typ",
       cellClassName: "text-muted-foreground",
-      render: row => (row.name.includes("Kasse") ? "Kassenbuch" : "Bankenbuch"),
+      render: (row) => (row.name.includes("Kasse") ? "Kassenbuch" : "Bankenbuch"),
     },
     {
       key: "date",
       label: "Datum",
       cellClassName: "text-muted-foreground",
-      render: row => (row.openingDate ? formatIsoDate(row.openingDate) : "-"),
+      render: (row) => (row.openingDate ? formatIsoDate(row.openingDate) : "-"),
     },
-    { key: "status", label: "Status", cellClassName: "text-muted-foreground", render: row => (row.active ? "Aktiv" : "Inaktiv") },
+    {
+      key: "status",
+      label: "Status",
+      cellClassName: "text-muted-foreground",
+      render: (row) => (row.active ? "Aktiv" : "Inaktiv"),
+    },
     {
       key: "opening",
       label: "Anfangssaldo, EUR",
       cellClassName: "text-right tabular-nums text-muted-foreground",
-      render: row => formatCents(row.openingCents ?? 0),
+      render: (row) => formatCents(row.openingCents ?? 0),
     },
     {
       key: "actions",
       label: "Aktionen",
       className: "pr-4",
       cellClassName: "pr-4",
-      render: row => (
+      render: (row) => (
         <Switch
           checked={row.active}
           aria-label={`Konto ${row.number} aktivieren/deaktivieren`}
@@ -766,7 +865,7 @@ export function Buchhaltung() {
   ];
 
   const filterAccounts = (rows: Account[]) =>
-    rows.filter(account => {
+    rows.filter((account) => {
       if (status === "active" && !account.active) return false;
       if (status === "storniert" && account.active) return false;
       if (search.trim()) {
@@ -792,8 +891,8 @@ export function Buchhaltung() {
         <AccountingTable
           columns={ledgerColumns}
           rows={ledger.data.rows}
-          rowKey={row => String(row.id)}
-          rowClassName={row => (row.storniert || row.isStorno ? "opacity-60" : "")}
+          rowKey={(row) => String(row.id)}
+          rowClassName={(row) => (row.storniert || row.isStorno ? "opacity-60" : "")}
         />
       );
     }
@@ -813,8 +912,8 @@ export function Buchhaltung() {
         <AccountingTable
           columns={journalColumns}
           rows={journal.data.rows}
-          rowKey={row => row.buchungNr}
-          rowClassName={row => (row.storniert || row.isStorno ? "opacity-60" : "")}
+          rowKey={(row) => row.buchungNr}
+          rowClassName={(row) => (row.storniert || row.isStorno ? "opacity-60" : "")}
           minWidth="min-w-[92rem]"
         />
       );
@@ -823,7 +922,7 @@ export function Buchhaltung() {
     if (tab === "accounts" || tab === "cash-bank") {
       const all = accounts.data?.accounts ?? [];
       const rows = filterAccounts(
-        tab === "cash-bank" ? all.filter(a => a.kind === "geldkonto") : all
+        tab === "cash-bank" ? all.filter((a) => a.kind === "geldkonto") : all,
       );
       if (accounts.loading || accounts.error || !rows.length) {
         return (
@@ -839,14 +938,14 @@ export function Buchhaltung() {
         <AccountingTable
           columns={accountColumns}
           rows={rows}
-          rowKey={row => `${row.number}-${row.name}`}
+          rowKey={(row) => `${row.number}-${row.name}`}
           minWidth="min-w-[88rem]"
         />
       ) : (
         <AccountingTable
           columns={cashBankColumns}
           rows={rows}
-          rowKey={row => row.number}
+          rowKey={(row) => row.number}
         />
       );
     }
@@ -865,17 +964,13 @@ export function Buchhaltung() {
 
   const printableTransactionIds = (() => {
     if (tab === "ledger") {
-      return (
-        ledger.data?.rows
-          ?.filter(row => row.printable)
-          .map(row => row.id) ?? []
-      );
+      return ledger.data?.rows?.filter((row) => row.printable).map((row) => row.id) ?? [];
     }
     if (tab === "journal") {
       return (
         journal.data?.rows
-          ?.filter(row => row.printable)
-          .map(row => row.transactionId) ?? []
+          ?.filter((row) => row.printable)
+          .map((row) => row.transactionId) ?? []
       );
     }
     return [];
@@ -897,7 +992,7 @@ export function Buchhaltung() {
             <ToggleGroup
               type="single"
               value={tab}
-              onValueChange={value => {
+              onValueChange={(value) => {
                 if (value) setTab(value as TabKey);
               }}
               variant="outline"
@@ -905,7 +1000,7 @@ export function Buchhaltung() {
               spacing={0}
               aria-label="Buchhaltung Bereich"
             >
-              {tabs.map(item => (
+              {tabs.map((item) => (
                 <ToggleGroupItem
                   key={item.value}
                   value={item.value}
@@ -921,7 +1016,7 @@ export function Buchhaltung() {
 
       <Tabs
         value={tab}
-        onValueChange={value => setTab(value as TabKey)}
+        onValueChange={(value) => setTab(value as TabKey)}
         className="min-h-0 flex-1 gap-0 overflow-hidden rounded-t-sm rounded-b-lg border border-border/70 bg-background"
       >
         <div className="min-h-0 flex-1 overflow-auto p-4 2xl:p-6">
@@ -950,7 +1045,7 @@ export function Buchhaltung() {
                 }}
               />
 
-              {tabs.map(item => (
+              {tabs.map((item) => (
                 <TabsContent key={item.value} value={item.value} className="m-0">
                   {item.value === tab && (
                     <div key={tab} className="animate-agenda-fade">
@@ -968,7 +1063,7 @@ export function Buchhaltung() {
         open={paymentOpen}
         onClose={() => setPaymentOpen(false)}
         accounts={accounts.data?.accounts ?? []}
-        onCreated={printableId => {
+        onCreated={(printableId) => {
           refetch();
           if (printableId != null) setQuittungIds([printableId]);
         }}
@@ -978,10 +1073,7 @@ export function Buchhaltung() {
         onClose={() => setStornoTarget(null)}
         onDone={refetch}
       />
-      <QuittungDialog
-        transactionIds={quittungIds}
-        onClose={() => setQuittungIds([])}
-      />
+      <QuittungDialog transactionIds={quittungIds} onClose={() => setQuittungIds([])} />
     </div>
   );
 }

@@ -32,12 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -63,17 +58,18 @@ export function FahrschuelerDetail({
   const { vehicleOptions } = useVehicleOptions();
   const [tab, setTab] = useState<TabKey>("uebersicht");
 
-  const student = students.find(entry => entry.id === studentId) ?? null;
+  const student = students.find((entry) => entry.id === studentId) ?? null;
   const hasDebt = student?.balance.startsWith("-") ?? false;
 
-  const backToFahrschueler = () => {
-    navigate("/fahrschueler");
-
-    window.setTimeout(() => {
-      if (window.location.pathname !== "/fahrschueler") {
-        window.location.assign("/fahrschueler");
-      }
-    }, 0);
+  // The detail page is reached from several lists (/fahrschueler,
+  // /theorie, …) — go back to wherever the user came from. The list
+  // is only a fallback for direct-URL visits with no app history.
+  const goBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      navigate("/fahrschueler");
+    }
   };
 
   const save = async (updates: Partial<Student>) => {
@@ -88,9 +84,7 @@ export function FahrschuelerDetail({
       await refresh();
       navigate("/fahrschueler");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     }
   };
 
@@ -125,7 +119,7 @@ export function FahrschuelerDetail({
             <ToggleGroup
               type="single"
               value={tab}
-              onValueChange={value => {
+              onValueChange={(value) => {
                 if (value) setTab(value as TabKey);
               }}
               variant="outline"
@@ -133,7 +127,7 @@ export function FahrschuelerDetail({
               spacing={0}
               aria-label="Fahrschüler Bereich"
             >
-              {tabs.map(item => (
+              {tabs.map((item) => (
                 <ToggleGroupItem
                   key={item.value}
                   value={item.value}
@@ -176,17 +170,14 @@ export function FahrschuelerDetail({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Fahrschüler/in löschen?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      {student.firstName} {student.lastName} wird endgültig
-                      gelöscht. Buchungen und Quittungen bleiben erhalten — sie
-                      enthalten eine eigene Kopie der Schülerdaten.
+                      {student.firstName} {student.lastName} wird endgültig gelöscht.
+                      Buchungen und Quittungen bleiben erhalten — sie enthalten eine
+                      eigene Kopie der Schülerdaten.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      onClick={handleDelete}
-                    >
+                    <AlertDialogAction variant="destructive" onClick={handleDelete}>
                       Endgültig löschen
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -201,8 +192,8 @@ export function FahrschuelerDetail({
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label="Zurück zur Fahrschülerliste"
-            onClick={backToFahrschueler}
+            aria-label="Zurück"
+            onClick={goBack}
           >
             <ArrowLeft />
           </Button>
@@ -234,7 +225,7 @@ export function FahrschuelerDetail({
               type="button"
               variant="outline"
               size="sm"
-              onClick={backToFahrschueler}
+              onClick={() => navigate("/fahrschueler")}
             >
               <ArrowLeft data-icon="inline-start" />
               Zur Übersicht

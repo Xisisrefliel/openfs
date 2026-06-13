@@ -29,53 +29,51 @@ export type InstructorInput = Omit<Instructor, "id">;
 /* Sentinel used by students/events without an assigned instructor. */
 export const UNASSIGNED_INSTRUCTOR = "Nicht zugeteilt";
 
-export const instructorName = (
-  instructor: Pick<Instructor, "firstName" | "lastName">
-) => `${instructor.firstName} ${instructor.lastName}`.trim();
+export const instructorName = (instructor: Pick<Instructor, "firstName" | "lastName">) =>
+  `${instructor.firstName} ${instructor.lastName}`.trim();
 
 export async function fetchInstructors(): Promise<Instructor[]> {
   const data = await parseOrThrow<{ instructors: Instructor[] }>(
-    await fetch("/api/instructors")
+    await fetch("/api/instructors"),
   );
   return data.instructors;
 }
 
-export async function createInstructor(
-  input: InstructorInput
-): Promise<Instructor> {
+export async function createInstructor(input: InstructorInput): Promise<Instructor> {
   return parseOrThrow<Instructor>(
     await fetch("/api/instructors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function updateInstructor(
   id: number,
-  input: Partial<InstructorInput>
+  input: Partial<InstructorInput>,
 ): Promise<Instructor> {
   return parseOrThrow<Instructor>(
     await fetch(`/api/instructors/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function deleteInstructor(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/instructors/${id}`, { method: "DELETE" })
+    await fetch(`/api/instructors/${id}`, { method: "DELETE" }),
   );
 }
 
 export function useInstructors() {
-  const { items: instructors, loading, refresh } = useFetchList(
-    fetchInstructors,
-    "Fahrlehrer konnten nicht geladen werden"
-  );
+  const {
+    items: instructors,
+    loading,
+    refresh,
+  } = useFetchList(fetchInstructors, "Fahrlehrer konnten nicht geladen werden");
 
   /* Full names of all instructors (active first), for filter lists. */
   const names = useMemo(() => instructors.map(instructorName), [instructors]);
@@ -85,11 +83,11 @@ export function useInstructors() {
   const assignableNames = useMemo(
     () => [
       ...instructors
-        .filter(instructor => instructor.status === "aktiv")
+        .filter((instructor) => instructor.status === "aktiv")
         .map(instructorName),
       UNASSIGNED_INSTRUCTOR,
     ],
-    [instructors]
+    [instructors],
   );
 
   return { instructors, names, assignableNames, loading, refresh };

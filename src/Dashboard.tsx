@@ -1,20 +1,6 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, XAxis } from "recharts";
-import {
-  ArrowRight,
-  BarChart3,
-  CalendarClock,
-  CalendarDays,
-  ChevronRight,
-  Euro,
-  FileWarning,
-  MapPin,
-  Plus,
-  Search,
-  TrendingDown,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronRight, MapPin, Plus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,7 +19,6 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { Input } from "@/components/ui/input";
 import { PageHeader } from "./components/PageHeader.tsx";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -46,13 +31,12 @@ import {
   isSameDay,
   parseISODate,
   startOfWeek,
+  toISODate,
   toMinutes,
   TODAY,
 } from "@/lib/calendar-data";
 import { useCalendarEvents } from "@/hooks/use-calendar-events";
 import { useStudents } from "@/hooks/use-students";
-
-type IconCmp = React.ComponentType<{ className?: string }>;
 
 /* Navigate without threading the router down — mirrors the "Schüler
    anmelden" button and the usePath() popstate listener in App.tsx. */
@@ -71,151 +55,127 @@ const weekStart = startOfWeek(TODAY);
 const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
 const byDateTime = (a: CalEvent, b: CalEvent) =>
-  a.date === b.date
-    ? toMinutes(a.start) - toMinutes(b.start)
-    : a.date < b.date
-      ? -1
-      : 1;
+  a.date === b.date ? toMinutes(a.start) - toMinutes(b.start) : a.date < b.date ? -1 : 1;
 
 const eventsOn = (events: CalEvent[], day: Date) =>
-  events.filter(event => isSameDay(parseISODate(event.date), day));
+  events.filter((event) => isSameDay(parseISODate(event.date), day));
 
-const dashboardCardClass =
-  "rounded-lg border border-border/80 ring-0 shadow-none";
+/* h-full lets the three widgets share one row height (the tallest — the
+   month calendar — sets it), so the row reads as one composed band
+   instead of three ragged card bottoms. */
+const dashboardCardClass = "h-full rounded-lg border border-border/80 ring-0 shadow-none";
 const dashboardCardHeaderClass = "border-b border-border/70";
 
-/* ------------------------------------------------------------------ */
-/* Navigation — top bar                                                */
-/* ------------------------------------------------------------------ */
-
-function Navigation() {
-  return (
-    <PageHeader
-      center={
-        <div className="hidden md:block">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Suchen…" className="w-[240px] pl-8 2xl:w-[320px]" />
-          </div>
-        </div>
-      }
-      end={
-        <Button
-          onClick={() => {
-            window.history.pushState({}, "", "/neue-schueler");
-            window.dispatchEvent(new PopStateEvent("popstate"));
-          }}
-        >
-          <Plus data-icon="inline-start" />
-          Schüler anmelden
-        </Button>
-      }
-    />
-  );
+function PanelTitle({ children }: { children: React.ReactNode }) {
+  /* truncate (not balance-wrap): a two-line title makes one card header
+     taller and breaks the hairline alignment across the widget band. */
+  return <CardTitle className="truncate text-sm font-medium">{children}</CardTitle>;
 }
 
 /* ------------------------------------------------------------------ */
-/* Grid — stat cards                                                   */
+/* Top bar — compact stat readouts in the header center, instrument-   */
+/* cluster style: tiny condensed label over the value. The number is   */
+/* the visual; clicking a readout jumps to its page.                   */
 /* ------------------------------------------------------------------ */
 
 type Stat = {
   label: string;
   value: string;
-  Icon: IconCmp;
-  iconClass: string;
   href: string;
-  trend?: { delta: string; up: boolean };
+  /* `positive` is about meaning, not arithmetic sign — fewer open
+     invoices is a negative delta but good news, so it reads green. */
+  trend?: { delta: string; positive: boolean };
   hint?: string;
 };
 
-function Grid({ events }: { events: CalEvent[] }) {
+function HeaderStats({ events }: { events: CalEvent[] }) {
   const { students } = useStudents();
-  const activeStudents = students.filter(
-    student => student.status === "aktiv"
-  ).length;
+  const activeStudents = students.filter((student) => student.status === "aktiv").length;
 
   // Counts derived from the shared sources — students come from the DB.
   const fahrstundenThisWeek = events.filter(isFahrstunde).length;
   const fahrstundenToday = eventsOn(events, TODAY).filter(isFahrstunde).length;
 
-  const staticStats: Stat[] = [
+  const stats: Stat[] = [
     {
-      label: "Fahrstunden (Woche)",
+      label: "Schüler",
+      value: String(activeStudents),
+      href: "/fahrschueler",
+      hint: `/ ${students.length}`,
+    },
+    {
+      label: "Fahrstunden",
       value: String(fahrstundenThisWeek),
-      Icon: CalendarDays,
-      iconClass: "bg-amber-500/10 text-amber-600",
       href: "/kalendar",
       hint: `${fahrstundenToday} heute`,
     },
     {
-      label: "Umsatz (Monat)",
+      label: "Umsatz",
       value: "€ 42.350",
-      Icon: Euro,
-      iconClass: "bg-emerald-500/10 text-emerald-600",
       href: "/buchhaltung",
-      trend: { delta: "+5,2%", up: true },
+      trend: { delta: "+5,2 %", positive: true },
     },
     {
       label: "Offene Rechnungen",
       value: "14",
-      Icon: FileWarning,
-      iconClass: "bg-rose-500/10 text-rose-600",
       href: "/buchhaltung",
-      trend: { delta: "-3", up: false },
+      trend: { delta: "−3", positive: true },
     },
-  ];
-
-  const stats: Stat[] = [
-    {
-      label: "Aktive Fahrschüler",
-      value: String(activeStudents),
-      Icon: Users,
-      iconClass: "bg-indigo-500/10 text-indigo-600",
-      href: "/fahrschueler",
-      hint: `von ${students.length}`,
-    },
-    ...staticStats,
   ];
 
   return (
-    <section className="stagger-in grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {stats.map(({ label, value, Icon, iconClass, href, trend, hint }) => (
+    /* xl, not lg — between 1024 and 1280 the readouts collide with the
+       header button and wrap inside the fixed h-11 bar. Hide responsively
+       rather than wrapping (guideline §4). */
+    <div className="hidden items-center divide-x divide-border/70 xl:flex">
+      {stats.map(({ label, value, href, trend, hint }) => (
         <button
           key={label}
           type="button"
           onClick={() => goTo(href)}
-          className="h-full rounded-lg text-left outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+          className="group relative flex flex-col items-start gap-1 rounded-sm px-4 text-left whitespace-nowrap outline-hidden before:absolute before:inset-x-0 before:-inset-y-2 focus-visible:ring-2 focus-visible:ring-ring first:pl-2 last:pr-2"
         >
-          <Card
-            size="sm"
-            className={cn(
-              dashboardCardClass,
-              "h-full transition-colors hover:border-border hover:bg-muted/40"
-            )}
-          >
-            <CardHeader>
-              <div className={cn("flex size-9 items-center justify-center rounded-lg", iconClass)}>
-                <Icon className="size-[18px]" />
-              </div>
-              <CardAction>
-                {trend ? (
-                  <Badge variant={trend.up ? "secondary" : "destructive"}>
-                    {trend.up ? <TrendingUp /> : <TrendingDown />}
-                    {trend.delta}
-                  </Badge>
-                ) : hint ? (
-                  <Badge variant="secondary">{hint}</Badge>
-                ) : null}
-              </CardAction>
-            </CardHeader>
-            <CardContent>
-              <div className="font-heading text-2xl font-medium tracking-tight">{value}</div>
-              <div className="text-sm text-muted-foreground">{label}</div>
-            </CardContent>
-          </Card>
+          <span className="text-[11px] font-medium leading-none text-muted-foreground">
+            {label}
+          </span>
+          <span className="flex items-baseline gap-1.5 leading-none">
+            <span className="text-sm font-semibold leading-none tabular-nums transition-colors group-hover:text-primary">
+              {value}
+            </span>
+            {trend ? (
+              <span
+                className={cn(
+                  "text-[11px] leading-none tabular-nums",
+                  trend.positive
+                    ? "text-green-700 dark:text-green-400"
+                    : "text-destructive",
+                )}
+              >
+                {trend.delta}
+              </span>
+            ) : hint ? (
+              <span className="text-[11px] leading-none tabular-nums text-muted-foreground">
+                {hint}
+              </span>
+            ) : null}
+          </span>
         </button>
       ))}
-    </section>
+    </div>
+  );
+}
+
+function Navigation({ events }: { events: CalEvent[] }) {
+  return (
+    <PageHeader
+      center={<HeaderStats events={events} />}
+      end={
+        <Button onClick={() => goTo("/neue-schueler")}>
+          <Plus data-icon="inline-start" />
+          Schüler anmelden
+        </Button>
+      }
+    />
   );
 }
 
@@ -238,20 +198,17 @@ function Chart({ events }: { events: CalEvent[] }) {
         day: WEEKDAY_LABELS[i],
         value: eventsOn(events, day).filter(isFahrstunde).length,
       })),
-    [events]
+    [events],
   );
   const total = chartData.reduce((s, d) => s + d.value, 0);
-  const max = Math.max(...chartData.map(d => d.value));
+  const max = Math.max(...chartData.map((d) => d.value));
   return (
     <Card className={dashboardCardClass}>
       <CardHeader className={dashboardCardHeaderClass}>
-        <CardTitle className="flex items-center gap-2">
-          <span className="flex size-6 items-center justify-center rounded-md bg-sky-500/10 text-sky-600">
-            <BarChart3 className="size-3.5" />
-          </span>
-          Fahrstunden diese Woche
-        </CardTitle>
-        <CardDescription>{total} Fahrstunden insgesamt</CardDescription>
+        <PanelTitle>Fahrstunden</PanelTitle>
+        <CardDescription>
+          <span className="tabular-nums">{total}</span> in dieser Woche
+        </CardDescription>
         <CardAction>
           <Button variant="ghost" size="sm" onClick={() => goTo("/kalendar")}>
             Alle ansehen
@@ -259,22 +216,42 @@ function Chart({ events }: { events: CalEvent[] }) {
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[240px] w-full 2xl:h-[320px]">
-          <BarChart data={chartData} margin={{ top: 8, left: 0, right: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
-            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-            <Bar dataKey="value" radius={6}>
-              {chartData.map(entry => (
-                <Cell
-                  key={entry.day}
-                  fill={entry.value > 0 && entry.value === max ? "var(--color-sky-500)" : "var(--color-sky-200)"}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ChartContainer>
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        {total === 0 ? (
+          <div className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-1 text-center">
+            <CalendarDays className="size-5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              Keine Fahrstunden diese Woche
+            </span>
+          </div>
+        ) : (
+          /* basis-0 keeps the chart from dictating the row height — it
+           absorbs whatever the calendar column leaves it. */
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-auto min-h-[240px] w-full flex-1 basis-0"
+          >
+            <BarChart data={chartData} margin={{ top: 8, left: 0, right: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
+              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              {/* The busiest day reads at full strength; the rest recede.
+                Top-only rounding keeps bars anchored to the baseline. */}
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={36}>
+                {chartData.map((entry) => (
+                  <Cell
+                    key={entry.day}
+                    fill={
+                      entry.value > 0 && entry.value === max
+                        ? "var(--chart-1)"
+                        : "var(--chart-2)"
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   );
@@ -290,22 +267,21 @@ const weekdayShort = (date: Date) =>
 function List({ events }: { events: CalEvent[] }) {
   const openCalendar = () => goTo("/kalendar?filter=non-fahrstunde");
   // Everything that isn't a routine driving lesson — theory, exams, exam
-  // prep, courses. Clicking through opens the calendar filtered to these.
-  const nonFahrstundeEvents = useMemo(
-    () => events.filter(event => !isFahrstunde(event)).sort(byDateTime),
-    [events]
-  );
+  // prep, courses — from today onward ("anstehend" excludes the past).
+  // Clicking through opens the calendar filtered to these.
+  const nonFahrstundeEvents = useMemo(() => {
+    const todayISO = toISODate(TODAY);
+    return events
+      .filter((event) => !isFahrstunde(event) && event.date >= todayISO)
+      .sort(byDateTime);
+  }, [events]);
   return (
     <Card className={dashboardCardClass}>
       <CardHeader className={dashboardCardHeaderClass}>
-        <CardTitle className="flex items-center gap-2">
-          <span className="flex size-6 items-center justify-center rounded-md bg-violet-500/10 text-violet-600">
-            <CalendarClock className="size-3.5" />
-          </span>
-          Anstehende Termine
-        </CardTitle>
+        <PanelTitle>Anstehende Termine</PanelTitle>
         <CardDescription>
-          {nonFahrstundeEvents.length} ohne Fahrstunden
+          <span className="tabular-nums">{nonFahrstundeEvents.length}</span>{" "}
+          {nonFahrstundeEvents.length === 1 ? "Termin" : "Termine"} ohne Fahrstunden
         </CardDescription>
         <CardAction>
           <Button variant="ghost" size="sm" onClick={openCalendar}>
@@ -314,50 +290,60 @@ function List({ events }: { events: CalEvent[] }) {
           </Button>
         </CardAction>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[300px] 2xl:h-[380px]">
-          <div className="flex flex-col gap-1 pr-3">
-            {nonFahrstundeEvents.map(event => {
-              const place = event.location ?? event.vehicle;
-              return (
-                <button
-                  key={event.id}
-                  type="button"
-                  onClick={openCalendar}
-                  className="group/row flex items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-muted"
-                >
-                  <span className="flex w-12 shrink-0 flex-col items-center">
-                    <span className="text-[11px] uppercase text-muted-foreground">
-                      {weekdayShort(parseISODate(event.date))}
-                    </span>
-                    <span className="text-sm font-medium tabular-nums">
-                      {event.start}
-                    </span>
-                  </span>
-                  <Separator orientation="vertical" className="h-9" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium">
-                      {event.title}
-                    </span>
-                    <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-                      {event.subtitle}
-                      {place && (
-                        <>
-                          <span className="text-border">·</span>
-                          <MapPin className="size-3 shrink-0" />
-                          {place}
-                        </>
-                      )}
-                    </span>
-                  </div>
-                  <Badge variant="secondary">
-                    {eventTypeShortLabel[event.type]}
-                  </Badge>
-                </button>
-              );
-            })}
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        {nonFahrstundeEvents.length === 0 ? (
+          <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center gap-1 text-center">
+            <CalendarDays className="size-5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              Keine anstehenden Termine
+            </span>
           </div>
-        </ScrollArea>
+        ) : (
+          /* Radix wraps viewport children in a display:table div that sizes
+           to max-content, which defeats row truncation — force block so
+           long titles ellipsize instead of clipping the badges. */
+          <ScrollArea className="min-h-[280px] flex-1 basis-0 [&>[data-slot=scroll-area-viewport]>div]:block!">
+            <div className="flex flex-col gap-1 pr-3">
+              {nonFahrstundeEvents.map((event) => {
+                const place = event.location ?? event.vehicle;
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={openCalendar}
+                    className="group/row flex items-center gap-3 rounded-md px-2 py-2.5 text-left outline-hidden transition-colors duration-150 hover:bg-muted hover:duration-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  >
+                    <span className="flex w-12 shrink-0 flex-col items-center">
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        {weekdayShort(parseISODate(event.date))}
+                      </span>
+                      <span className="text-sm font-medium tabular-nums">
+                        {event.start}
+                      </span>
+                    </span>
+                    <Separator orientation="vertical" className="h-9" />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-medium">{event.title}</span>
+                      <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                        {event.subtitle}
+                        {place && (
+                          <>
+                            <span className="text-border">·</span>
+                            <MapPin className="size-3 shrink-0" />
+                            {place}
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0">
+                      {eventTypeShortLabel[event.type]}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );
@@ -371,13 +357,11 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
   const [selected, setSelected] = useState<Date | undefined>(TODAY);
   // Days that have at least one event, for the calendar's dot markers.
   const eventDates = useMemo(
-    () => [...new Set(events.map(event => event.date))].map(parseISODate),
-    [events]
+    () => [...new Set(events.map((event) => event.date))].map(parseISODate),
+    [events],
   );
   const dayEvents = selected
-    ? eventsOn(events, selected).sort(
-        (a, b) => toMinutes(a.start) - toMinutes(b.start)
-      )
+    ? eventsOn(events, selected).sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
     : [];
   const isToday = selected ? isSameDay(selected, TODAY) : false;
   const dayLabel = selected
@@ -387,12 +371,7 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
   return (
     <Card className={dashboardCardClass}>
       <CardHeader className={dashboardCardHeaderClass}>
-        <CardTitle className="flex items-center gap-2">
-          <span className="flex size-6 items-center justify-center rounded-md bg-amber-500/10 text-amber-600">
-            <CalendarDays className="size-3.5" />
-          </span>
-          Kalender
-        </CardTitle>
+        <PanelTitle>Kalender</PanelTitle>
         <CardDescription>Monatsübersicht</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -408,12 +387,12 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
           modifiers={{ event: eventDates }}
           modifiersClassNames={{
             event:
-              "relative after:absolute after:bottom-1 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-amber-500 data-[selected-single=true]:after:bg-primary-foreground",
+              "relative after:absolute after:bottom-1 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-primary data-[selected-single=true]:after:bg-primary-foreground",
           }}
           formatters={{
-            formatCaption: d =>
+            formatCaption: (d) =>
               d.toLocaleDateString("de-DE", { month: "long", year: "numeric" }),
-            formatWeekdayName: d => d.toLocaleDateString("de-DE", { weekday: "short" }),
+            formatWeekdayName: (d) => d.toLocaleDateString("de-DE", { weekday: "short" }),
           }}
         />
 
@@ -423,9 +402,11 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
           <div className="flex items-baseline justify-between pb-2">
             <span className="text-sm font-medium">
               {dayLabel}
-              {isToday && <span className="ml-1.5 text-xs text-muted-foreground">Heute</span>}
+              {isToday && (
+                <span className="ml-1.5 text-xs text-muted-foreground">Heute</span>
+              )}
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs tabular-nums text-muted-foreground">
               {dayEvents.length} {dayEvents.length === 1 ? "Termin" : "Termine"}
             </span>
           </div>
@@ -437,15 +418,17 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
                   key={event.id}
                   type="button"
                   onClick={() => goTo("/kalendar")}
-                  className="animate-agenda-row group/row flex items-center gap-2.5 rounded-lg px-1 py-2 text-left transition-colors hover:bg-muted"
+                  className="animate-agenda-row group/row flex items-center gap-2.5 rounded-md px-1 py-2 text-left outline-hidden transition-colors duration-150 hover:bg-muted hover:duration-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                   style={{ animationDelay: `${idx * 60}ms` }}
                 >
-                  <span className="h-8 w-1 shrink-0 rounded-full bg-amber-500" />
+                  <span className="h-8 w-1 shrink-0 rounded-full bg-primary/70" />
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium">{event.title}</span>
-                    <span className="text-xs tabular-nums text-muted-foreground">{event.start} Uhr</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {event.start} Uhr
+                    </span>
                   </div>
-                  <ArrowRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/row:translate-x-0.5" />
+                  <ArrowRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/row:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover/row:translate-x-0" />
                 </button>
               ))}
             </div>
@@ -455,7 +438,9 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
               className="animate-agenda-fade flex flex-col items-center justify-center gap-1 py-6 text-center"
             >
               <CalendarDays className="size-5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Keine Termine an diesem Tag</span>
+              <span className="text-xs text-muted-foreground">
+                Keine Termine an diesem Tag
+              </span>
             </div>
           )}
         </div>
@@ -472,17 +457,24 @@ export function Dashboard() {
   const { events } = useCalendarEvents();
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
-      <Navigation />
-      <div className={cn("flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:gap-5 2xl:p-6")}>
-        <Grid events={events} />
-        <div className="stagger-in grid grid-cols-1 items-start gap-4 2xl:gap-5 lg:grid-cols-12">
-          <div className="lg:col-span-5">
+      <Navigation events={events} />
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:gap-5 2xl:p-6",
+        )}
+      >
+        {/* The 12-col band needs ~1280px: below that the month calendar
+            (7 × 32px cells + card padding) no longer fits a 3–4 col slot,
+            so everything stacks. The cap keeps ultra-wide monitors from
+            stretching the cards into slabs. */}
+        <div className="stagger-in mx-auto grid w-full max-w-[1800px] grid-cols-1 gap-4 2xl:gap-5 xl:grid-cols-12">
+          <div className="xl:col-span-4 2xl:col-span-5">
             <Chart events={events} />
           </div>
-          <div className="lg:col-span-4">
+          <div className="xl:col-span-4">
             <List events={events} />
           </div>
-          <div className="lg:col-span-3">
+          <div className="xl:col-span-4 2xl:col-span-3">
             <MonthCalendar events={events} />
           </div>
         </div>

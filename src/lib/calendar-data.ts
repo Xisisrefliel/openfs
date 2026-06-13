@@ -26,6 +26,17 @@ export type CalEvent = {
   vehicle?: string;
   type: EventType;
   tentative?: boolean;
+  /** FK → students.id; set when the event was created for a known student
+      or back-filled by migration. Omitted when NULL. */
+  studentId?: number;
+  /** FK → transactions.id; set after billing via the /bill endpoint.
+      Omitted when NULL. */
+  billedTransactionId?: number;
+  /** Derived by the server: true when billedTransactionId is set AND the
+      linked transaction has not been storniert. Omitted when not billed. */
+  billedActive?: boolean;
+  /** Exam result — only present on exam-type events that have been graded. */
+  examResult?: "bestanden" | "nicht_bestanden";
 };
 
 /* The app's notion of "today" — drives week anchoring/highlighting.
@@ -72,11 +83,10 @@ export const eventPresets: EventPreset[] = [
 
 /* A "Fahrstunde" is a regular practical driving lesson. Theory lessons,
    exams, exam prep and other appointments are NOT Fahrstunden. */
-export const isFahrstunde = (event: { type: EventType }) =>
-  event.type === "Praktisch";
+export const isFahrstunde = (event: { type: EventType }) => event.type === "Praktisch";
 
 export const nonFahrstundeTypes = eventTypeOptions.filter(
-  type => !isFahrstunde({ type })
+  (type) => !isFahrstunde({ type }),
 );
 
 /* ------------------------------------------------------------------ */
@@ -103,7 +113,7 @@ export const isSameDay = (a: Date, b: Date) =>
 
 export const toISODate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate()
+    date.getDate(),
   ).padStart(2, "0")}`;
 
 export const parseISODate = (value: string) => {
@@ -122,14 +132,12 @@ export const toMinutes = (value: string) => {
 
 /* Simple greedy column layout so overlapping events sit side by side. */
 export function layoutDay(dayEvents: CalEvent[]) {
-  const sorted = [...dayEvents].sort(
-    (a, b) => toMinutes(a.start) - toMinutes(b.start)
-  );
+  const sorted = [...dayEvents].sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
   const columnEnds: number[] = [];
-  const placed = sorted.map(event => {
+  const placed = sorted.map((event) => {
     const start = toMinutes(event.start);
     const end = toMinutes(event.end);
-    let column = columnEnds.findIndex(columnEnd => columnEnd <= start);
+    let column = columnEnds.findIndex((columnEnd) => columnEnd <= start);
     if (column === -1) {
       column = columnEnds.length;
       columnEnds.push(end);

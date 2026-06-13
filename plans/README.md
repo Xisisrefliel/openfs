@@ -28,6 +28,147 @@ plan excerpts reflect that working-tree state.
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
+## Full-app audit 2026-06-12 — plans 014–027
+
+Audited at commit `160eccc`. Baseline at audit time: 387 tests, typecheck
+clean, `bun audit` clean. All DONE rows were executed by subagents in
+isolated worktrees and reviewed (done criteria re-run, diffs read) on
+2026-06-12. **Everything below is merged into `advisor/integration-2026-06-12`
+(556 tests, typecheck + build green) — merge that ONE branch.**
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+|------|-------|----------|--------|------------|--------|
+| 016  | Unit tests: instructors/vehicles/price-plans + lib formatters | P1 | M | — | DONE (advisor/016-unit-tests) |
+| 027  | DX: OpenFS AGENTS.md/CLAUDE.md, CI workflow, package name | P1 | S | — | DONE (advisor/027-dx-docs-ci) |
+| 014  | Chat: stop orphaned threads being reused by name match | P2 | S | — | DONE (advisor/014-chat-orphan-dedup) |
+| 015  | Chat polish: stale-response guard, optimistic mark-as-read | P3 | S | — | DONE (advisor/015-chat-polish) |
+| 021  | Theory attendance tracking (Anwesenheit) | P1 | M | — | DONE (advisor/021-theory-attendance) |
+| 022  | Real per-student balances from the ledger | P2 | M | — | DONE (advisor/022-student-balances; nit: name per group is an arbitrary snapshot) |
+| 024  | Public appointment-request form (/anfrage) | P2 | S–M | — | DONE (advisor/024-public-anfrage; App.tsx +3 lines) |
+| 025  | Data export: download the SQLite DB | P2 | S | — | DONE (advisor/025-db-export; incl. review fix mounting the route) |
+| 026  | Design spike: multi-tenant architecture mapping (doc only) | P2 | M | — | DONE (→ plans/design/tenancy.md) |
+| 019  | Lesson billing link (confirm-to-bill, per design/lessons-billing.md) | P1 | L | 016 (soft) | DONE (advisor/019-lesson-billing; incl. review fix enforcing guthaben_uebertragung on the bill endpoint) |
+| 020  | Exam results + license milestone + pass-rate KPI | P1 | M | 019 | DONE (advisor/020-exam-results, based on 019) |
+| 023  | Digital Ausbildungsnachweis MVP (per-lesson signature) | P2 | M | 019 | DONE (advisor/023-ausbildungsnachweis, based on 019) |
+| 017  | Route table in App.tsx (+404) | P3 | M | design-refresh commit | TODO (unblocked 2026-06-13 — design refresh landed as `4cd0f9c`; re-run drift check, excerpts were taken from that tree) |
+| 018  | Design-system rollout to ~14 remaining pages | P2 | L | design-refresh commit; 017 rec. | TODO (unblocked 2026-06-13, same reason; re-verify excerpts) |
+
+### Merge notes (014–027)
+
+- Merge `advisor/integration-2026-06-12` once; expect a small App.tsx
+  conflict against the design-refresh commit (024's 3-line early return —
+  keep both sides).
+- 017/018 unblock once the design refresh is committed; their excerpts were
+  taken from that working tree on 2026-06-12.
+- 025's UI button deferred until after 018; the endpoint ships UI-less.
+- Follow-ups deferred by 019: batch billing, studentId on Kalendar event
+  creation, exam-fee billing. Open tax question: which Erlöskonto practical
+  lessons book to (4400 vs §4 Nr. 21-exempt 4100) — Steuerberater.
+- Incident log: during execution an agent ran git in the main checkout and
+  wiped the uncommitted design refresh; fully recovered byte-exact from
+  session transcripts the same day. Commit early.
+
+### Rejected in the 2026-06-12 full-app audit (verified — do not re-report)
+
+- **Terminanfragen date-parse "timezone bug"** (`Terminanfragen.tsx:96`):
+  false positive — local-midnight parse + local display agree in every TZ.
+- **Generic CRUD-factory refactor of the 11 server modules**: high risk on
+  the critical path for low payoff.
+- **Chat pagination**: datasets tiny; revisit if threads exceed ~1k messages.
+- **`as unknown as BodyInit` casts**: documented Bun-types workarounds.
+- **Unused ui/ components (embla/vaul/cmdk)**: tree-shaken shadcn files.
+- **10s chat poll interval**: deliberate; plan 015 removed the redundant
+  extra refetch instead.
+
+## Deep audit 2026-06-13 — plans 028–039
+
+Audited at commit `2ee4bbe` (deep: whole repo, all nine categories, 8
+subagents, every table finding re-verified by the advisor). Baseline:
+556 tests, typecheck + build green, `bun audit` clean. User selected ALL
+findings for planning and execution into ONE integration branch
+(`advisor/integration-2026-06-13`) → single PR.
+
+Working-tree note at planning time: uncommitted changes in
+`design-guideline.md`, `src/Marketing.tsx`, and
+`src/server/ausbildungsnachweis.ts` (flat→nested route-key refactor; plan
+032 touches the same code — reconcile at integration).
+
+| Plan | Title | Priority | Effort | Depends on | Status |
+|------|-------|----------|--------|------------|--------|
+| 028  | Delete/rename contracts cover new tables (FK 500s, attendance orphans, attestation cascade) | P1 | M | — | DONE (advisor/028-soft-reference-cleanup @ 4f5b3ec) |
+| 029  | Public intake hardening (length caps + per-IP rate limit) | P1 | S | — | DONE (advisor/029-public-intake-hardening @ a5098c1) |
+| 030  | Window-function first-attempt query + student-keyed indexes | P2 | S | — | DONE (advisor/030-stats-query-indexes @ fb03965) |
+| 031  | HTTP tests: attestation routes + exam-result endpoint | P1 | S | — | DONE, AMENDED (advisor/031-attestation-routes-fix @ ad95103 — see execution notes) |
+| 033  | Dependency manifest cleanup (6 removed + orphaned wrappers; next-themes kept) | P2 | S | — | DONE (advisor/033-dependency-cleanup @ 931f44c) |
+| 034  | Set studentId at calendar-event creation/edit | P1 | S | — | DONE (advisor/034-event-student-id @ 836ec64) |
+| 037  | Design spike: exam-fee billing + revenue-account mapping (doc only) | P3 | M | — | DONE (→ plans/design/exam-fee-billing.md) |
+| 032  | Shared json/err/handle across 10 route factories | P2 | M | 031 | DONE (advisor/032-http-helper-consolidation @ 98c9d1c) |
+| 035  | Batch billing: "Alle offenen Fahrstunden abrechnen" | P2 | M | 034 | DONE (advisor/035-batch-billing @ 56d885b) |
+| 036  | Printable cumulative Ausbildungsnachweis | P2 | M | 035 (soft) | DONE (advisor/036-nachweis-print @ 7f8a80e) |
+| 038  | Biome lint/format + CI cache & audit | P2 | M | 028–036 merged | DONE (advisor/038-biome-ci @ f695074) |
+| 039  | AGENTS.md / README refresh | P3 | S | all above | DONE (advisor/039-docs-refresh @ 201362c) |
+
+All twelve executed by subagents in isolated worktrees on 2026-06-13,
+each reviewed (scope check, diff read, done criteria re-run) and merged
+into **`advisor/integration-2026-06-13` @ `b84282d`** — 586 tests pass,
+typecheck + build + `biome check` green. Merge that ONE branch (single PR).
+
+### Execution notes (2026-06-13)
+
+- **Production-startup bug found and fixed during execution**: at `2ee4bbe`
+  the committed `attestationRoutes` used method-prefixed route keys
+  (`"GET /api/attestations"`), which Bun 1.3.8 rejects at `Bun.serve()`
+  construction — `buildApiRoutes()` could not start the server at all
+  (confirmed by two executors independently). Plan 031 was amended to
+  convert the keys to the nested shape first. The user's uncommitted
+  working-tree refactor of `ausbildungsnachweis.ts` was the same fix —
+  it is superseded by the integration branch and can be discarded.
+- 033 correction: the plan claimed `next-themes` was unused — wrong; it
+  powers theme detection in `src/components/ui/sonner.tsx` (used by
+  App.tsx). Kept. Six packages removed, not seven.
+- 035: `guthaben_uebertragung` books with `belegNr: null` by design
+  (receipt was issued at the Anzahlung), so the batch test asserts
+  distinct transaction ids, not receipt numbers. Unresolvable plan price →
+  batch dialog disables confirm and points to single-lesson billing.
+- 036: letterhead pulls `CompanyProfile` from `/api/profile` (same source
+  as VertragDialog) — the school-profile hook has no name/address.
+- 038: Biome 2.5.0, line width 90 (measured: fewer changed lines than 100);
+  disabled rules with reasons are listed in the executor NOTES quoted in
+  the PR description; `organizeImports` assist off (import order can change
+  module evaluation order).
+- Follow-up candidates recorded: Prüfungsplaner still creates exam events
+  without `studentId` (3-line change, out of 034's scope); calendar event
+  ids serialize as strings while `attestation.eventId` is a number
+  (cosmetic inconsistency, noted by 031's executor).
+
+Execution waves used: wave 1 = 028, 029, 030, 031, 033, 034, 037
+(parallel, base `2ee4bbe`); wave 2a = 031-amended, 035 (base `bda7af1`);
+wave 2b = 032, 036 (base `b14da79`); wave 3 = 038, 039 (base `904774a`).
+
+### Rejected in the 2026-06-13 deep audit (verified — do not re-report)
+
+- **Calendar-events storniert_by "N+1" scalar subquery** (`calendar-events.ts:109-114`):
+  per-row primary-key lookup inside one statement; fine at any realistic scale.
+- **Theory-groups per-id member/validation lookups** (`theory-groups.ts:212-289`):
+  in-process PK gets, sub-millisecond; below the established perf bar.
+- **Unauthenticated `/api/export/database`**: within the README's documented
+  no-auth posture; no CORS headers exist so browsers can't read it
+  cross-origin. Must be auth-gated by the tenancy work, which owns that.
+- **"Billed events deletable/movable without Storno"**: false — guard exists
+  (`calendar-events.ts:334-339`).
+- **radix-ui vs @base-ui/react consolidation spike**: Combobox is the only
+  @base-ui consumer and works; migration cost > payoff now.
+- **recharts exact-version pin**: left deliberately; relax only with a
+  verified test pass (note in plan 033).
+- **seed.ts / app-routes.ts / openDb-order dedicated tests**: exercised
+  indirectly by the whole suite; low value.
+- **Scheduled/matrix CI**: low value at current repo size.
+- Minor unplanned (real but below plan threshold): dead `if (!event)` in
+  `markEventBilled` (`calendar-events.ts:321-323`); unused `studentRef`
+  memo (`StundenTab.tsx:328-338`); `formatDate` triplicated
+  (`Marketing.tsx:120`, `Bewertungen.tsx:72`, `Terminanfragen.tsx:95`) —
+  fold into any future touch of those files.
+
 ## Dependency notes
 
 - 003 first: it makes `bun run test` / `bun run typecheck` the universal

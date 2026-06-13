@@ -66,11 +66,8 @@ const NEEDS_DESCRIPTION: TransactionType[] = [
   "ausgabe",
 ];
 
-function studentRef(
-  students: StudentRecord[],
-  customerNo: string
-): StudentRef | null {
-  const student = students.find(s => s.customerNumber === customerNo);
+function studentRef(students: StudentRecord[], customerNo: string): StudentRef | null {
+  const student = students.find((s) => s.customerNumber === customerNo);
   if (!student) return null;
   return {
     customerNo: student.customerNumber,
@@ -99,7 +96,7 @@ function AccountSelect({
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
-          {options.map(account => (
+          {options.map((account) => (
             <SelectItem key={account.number} value={account.number}>
               {account.number} · {account.name}
             </SelectItem>
@@ -116,6 +113,12 @@ export function PaymentDialog({
   accounts,
   onCreated,
   defaultCustomerNo,
+  defaultType,
+  defaultDate,
+  defaultAmountCents,
+  defaultDescription,
+  defaultHabenKonto,
+  onSubmitOverride,
 }: {
   open: boolean;
   onClose: () => void;
@@ -124,11 +127,31 @@ export function PaymentDialog({
   onCreated: (printableId: number | null) => void;
   /** Preselect this student (e.g. on the Fahrschüler detail page). */
   defaultCustomerNo?: string;
+  /** Prefill the transaction type (defaults to zahlung_guthaben). */
+  defaultType?: TransactionType;
+  /** Prefill the date (ISO YYYY-MM-DD). */
+  defaultDate?: string;
+  /** Prefill the amount in cents (converted to display string). */
+  defaultAmountCents?: number;
+  /** Prefill the description / Leistung field. */
+  defaultDescription?: string;
+  /** Prefill the Leistungskonto (habenKonto). */
+  defaultHabenKonto?: string;
+  /** When present, replaces the dialog's own API call with this function.
+      All validation and field-building still runs; the built
+      CreateTransactionInput is passed to this callback instead of POST
+      /api/accounting/transactions. Other call-sites that do NOT pass this
+      prop are completely unchanged. */
+  onSubmitOverride?: (input: CreateTransactionInput) => Promise<void>;
 }) {
   const { students } = useStudents();
-  const [type, setType] = useState<TransactionType>("zahlung_guthaben");
-  const [date, setDate] = useState(() => toIsoDate(new Date()));
-  const [amount, setAmount] = useState("");
+  const [type, setType] = useState<TransactionType>(defaultType ?? "zahlung_guthaben");
+  const [date, setDate] = useState(() => defaultDate ?? toIsoDate(new Date()));
+  const [amount, setAmount] = useState(() =>
+    defaultAmountCents != null
+      ? (defaultAmountCents / 100).toFixed(2).replace(".", ",")
+      : "",
+  );
   const [customerNo, setCustomerNo] = useState("");
 
   // Students load async — default to the first one once the list arrives.
@@ -138,23 +161,30 @@ export function PaymentDialog({
     }
   }, [customerNo, students, defaultCustomerNo]);
 
-  // Re-pin the preselected student whenever the dialog opens.
+  // Re-pin the preselected student and other prefill props whenever the dialog opens.
   useEffect(() => {
-    if (open && defaultCustomerNo) {
-      setCustomerNo(defaultCustomerNo);
+    if (open) {
+      if (defaultCustomerNo) setCustomerNo(defaultCustomerNo);
+      if (defaultType) setType(defaultType);
+      if (defaultDate) setDate(defaultDate);
+      if (defaultAmountCents != null)
+        setAmount((defaultAmountCents / 100).toFixed(2).replace(".", ","));
+      if (defaultDescription != null) setDescription(defaultDescription);
+      if (defaultHabenKonto) setHabenKonto(defaultHabenKonto);
     }
-  }, [open, defaultCustomerNo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("bar");
   // SKR 04 defaults: 1600 Kasse, 4400 Erlöse 19 %, 6530 Kfz-Kosten, 1800 Bank
   const [geldkonto, setGeldkonto] = useState("1600");
-  const [habenKonto, setHabenKonto] = useState("4400");
+  const [habenKonto, setHabenKonto] = useState(defaultHabenKonto ?? "4400");
   const [aufwandKonto, setAufwandKonto] = useState("6530");
   const [toKonto, setToKonto] = useState("1800");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(defaultDescription ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   const active = (kinds: Account["kind"][]) =>
-    accounts.filter(a => a.active && kinds.includes(a.kind));
+    accounts.filter((a) => a.active && kinds.includes(a.kind));
   const geldkonten = active(["geldkonto"]);
   const leistungskonten = active(["erloes", "durchlaufend"]);
   const aufwandkonten = active(["aufwand", "privat"]);
@@ -163,11 +193,11 @@ export function PaymentDialog({
 
   // Account whose VAT setting governs this booking (mirrors the engine).
   const vatAccount = useMemo(() => {
-    if (type === "zahlung_guthaben") return accounts.find(a => a.kind === "anzahlung");
+    if (type === "zahlung_guthaben") return accounts.find((a) => a.kind === "anzahlung");
     if (type === "direktzahlung" || type === "guthaben_uebertragung") {
-      return accounts.find(a => a.number === habenKonto);
+      return accounts.find((a) => a.number === habenKonto);
     }
-    if (type === "ausgabe") return accounts.find(a => a.number === aufwandKonto);
+    if (type === "ausgabe") return accounts.find((a) => a.number === aufwandKonto);
     return undefined;
   }, [type, habenKonto, aufwandKonto, accounts]);
 
@@ -178,8 +208,8 @@ export function PaymentDialog({
 
   const reset = () => {
     setAmount("");
-    setDescription("");
-    setDate(toIsoDate(new Date()));
+    setDescription(defaultDescription ?? "");
+    setDate(defaultDate ?? toIsoDate(new Date()));
   };
 
   const submit = async () => {
@@ -206,21 +236,31 @@ export function PaymentDialog({
         break;
       case "direktzahlung":
         input = {
-          type, date, amountCents, geldkonto, habenKonto, paymentMethod,
+          type,
+          date,
+          amountCents,
+          geldkonto,
+          habenKonto,
+          paymentMethod,
           student: student!,
           description: description.trim(),
         };
         break;
       case "guthaben_uebertragung":
         input = {
-          type, date, amountCents, habenKonto,
+          type,
+          date,
+          amountCents,
+          habenKonto,
           student: student!,
           description: `FS ${student!.name} - ${student!.classes}, ${description.trim()}`,
         };
         break;
       case "transfer":
         input = {
-          type, date, amountCents,
+          type,
+          date,
+          amountCents,
           fromKonto: geldkonto,
           toKonto,
           description: description.trim() || undefined,
@@ -228,7 +268,12 @@ export function PaymentDialog({
         break;
       case "ausgabe":
         input = {
-          type, date, amountCents, geldkonto, aufwandKonto, paymentMethod,
+          type,
+          date,
+          amountCents,
+          geldkonto,
+          aufwandKonto,
+          paymentMethod,
           description: description.trim(),
         };
         break;
@@ -236,24 +281,31 @@ export function PaymentDialog({
 
     setSubmitting(true);
     try {
-      const created = await accountingApi.createTransaction(input);
-      const printable = type === "zahlung_guthaben" || type === "direktzahlung";
-      toast.success(
-        created.belegNr
-          ? `Beleg ${created.belegNr} gebucht.`
-          : "Buchung erfasst.",
-        printable
-          ? {
-              action: {
-                label: "Quittung drucken",
-                onClick: () => onCreated(created.id),
-              },
-            }
-          : undefined
-      );
-      reset();
-      onClose();
-      onCreated(null);
+      if (onSubmitOverride) {
+        // Caller takes over the submit (e.g. StundenTab's bill endpoint).
+        await onSubmitOverride(input);
+        toast.success("Buchung erfasst.");
+        reset();
+        onClose();
+        onCreated(null);
+      } else {
+        const created = await accountingApi.createTransaction(input);
+        const printable = type === "zahlung_guthaben" || type === "direktzahlung";
+        toast.success(
+          created.belegNr ? `Beleg ${created.belegNr} gebucht.` : "Buchung erfasst.",
+          printable
+            ? {
+                action: {
+                  label: "Quittung drucken",
+                  onClick: () => onCreated(created.id),
+                },
+              }
+            : undefined,
+        );
+        reset();
+        onClose();
+        onCreated(null);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Buchung fehlgeschlagen.");
     } finally {
@@ -264,7 +316,7 @@ export function PaymentDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={value => {
+      onOpenChange={(value) => {
         if (!value) onClose();
       }}
     >
@@ -279,13 +331,13 @@ export function PaymentDialog({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor="tx-type">Typ</Label>
-            <Select value={type} onValueChange={v => setType(v as TransactionType)}>
+            <Select value={type} onValueChange={(v) => setType(v as TransactionType)}>
               <SelectTrigger id="tx-type" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {TYPES.map(t => (
+                  {TYPES.map((t) => (
                     <SelectItem key={t} value={t}>
                       {TRANSACTION_TYPE_LABELS[t]}
                     </SelectItem>
@@ -301,7 +353,7 @@ export function PaymentDialog({
               id="tx-date"
               type="date"
               value={date}
-              onChange={e => setDate(e.target.value)}
+              onChange={(e) => setDate(e.target.value)}
             />
           </div>
 
@@ -312,7 +364,7 @@ export function PaymentDialog({
               inputMode="decimal"
               placeholder="z. B. 409,83"
               value={amount}
-              onChange={e => setAmount(e.target.value)}
+              onChange={(e) => setAmount(e.target.value)}
             />
           </div>
 
@@ -325,10 +377,9 @@ export function PaymentDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {students.map(s => (
+                    {students.map((s) => (
                       <SelectItem key={s.customerNumber} value={s.customerNumber}>
-                        {s.firstName} {s.lastName} · {s.classes} ·{" "}
-                        {s.contractNumber}
+                        {s.firstName} {s.lastName} · {s.classes} · {s.contractNumber}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -394,10 +445,10 @@ export function PaymentDialog({
                 type="single"
                 variant="outline"
                 value={paymentMethod}
-                onValueChange={v => v && setPaymentMethod(v as PaymentMethod)}
+                onValueChange={(v) => v && setPaymentMethod(v as PaymentMethod)}
                 className="justify-start"
               >
-                {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map(m => (
+                {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((m) => (
                   <ToggleGroupItem key={m} value={m} className="px-3">
                     {PAYMENT_METHOD_LABELS[m]}
                   </ToggleGroupItem>
@@ -419,7 +470,7 @@ export function PaymentDialog({
                     : "z. B. Fahrübungsstunde (90)"
                 }
                 value={description}
-                onChange={e => setDescription(e.target.value)}
+                onChange={(e) => setDescription(e.target.value)}
               />
             </div>
           )}
@@ -431,7 +482,7 @@ export function PaymentDialog({
                 id="tx-desc-transfer"
                 placeholder="z. B. Bareinzahlung auf Bankkonto"
                 value={description}
-                onChange={e => setDescription(e.target.value)}
+                onChange={(e) => setDescription(e.target.value)}
               />
             </div>
           )}

@@ -19,6 +19,19 @@ import {
 } from "./chat";
 import { openDb } from "./db";
 import { ValidationError } from "./engine";
+import { listArchive, restoreArchived } from "./archive";
+import { createStudent, deleteStudent } from "./students";
+
+let counter = 0;
+function uniqStudent(name: string) {
+  const id = ++counter;
+  return {
+    firstName: name.split(" ")[0]!,
+    lastName: name.split(" ").slice(1).join(" ") || `Student${id}`,
+    contractNumber: `V-chat-${id}`,
+    customerNumber: `K-chat-${id}`,
+  };
+}
 
 let db: Database;
 
@@ -46,7 +59,7 @@ describe("ensureChatTables", () => {
 
   test("seed links student ids when the students table has rows", () => {
     const conversations = listConversations(db);
-    expect(conversations.some(c => c.studentId !== null)).toBe(true);
+    expect(conversations.some((c) => c.studentId !== null)).toBe(true);
   });
 
   test("works on a bare DB without a students table (plain names)", () => {
@@ -54,15 +67,15 @@ describe("ensureChatTables", () => {
     ensureChatTables(bare);
     const conversations = listConversations(bare);
     expect(conversations).toHaveLength(4);
-    expect(conversations.every(c => c.studentId === null)).toBe(true);
-    expect(conversations.every(c => c.studentName.length > 0)).toBe(true);
+    expect(conversations.every((c) => c.studentId === null)).toBe(true);
+    expect(conversations.every((c) => c.studentName.length > 0)).toBe(true);
   });
 
   test("conversations are ordered by last_message_at desc", () => {
     const conversations = listConversations(db);
     for (let i = 1; i < conversations.length; i++) {
       expect(
-        conversations[i - 1]!.lastMessageAt! >= conversations[i]!.lastMessageAt!
+        conversations[i - 1]!.lastMessageAt! >= conversations[i]!.lastMessageAt!,
       ).toBe(true);
     }
   });
@@ -70,7 +83,7 @@ describe("ensureChatTables", () => {
 
 describe("sendMessage", () => {
   test("appends a 'schule' message, bumps last_message_at and resets unread", () => {
-    const target = listConversations(db).find(c => c.unread > 0)!;
+    const target = listConversations(db).find((c) => c.unread > 0)!;
     expect(target).toBeDefined();
     const before = listMessages(db, target.id).length;
 
@@ -105,7 +118,7 @@ describe("sendMessage", () => {
 
 describe("markRead", () => {
   test("sets unread to 0", () => {
-    const target = listConversations(db).find(c => c.unread > 0)!;
+    const target = listConversations(db).find((c) => c.unread > 0)!;
     const updated = markRead(db, target.id);
     expect(updated.unread).toBe(0);
     expect(getConversation(db, target.id).unread).toBe(0);
@@ -164,16 +177,14 @@ describe("createConversation", () => {
   });
 
   test("missing name → ValidationError", () => {
-    expect(() => createConversation(db, { student_name: "  " })).toThrow(
-      ValidationError
-    );
+    expect(() => createConversation(db, { student_name: "  " })).toThrow(ValidationError);
     expect(() => createConversation(db, {})).toThrow(ValidationError);
   });
 
   test("invalid student_id → ValidationError", () => {
-    expect(() =>
-      createConversation(db, { student_id: -1, student_name: "X Y" })
-    ).toThrow(ValidationError);
+    expect(() => createConversation(db, { student_id: -1, student_name: "X Y" })).toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -187,7 +198,7 @@ describe("deleteConversation", () => {
     expect(() => getConversation(db, first!.id)).toThrow(ValidationError);
     const orphaned = db
       .query<{ n: number }, [number]>(
-        "SELECT count(*) AS n FROM chat_messages WHERE conversation_id = ?"
+        "SELECT count(*) AS n FROM chat_messages WHERE conversation_id = ?",
       )
       .get(first!.id)!.n;
     expect(orphaned).toBe(0);
@@ -195,5 +206,84 @@ describe("deleteConversation", () => {
 
   test("unknown conversation → ValidationError", () => {
     expect(() => deleteConversation(db, 9999)).toThrow(ValidationError);
+  });
+});
+
+describe("orphaned thread dedup regression", () => {
+  test("name-based lookup does not reuse an orphaned thread after student delete", () => {
+    const student = createStudent(db, uniqStudent("Anna Testmann"));
+    const name = `${student.firstName} ${student.lastName}`;
+    const original = createConversation(db, {
+      student_id: student.id,
+      student_name: name,
+    });
+    deleteStudent(db, student.id);
+
+    // New createConversation with the same name must produce a fresh thread.
+    const fresh = createConversation(db, { student_name: name });
+    expect(fresh.id).not.toBe(original.id);
+  });
+
+  test("student_id-based lookup does not reuse an orphaned thread for a new student with the same name", () => {
+    const student = createStudent(db, uniqStudent("Bernd Gleich"));
+    const name = `${student.firstName} ${student.lastName}`;
+    const original = createConversation(db, {
+      student_id: student.id,
+      student_name: name,
+    });
+    deleteStudent(db, student.id);
+
+    // Re-register a new student with the same name (different id).
+    const newStudent = createStudent(db, {
+      ...uniqStudent("Bernd Gleich"),
+      // override name parts to match
+      firstName: student.firstName,
+      lastName: student.lastName,
+    });
+    const fresh = createConversation(db, {
+      student_id: newStudent.id,
+      student_name: name,
+    });
+    expect(fresh.id).not.toBe(original.id);
+  });
+
+  test("orphaned thread is still readable as history after student delete", () => {
+    const student = createStudent(db, uniqStudent("Carla Archiv"));
+    const name = `${student.firstName} ${student.lastName}`;
+    const original = createConversation(db, {
+      student_id: student.id,
+      student_name: name,
+    });
+    sendMessage(db, original.id, "Eine alte Nachricht");
+    deleteStudent(db, student.id);
+
+    // The thread is still accessible by id.
+    const history = getConversation(db, original.id);
+    expect(history.id).toBe(original.id);
+    expect(history.studentId).toBeNull();
+    expect(listMessages(db, original.id).length).toBeGreaterThan(0);
+  });
+
+  test("restore clears orphaned flag so original thread is matched again", () => {
+    const student = createStudent(db, uniqStudent("Dirk Wiederhergestellt"));
+    const name = `${student.firstName} ${student.lastName}`;
+    const original = createConversation(db, {
+      student_id: student.id,
+      student_name: name,
+    });
+    deleteStudent(db, student.id);
+
+    // Restore from archive.
+    const entry = listArchive(db).find((e) => e.entity === "student")!;
+    expect(entry).toBeDefined();
+    restoreArchived(db, entry.id);
+
+    // After restore, createConversation with the same student_id should reuse
+    // the original thread (orphaned = 0 again).
+    const relinked = createConversation(db, {
+      student_id: student.id,
+      student_name: name,
+    });
+    expect(relinked.id).toBe(original.id);
   });
 });

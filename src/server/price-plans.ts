@@ -5,11 +5,7 @@
 
 import type { Database } from "./sqlite";
 
-import type {
-  PriceComponent,
-  PricePlanInput,
-  PricePlanRecord,
-} from "../lib/price-plan";
+import type { PriceComponent, PricePlanInput, PricePlanRecord } from "../lib/price-plan";
 import { archiveRow } from "./archive";
 import { ValidationError } from "./engine";
 
@@ -30,10 +26,7 @@ const toPlan = (row: PricePlanRow): PricePlanRecord => ({
 const SELECT = `SELECT id, name, guaranteed_months, components FROM price_plans`;
 
 export function listPricePlans(db: Database): PricePlanRecord[] {
-  return db
-    .query<PricePlanRow, []>(`${SELECT} ORDER BY id`)
-    .all()
-    .map(toPlan);
+  return db.query<PricePlanRow, []>(`${SELECT} ORDER BY id`).all().map(toPlan);
 }
 
 export function getPricePlan(db: Database, id: number): PricePlanRecord {
@@ -46,7 +39,7 @@ function normalizeComponents(input: unknown): PriceComponent[] {
   if (!Array.isArray(input)) {
     throw new ValidationError("Feld 'components' muss eine Liste sein.");
   }
-  return input.map(entry => {
+  return input.map((entry) => {
     if (typeof entry !== "object" || entry === null) {
       throw new ValidationError("Jede Preiskomponente muss ein Objekt sein.");
     }
@@ -54,20 +47,14 @@ function normalizeComponents(input: unknown): PriceComponent[] {
     if (typeof label !== "string" || !label.trim()) {
       throw new ValidationError("Jede Preiskomponente braucht eine Bezeichnung.");
     }
-    if (
-      durationMin != null &&
-      (!Number.isInteger(durationMin) || durationMin <= 0)
-    ) {
+    if (durationMin != null && (!Number.isInteger(durationMin) || durationMin <= 0)) {
       throw new ValidationError(
-        `Dauer von '${label.trim()}' muss eine positive Minutenzahl sein.`
+        `Dauer von '${label.trim()}' muss eine positive Minutenzahl sein.`,
       );
     }
-    if (
-      priceCents !== null &&
-      (!Number.isInteger(priceCents) || priceCents < 0)
-    ) {
+    if (priceCents !== null && (!Number.isInteger(priceCents) || priceCents < 0)) {
       throw new ValidationError(
-        `Preis von '${label.trim()}' muss ein Betrag in Cent (>= 0) sein.`
+        `Preis von '${label.trim()}' muss ein Betrag in Cent (>= 0) sein.`,
       );
     }
     return {
@@ -80,7 +67,7 @@ function normalizeComponents(input: unknown): PriceComponent[] {
 
 function normalize(
   input: Partial<PricePlanInput>,
-  current: PricePlanInput
+  current: PricePlanInput,
 ): PricePlanInput {
   const next: PricePlanInput = { ...current };
 
@@ -95,7 +82,7 @@ function normalize(
     const months = Number(input.guaranteedMonths);
     if (!Number.isInteger(months) || months < 0) {
       throw new ValidationError(
-        "Garantierter Zeitraum muss eine Monatszahl (>= 0) sein."
+        "Garantierter Zeitraum muss eine Monatszahl (>= 0) sein.",
       );
     }
     next.guaranteedMonths = months;
@@ -109,9 +96,7 @@ function normalize(
     throw new ValidationError("Der Name des Preisplans ist ein Pflichtfeld.");
   }
   if (next.components.length === 0) {
-    throw new ValidationError(
-      "Ein Preisplan braucht mindestens eine Preiskomponente."
-    );
+    throw new ValidationError("Ein Preisplan braucht mindestens eine Preiskomponente.");
   }
 
   return next;
@@ -125,13 +110,13 @@ const EMPTY: PricePlanInput = {
 
 export function createPricePlan(
   db: Database,
-  input: Partial<PricePlanInput>
+  input: Partial<PricePlanInput>,
 ): PricePlanRecord {
   const data = normalize(input, EMPTY);
   const row = db
     .query<{ id: number }, [string, number, string]>(
       `INSERT INTO price_plans (name, guaranteed_months, components)
-       VALUES (?, ?, ?) RETURNING id`
+       VALUES (?, ?, ?) RETURNING id`,
     )
     .get(data.name, data.guaranteedMonths, JSON.stringify(data.components))!;
   return getPricePlan(db, row.id);
@@ -140,13 +125,13 @@ export function createPricePlan(
 export function updatePricePlan(
   db: Database,
   id: number,
-  input: Partial<PricePlanInput>
+  input: Partial<PricePlanInput>,
 ): PricePlanRecord {
   const current = getPricePlan(db, id);
   const data = normalize(input, current);
   db.prepare(
     `UPDATE price_plans SET name = ?, guaranteed_months = ?, components = ?
-     WHERE id = ?`
+     WHERE id = ?`,
   ).run(data.name, data.guaranteedMonths, JSON.stringify(data.components), id);
   return getPricePlan(db, id);
 }
@@ -156,16 +141,14 @@ export function deletePricePlan(db: Database, id: number) {
   const remove = db.transaction(() => {
     // Remember who was on the plan so a restore can re-link them.
     const students = db
-      .query<{ id: number }, [number]>(
-        "SELECT id FROM students WHERE price_plan_id = ?"
-      )
+      .query<{ id: number }, [number]>("SELECT id FROM students WHERE price_plan_id = ?")
       .all(id)
-      .map(row => row.id);
+      .map((row) => row.id);
     archiveRow(db, "price_plan", id, plan.name, { students });
     // Students fall back to the default plan instead of dangling.
-    db.prepare(
-      "UPDATE students SET price_plan_id = NULL WHERE price_plan_id = ?"
-    ).run(id);
+    db.prepare("UPDATE students SET price_plan_id = NULL WHERE price_plan_id = ?").run(
+      id,
+    );
     db.prepare("DELETE FROM price_plans WHERE id = ?").run(id);
   });
   remove();

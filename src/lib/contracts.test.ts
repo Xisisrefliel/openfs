@@ -54,15 +54,11 @@ function makeStudent(overrides: Partial<StudentRecord> = {}): StudentRecord {
 
 describe("parseGermanDate", () => {
   test("parses DD.MM.YYYY", () => {
-    expect(parseGermanDate("12.05.2026")).toBe(
-      new Date(2026, 4, 12).getTime()
-    );
+    expect(parseGermanDate("12.05.2026")).toBe(new Date(2026, 4, 12).getTime());
   });
 
   test("parses with time tail like the lesson fields", () => {
-    expect(parseGermanDate("01.06.2026, 14:30")).toBe(
-      new Date(2026, 5, 1).getTime()
-    );
+    expect(parseGermanDate("01.06.2026, 14:30")).toBe(new Date(2026, 5, 1).getTime());
   });
 
   test("rejects garbage, empty, and rollover dates", () => {
@@ -108,7 +104,7 @@ describe("deriveContractRows", () => {
   test("maps student fields to contract row", () => {
     const [row] = deriveContractRows(
       [makeStudent({ id: 7, pricePlanId: 2, classes: "B, A1" })],
-      plans
+      plans,
     );
     expect(row).toMatchObject({
       studentId: 7,
@@ -121,6 +117,17 @@ describe("deriveContractRows", () => {
       status: "aktiv",
     });
     expect(row!.registrationTime).toBe(new Date(2026, 4, 12).getTime());
+  });
+
+  test("balanceCents is null when student has no ledger activity", () => {
+    const [row] = deriveContractRows([makeStudent()], plans);
+    expect(row!.balanceCents).toBeNull();
+  });
+
+  test("balanceCents is populated when balances map contains the customerNumber", () => {
+    const balances = new Map([["10057", 43500]]);
+    const [row] = deriveContractRows([makeStudent()], plans, balances);
+    expect(row!.balanceCents).toBe(43500);
   });
 });
 
@@ -136,7 +143,7 @@ describe("computeContractKpis", () => {
       }),
       makeStudent({ id: 4, registrationDate: "Nicht geplant" }),
     ],
-    plans
+    plans,
   );
 
   test("totals, status split, and this-month count", () => {
@@ -149,9 +156,7 @@ describe("computeContractKpis", () => {
   });
 
   test("same month in another year does not count", () => {
-    expect(isInMonth(new Date(2025, 5, 1).getTime(), new Date(2026, 5, 11))).toBe(
-      false
-    );
+    expect(isInMonth(new Date(2025, 5, 1).getTime(), new Date(2026, 5, 11))).toBe(false);
     expect(isInMonth(Number.NaN, new Date(2026, 5, 11))).toBe(false);
   });
 });
@@ -169,22 +174,32 @@ describe("filterContractRows", () => {
         status: "inaktiv",
       }),
     ],
-    plans
+    plans,
   );
 
   test("status filter", () => {
-    expect(filterContractRows(rows, "", "aktiv").map(row => row.studentId)).toEqual([1]);
-    expect(filterContractRows(rows, "", "inaktiv").map(row => row.studentId)).toEqual([2]);
+    expect(filterContractRows(rows, "", "aktiv").map((row) => row.studentId)).toEqual([
+      1,
+    ]);
+    expect(filterContractRows(rows, "", "inaktiv").map((row) => row.studentId)).toEqual([
+      2,
+    ]);
     expect(filterContractRows(rows, "", "alle")).toHaveLength(2);
   });
 
   test("search by name (case-insensitive)", () => {
-    expect(filterContractRows(rows, "keller", "alle").map(row => row.studentId)).toEqual([2]);
+    expect(
+      filterContractRows(rows, "keller", "alle").map((row) => row.studentId),
+    ).toEqual([2]);
   });
 
   test("search by contract and customer number", () => {
-    expect(filterContractRows(rows, "V-2026-1042", "alle").map(row => row.studentId)).toEqual([1]);
-    expect(filterContractRows(rows, "10090", "alle").map(row => row.studentId)).toEqual([2]);
+    expect(
+      filterContractRows(rows, "V-2026-1042", "alle").map((row) => row.studentId),
+    ).toEqual([1]);
+    expect(filterContractRows(rows, "10090", "alle").map((row) => row.studentId)).toEqual(
+      [2],
+    );
   });
 
   test("status still applies while searching", () => {

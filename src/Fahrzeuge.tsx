@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Car, Cog, Fuel, Gauge, Pencil, Plus, ShieldCheck, Trash2, User, Wrench } from "lucide-react";
+import {
+  Car,
+  Cog,
+  Fuel,
+  Gauge,
+  Pencil,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  User,
+  Wrench,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "./components/PageHeader.tsx";
@@ -81,8 +92,8 @@ const detailLabels = {
 const DEFAULT_ICON = Wrench;
 
 function mapVehicleDetails(details: VehicleDetail[]): Detail[] {
-  const values = new Map(details.map(item => [item.label, item.value]));
-  return Object.values(detailLabels).map(label => ({
+  const values = new Map(details.map((item) => [item.label, item.value]));
+  return Object.values(detailLabels).map((label) => ({
     Icon: detailIcons[label] ?? DEFAULT_ICON,
     label,
     value: values.get(label) ?? "",
@@ -104,7 +115,7 @@ function createEmptyVehicle(): Vehicle {
     klass: "",
     status: "aktiv",
     accent: "bg-slate-500/10 text-slate-600",
-    details: Object.values(detailLabels).map(label => ({
+    details: Object.values(detailLabels).map((label) => ({
       Icon: detailIcons[label] ?? DEFAULT_ICON,
       label,
       value: label === "Fahrlehrer/in" ? "Nicht zugeteilt" : "",
@@ -119,7 +130,7 @@ function toApiPayload(vehicle: Vehicle) {
     klass: vehicle.klass,
     status: vehicle.status,
     accent: vehicle.accent,
-    details: vehicle.details.map(detail => ({
+    details: vehicle.details.map((detail) => ({
       label: detail.label,
       value: detail.value,
     })),
@@ -128,7 +139,7 @@ function toApiPayload(vehicle: Vehicle) {
 
 function vehicleToDraft(vehicle: Vehicle): VehicleDraft {
   const detailValue = (label: string) =>
-    vehicle.details.find(detail => detail.label === label)?.value ?? "";
+    vehicle.details.find((detail) => detail.label === label)?.value ?? "";
 
   return {
     model: vehicle.model,
@@ -160,7 +171,7 @@ function applyDraft(vehicle: Vehicle, draft: VehicleDraft): Vehicle {
     plate: draft.plate,
     klass: draft.klass,
     status: draft.status,
-    details: vehicle.details.map(detail => ({
+    details: vehicle.details.map((detail) => ({
       ...detail,
       value: detailValues.get(detail.label) ?? detail.value,
     })),
@@ -188,11 +199,8 @@ function VehicleEditDialog({
     setDraft(open && vehicle ? vehicleToDraft(vehicle) : null);
   }, [open, vehicle?.id]);
 
-  function update<Key extends keyof VehicleDraft>(
-    key: Key,
-    value: VehicleDraft[Key]
-  ) {
-    setDraft(current => (current ? { ...current, [key]: value } : current));
+  function update<Key extends keyof VehicleDraft>(key: Key, value: VehicleDraft[Key]) {
+    setDraft((current) => (current ? { ...current, [key]: value } : current));
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -226,7 +234,7 @@ function VehicleEditDialog({
             <Input
               id="vehicle-model"
               value={draft.model}
-              onChange={event => update("model", event.target.value)}
+              onChange={(event) => update("model", event.target.value)}
             />
           </Field>
           <Field>
@@ -234,7 +242,7 @@ function VehicleEditDialog({
             <Input
               id="vehicle-plate"
               value={draft.plate}
-              onChange={event => update("plate", event.target.value)}
+              onChange={(event) => update("plate", event.target.value)}
             />
           </Field>
           <Field>
@@ -242,16 +250,14 @@ function VehicleEditDialog({
             <Input
               id="vehicle-class"
               value={draft.klass}
-              onChange={event => update("klass", event.target.value)}
+              onChange={(event) => update("klass", event.target.value)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="vehicle-status">Status</FieldLabel>
             <Select
               value={draft.status}
-              onValueChange={value =>
-                update("status", value as Vehicle["status"])
-              }
+              onValueChange={(value) => update("status", value as Vehicle["status"])}
             >
               <SelectTrigger id="vehicle-status" className="w-full">
                 <SelectValue />
@@ -269,7 +275,7 @@ function VehicleEditDialog({
             <Input
               id="vehicle-gearbox"
               value={draft.gearbox}
-              onChange={event => update("gearbox", event.target.value)}
+              onChange={(event) => update("gearbox", event.target.value)}
             />
           </Field>
           <Field>
@@ -277,7 +283,7 @@ function VehicleEditDialog({
             <Input
               id="vehicle-fuel"
               value={draft.fuel}
-              onChange={event => update("fuel", event.target.value)}
+              onChange={(event) => update("fuel", event.target.value)}
             />
           </Field>
           <Field>
@@ -285,14 +291,14 @@ function VehicleEditDialog({
             <Input
               id="vehicle-mileage"
               value={draft.mileage}
-              onChange={event => update("mileage", event.target.value)}
+              onChange={(event) => update("mileage", event.target.value)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="vehicle-instructor">Fahrlehrer/in</FieldLabel>
             <Select
               value={draft.instructor}
-              onValueChange={value => update("instructor", value)}
+              onValueChange={(value) => update("instructor", value)}
             >
               <SelectTrigger id="vehicle-instructor" className="w-full">
                 <SelectValue />
@@ -302,7 +308,7 @@ function VehicleEditDialog({
                   {(instructorOptions.includes(draft.instructor)
                     ? instructorOptions
                     : [draft.instructor, ...instructorOptions]
-                  ).map(option => (
+                  ).map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
                     </SelectItem>
@@ -316,7 +322,7 @@ function VehicleEditDialog({
             <Input
               id="vehicle-inspection"
               value={draft.inspection}
-              onChange={event => update("inspection", event.target.value)}
+              onChange={(event) => update("inspection", event.target.value)}
             />
           </Field>
           <Field>
@@ -324,7 +330,7 @@ function VehicleEditDialog({
             <Input
               id="vehicle-insurance"
               value={draft.insurance}
-              onChange={event => update("insurance", event.target.value)}
+              onChange={(event) => update("insurance", event.target.value)}
             />
           </Field>
         </FieldGroup>
@@ -370,7 +376,7 @@ function VehicleCard({
           <div
             className={cn(
               "flex size-11 shrink-0 items-center justify-center rounded-lg",
-              vehicle.accent
+              vehicle.accent,
             )}
           >
             <Car className="size-6" />
@@ -437,20 +443,16 @@ export function Fahrzeuge() {
   const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
   const [isCreateVehicleOpen, setIsCreateVehicleOpen] = useState(false);
   const emptyVehicle = useMemo(() => createEmptyVehicle(), []);
-  const vehicleList = useMemo(
-    () => storedVehicles.map(toVehicle),
-    [storedVehicles]
-  );
+  const vehicleList = useMemo(() => storedVehicles.map(toVehicle), [storedVehicles]);
   const editingMode: "create" | "edit" = isCreateVehicleOpen ? "create" : "edit";
-  const editingVehicle =
-    isCreateVehicleOpen
-      ? emptyVehicle
-      : vehicleList.find(vehicle => vehicle.id === editingVehicleId) ?? null;
+  const editingVehicle = isCreateVehicleOpen
+    ? emptyVehicle
+    : (vehicleList.find((vehicle) => vehicle.id === editingVehicleId) ?? null);
   const isDialogOpen = editingMode === "create" || editingVehicleId !== null;
 
   async function removeVehicle(vehicle: Vehicle) {
     const confirmed = window.confirm(
-      `"${vehicle.model}" (${vehicle.plate}) wirklich löschen? Zugeordnete Schüler und Fahrlehrer werden auf „Nicht zugeteilt“ gesetzt.`
+      `"${vehicle.model}" (${vehicle.plate}) wirklich löschen? Zugeordnete Schüler und Fahrlehrer werden auf „Nicht zugeteilt“ gesetzt.`,
     );
     if (!confirmed) return;
 
@@ -459,9 +461,7 @@ export function Fahrzeuge() {
       await refresh();
       toast.success("Fahrzeug gelöscht.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Löschen fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     } finally {
       if (editingVehicleId === vehicle.id) {
         setEditingVehicleId(null);
@@ -490,8 +490,10 @@ export function Fahrzeuge() {
 
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="stagger-in grid gap-4 md:grid-cols-2 2xl:gap-5">
-          {loading && <div className="text-sm text-muted-foreground">Lade Fahrzeuge…</div>}
-          {vehicleList.map(vehicle => (
+          {loading && (
+            <div className="text-sm text-muted-foreground">Lade Fahrzeuge…</div>
+          )}
+          {vehicleList.map((vehicle) => (
             <VehicleCard
               key={vehicle.id}
               vehicle={vehicle}
@@ -507,13 +509,13 @@ export function Fahrzeuge() {
         instructorOptions={instructorOptions}
         mode={editingMode}
         open={isDialogOpen && editingVehicle !== null}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) {
             setEditingVehicleId(null);
             setIsCreateVehicleOpen(false);
           }
         }}
-        onSave={async updatedVehicle => {
+        onSave={async (updatedVehicle) => {
           if (editingMode === "create") {
             await createVehicle(toApiPayload(updatedVehicle));
           } else if (editingVehicleId !== null) {

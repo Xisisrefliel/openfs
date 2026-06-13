@@ -19,10 +19,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import type {
-  StudentDocument,
-  UploadedStudentDocument,
-} from "@/lib/student-data";
+import type { StudentDocument, UploadedStudentDocument } from "@/lib/student-data";
 import {
   fileToStudentDocument,
   getStudentDocumentKey,
@@ -52,12 +49,10 @@ function PdfThumbnail({ dataUrl }: { dataUrl: string }) {
     let url: string | null = null;
     let cancelled = false;
     void fetch(dataUrl)
-      .then(response => response.blob())
-      .then(blob => {
+      .then((response) => response.blob())
+      .then((blob) => {
         if (cancelled) return;
-        url = URL.createObjectURL(
-          blob.slice(0, blob.size, "application/pdf")
-        );
+        url = URL.createObjectURL(blob.slice(0, blob.size, "application/pdf"));
         setBlobUrl(url);
       })
       .catch(() => {});
@@ -88,11 +83,7 @@ function PdfThumbnail({ dataUrl }: { dataUrl: string }) {
   );
 }
 
-function UploadedDocumentPreview({
-  document,
-}: {
-  document: UploadedStudentDocument;
-}) {
+function UploadedDocumentPreview({ document }: { document: UploadedStudentDocument }) {
   if (document.mimeType.startsWith("image/")) {
     return (
       <img
@@ -140,25 +131,18 @@ export function DokumenteTab({
   student: StudentRecord;
   onSave: (updates: Partial<StudentEdit>) => Promise<void>;
 }) {
-  const [vertragStudent, setVertragStudent] = useState<StudentRecord | null>(
-    null
-  );
+  const [vertragStudent, setVertragStudent] = useState<StudentRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [documentInput, setDocumentInput] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const saveDocuments = async (
-    documents: StudentDocument[],
-    successMessage: string
-  ) => {
+  const saveDocuments = async (documents: StudentDocument[], successMessage: string) => {
     setSaving(true);
     try {
       await onSave({ documents });
       toast.success(successMessage);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Speichern fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Speichern fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
@@ -173,7 +157,7 @@ export function DokumenteTab({
     }
     await saveDocuments(
       [...student.documents, nextDocument],
-      `„${nextDocument}" hinzugefügt.`
+      `„${nextDocument}" hinzugefügt.`,
     );
     setDocumentInput("");
   };
@@ -183,45 +167,39 @@ export function DokumenteTab({
     event.currentTarget.value = "";
     if (files.length === 0) return;
 
-    const tooLarge = files.find(file => file.size > MAX_STUDENT_DOCUMENT_BYTES);
+    const tooLarge = files.find((file) => file.size > MAX_STUDENT_DOCUMENT_BYTES);
     if (tooLarge) {
-      toast.error(
-        `„${tooLarge.name}" ist größer als 12 MB und wurde nicht hochgeladen.`
-      );
+      toast.error(`„${tooLarge.name}" ist größer als 12 MB und wurde nicht hochgeladen.`);
       return;
     }
 
-    const duplicates = files.filter(file =>
-      hasStudentDocumentNamed(student.documents, file.name)
+    const duplicates = files.filter((file) =>
+      hasStudentDocumentNamed(student.documents, file.name),
     );
     if (duplicates.length > 0) {
       toast.info(
         duplicates.length === 1
           ? `„${duplicates[0]!.name}" ist bereits hinterlegt.`
-          : `${duplicates.length} Dateien sind bereits hinterlegt.`
+          : `${duplicates.length} Dateien sind bereits hinterlegt.`,
       );
     }
 
     const newFiles = files.filter(
-      file => !hasStudentDocumentNamed(student.documents, file.name)
+      (file) => !hasStudentDocumentNamed(student.documents, file.name),
     );
     if (newFiles.length === 0) return;
 
     setSaving(true);
     try {
-      const uploadedDocuments = await Promise.all(
-        newFiles.map(fileToStudentDocument)
-      );
+      const uploadedDocuments = await Promise.all(newFiles.map(fileToStudentDocument));
       await onSave({ documents: [...student.documents, ...uploadedDocuments] });
       toast.success(
         uploadedDocuments.length === 1
           ? `„${uploadedDocuments[0]!.name}" hochgeladen.`
-          : `${uploadedDocuments.length} Dokumente hochgeladen.`
+          : `${uploadedDocuments.length} Dokumente hochgeladen.`,
       );
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Upload fehlgeschlagen."
-      );
+      toast.error(error instanceof Error ? error.message : "Upload fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
@@ -232,9 +210,9 @@ export function DokumenteTab({
       student.documents.filter(
         (document, documentIndex) =>
           getStudentDocumentKey(document, documentIndex) !==
-          getStudentDocumentKey(documentToRemove, index)
+          getStudentDocumentKey(documentToRemove, index),
       ),
-      `„${getStudentDocumentName(documentToRemove)}" entfernt.`
+      `„${getStudentDocumentName(documentToRemove)}" entfernt.`,
     );
 
   const downloadDocument = (documentToDownload: StudentDocument) => {
@@ -253,9 +231,7 @@ export function DokumenteTab({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       {/* Contract — generated document, printable */}
       <div className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Vertragsdokumente
-        </h3>
+        <h3 className="text-sm font-medium text-muted-foreground">Vertragsdokumente</h3>
         <div className="flex items-center gap-3 rounded-lg border bg-card p-3">
           <DocumentTile>
             <FileText className="size-5 text-muted-foreground" />
@@ -376,8 +352,8 @@ export function DokumenteTab({
         <div className="flex flex-col gap-2 pt-1 sm:flex-row">
           <Input
             value={documentInput}
-            onChange={event => setDocumentInput(event.target.value)}
-            onKeyDown={event => {
+            onChange={(event) => setDocumentInput(event.target.value)}
+            onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
                 void addDocument();
@@ -398,10 +374,7 @@ export function DokumenteTab({
         </div>
       </div>
 
-      <VertragDialog
-        student={vertragStudent}
-        onClose={() => setVertragStudent(null)}
-      />
+      <VertragDialog student={vertragStudent} onClose={() => setVertragStudent(null)} />
     </div>
   );
 }

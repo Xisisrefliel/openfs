@@ -27,47 +27,44 @@ export type Vehicle = {
 type VehicleInput = Omit<Vehicle, "id">;
 
 export async function fetchVehicles(): Promise<Vehicle[]> {
-  const data = await parseOrThrow<{ vehicles: Vehicle[] }>(
-    await fetch("/api/vehicles")
-  );
+  const data = await parseOrThrow<{ vehicles: Vehicle[] }>(await fetch("/api/vehicles"));
   return data.vehicles;
 }
 
-export async function createVehicle(
-  input: Partial<VehicleInput>
-): Promise<Vehicle> {
+export async function createVehicle(input: Partial<VehicleInput>): Promise<Vehicle> {
   return parseOrThrow<Vehicle>(
     await fetch("/api/vehicles", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function updateVehicle(
   id: number,
-  input: Partial<VehicleInput>
+  input: Partial<VehicleInput>,
 ): Promise<Vehicle> {
   return parseOrThrow<Vehicle>(
     await fetch(`/api/vehicles/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function deleteVehicle(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/vehicles/${id}`, { method: "DELETE" })
+    await fetch(`/api/vehicles/${id}`, { method: "DELETE" }),
   );
 }
 
 export function useVehicles() {
-  const { items: vehicles, loading, refresh } = useFetchList(
-    fetchVehicles,
-    "Fahrzeuge konnten nicht geladen werden"
-  );
+  const {
+    items: vehicles,
+    loading,
+    refresh,
+  } = useFetchList(fetchVehicles, "Fahrzeuge konnten nicht geladen werden");
   return { vehicles, loading, refresh };
 }

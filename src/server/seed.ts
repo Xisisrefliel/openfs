@@ -26,7 +26,7 @@ function ref(student: Student): StudentRef {
 }
 
 function byName(lastName: string): Student {
-  const student = students.find(s => s.lastName === lastName);
+  const student = students.find((s) => s.lastName === lastName);
   if (!student) throw new Error(`Seed: Fahrschüler ${lastName} fehlt.`);
   return student;
 }

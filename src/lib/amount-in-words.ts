@@ -6,15 +6,40 @@
 /* ------------------------------------------------------------------ */
 
 const UNITS = [
-  "", "ein", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun",
+  "",
+  "ein",
+  "zwei",
+  "drei",
+  "vier",
+  "fünf",
+  "sechs",
+  "sieben",
+  "acht",
+  "neun",
 ];
 const TEENS = [
-  "zehn", "elf", "zwölf", "dreizehn", "vierzehn", "fünfzehn", "sechzehn",
-  "siebzehn", "achtzehn", "neunzehn",
+  "zehn",
+  "elf",
+  "zwölf",
+  "dreizehn",
+  "vierzehn",
+  "fünfzehn",
+  "sechzehn",
+  "siebzehn",
+  "achtzehn",
+  "neunzehn",
 ];
 const TENS = [
-  "", "", "zwanzig", "dreißig", "vierzig", "fünfzig", "sechzig", "siebzig",
-  "achtzig", "neunzig",
+  "",
+  "",
+  "zwanzig",
+  "dreißig",
+  "vierzig",
+  "fünfzig",
+  "sechzig",
+  "siebzig",
+  "achtzig",
+  "neunzig",
 ];
 
 /** 0-999 as German words; 1 stays "ein" (caller decides ein/eins). */
@@ -38,7 +63,7 @@ function belowThousand(n: number): string {
  */
 export function numberToGermanWords(
   n: number,
-  { finalEin = false }: { finalEin?: boolean } = {}
+  { finalEin = false }: { finalEin?: boolean } = {},
 ): string {
   if (!Number.isInteger(n) || n < 0 || n > 999_999) {
     throw new Error(`Zahl außerhalb des Wortbereichs: ${n}`);

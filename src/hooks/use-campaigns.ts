@@ -38,46 +38,45 @@ export type CampaignInput = Omit<Campaign, "id" | "createdAt">;
 
 export async function fetchCampaigns(): Promise<Campaign[]> {
   const data = await parseOrThrow<{ campaigns: Campaign[] }>(
-    await fetch("/api/campaigns")
+    await fetch("/api/campaigns"),
   );
   return data.campaigns;
 }
 
-export async function createCampaign(
-  input: Partial<CampaignInput>
-): Promise<Campaign> {
+export async function createCampaign(input: Partial<CampaignInput>): Promise<Campaign> {
   return parseOrThrow<Campaign>(
     await fetch("/api/campaigns", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function updateCampaign(
   id: number,
-  input: Partial<CampaignInput>
+  input: Partial<CampaignInput>,
 ): Promise<Campaign> {
   return parseOrThrow<Campaign>(
     await fetch(`/api/campaigns/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    })
+    }),
   );
 }
 
 export async function deleteCampaign(id: number): Promise<void> {
   await parseOrThrow<{ ok: true }>(
-    await fetch(`/api/campaigns/${id}`, { method: "DELETE" })
+    await fetch(`/api/campaigns/${id}`, { method: "DELETE" }),
   );
 }
 
 export function useCampaigns() {
-  const { items: campaigns, loading, refresh } = useFetchList(
-    fetchCampaigns,
-    "Kampagnen konnten nicht geladen werden"
-  );
+  const {
+    items: campaigns,
+    loading,
+    refresh,
+  } = useFetchList(fetchCampaigns, "Kampagnen konnten nicht geladen werden");
   return { campaigns, loading, refresh };
 }
