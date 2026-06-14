@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  BarChart3,
-  Euro,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Megaphone,
   Pause,
   Pencil,
   Play,
   Plus,
-  Target,
   Trash2,
-  UserPlus,
-  Users,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { toast } from "sonner";
@@ -40,7 +38,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -48,8 +45,6 @@ import {
 } from "@/components/ui/card";
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -74,9 +69,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatCents, formatEuro, parseEuroToCents } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { panelCardClass, panelHeaderClass } from "./components/Panel.tsx";
 
 /* ------------------------------------------------------------------ */
 /* Constants & helpers                                                  */
@@ -92,28 +95,28 @@ const CHANNELS: CampaignChannel[] = [
   "Webseite",
 ];
 
-const channelAccents: Record<CampaignChannel, string> = {
-  "Google Ads": "bg-amber-500/10 text-amber-600",
-  Instagram: "bg-pink-500/10 text-pink-600",
-  Facebook: "bg-blue-500/10 text-blue-600",
-  TikTok: "bg-cyan-500/10 text-cyan-600",
-  Flyer: "bg-orange-500/10 text-orange-600",
-  Empfehlung: "bg-emerald-500/10 text-emerald-600",
-  Webseite: "bg-sky-500/10 text-sky-600",
-};
-
 const statusLabels: Record<CampaignStatus, string> = {
   aktiv: "Aktiv",
   pausiert: "Pausiert",
   beendet: "Beendet",
 };
 
+const statusDot: Record<CampaignStatus, string> = {
+  aktiv: "bg-green-500",
+  pausiert: "bg-amber-500",
+  beendet: "bg-muted-foreground/50",
+};
+
 function StatusBadge({ status }: { status: CampaignStatus }) {
   return (
     <Badge
-      variant={status === "aktiv" ? "secondary" : "outline"}
-      className={cn(status === "pausiert" && "text-muted-foreground")}
+      variant="outline"
+      className={cn(
+        "gap-1.5 font-normal",
+        status === "beendet" && "text-muted-foreground",
+      )}
     >
+      <span aria-hidden className={cn("size-1.5 rounded-full", statusDot[status])} />
       {statusLabels[status]}
     </Badge>
   );
@@ -137,19 +140,20 @@ function costPerLeadCents(spentCents: number, leads: number): number | null {
 }
 
 /* ------------------------------------------------------------------ */
-/* KPI cards                                                            */
+/* Header stats                                                         */
 /* ------------------------------------------------------------------ */
 
-type Kpi = {
-  Icon: React.ComponentType<{ className?: string }>;
-  accent: string;
-  label: string;
-  value: string;
-  hint: string;
-  progress?: number;
+type CampaignTotals = {
+  totalBudget: number;
+  totalSpent: number;
+  totalLeads: number;
+  totalSignups: number;
+  spentPct: number;
+  conversion: number;
+  costPerLead: number | null;
 };
 
-function KpiCards({ campaigns }: { campaigns: Campaign[] }) {
+function getCampaignTotals(campaigns: Campaign[]): CampaignTotals {
   const totalBudget = campaigns.reduce((s, c) => s + c.budgetCents, 0);
   const totalSpent = campaigns.reduce((s, c) => s + c.spentCents, 0);
   const totalLeads = campaigns.reduce((s, c) => s + c.leads, 0);
@@ -157,65 +161,60 @@ function KpiCards({ campaigns }: { campaigns: Campaign[] }) {
   const spentPct =
     totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 0;
   const conversion = totalLeads > 0 ? Math.round((totalSignups / totalLeads) * 100) : 0;
-  const cpl = costPerLeadCents(totalSpent, totalLeads);
+  const costPerLead = costPerLeadCents(totalSpent, totalLeads);
 
-  const kpis: Kpi[] = [
+  return {
+    totalBudget,
+    totalSpent,
+    totalLeads,
+    totalSignups,
+    spentPct,
+    conversion,
+    costPerLead,
+  };
+}
+
+function HeaderStats({ totals }: { totals: CampaignTotals }) {
+  const stats = [
     {
-      Icon: Euro,
-      accent: "bg-emerald-500/10 text-emerald-600",
       label: "Budget",
-      value: formatEuro(totalBudget),
-      hint: `${formatEuro(totalSpent)} ausgegeben (${spentPct} %)`,
-      progress: spentPct,
+      value: formatEuro(totals.totalBudget),
+      hint: `${formatEuro(totals.totalSpent)} genutzt`,
     },
     {
-      Icon: Users,
-      accent: "bg-sky-500/10 text-sky-600",
       label: "Leads",
-      value: String(totalLeads),
-      hint: `aus ${campaigns.length} Kampagnen`,
+      value: String(totals.totalLeads),
+      hint: "gesamt",
     },
     {
-      Icon: UserPlus,
-      accent: "bg-violet-500/10 text-violet-600",
       label: "Anmeldungen",
-      value: String(totalSignups),
-      hint: `${conversion} % Conversion`,
+      value: String(totals.totalSignups),
+      hint: `${totals.conversion} % Quote`,
     },
     {
-      Icon: Target,
-      accent: "bg-amber-500/10 text-amber-600",
       label: "Kosten pro Lead",
-      value: cpl === null ? "–" : formatEuro(cpl),
-      hint: "Ausgaben ÷ Leads",
+      value: totals.costPerLead === null ? "–" : formatEuro(totals.costPerLead),
+      hint: `${totals.spentPct} % Budget`,
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:gap-5">
-      {kpis.map(({ Icon, accent, label, value, hint, progress }) => (
-        <Card key={label}>
-          <CardHeader>
-            <CardDescription className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "flex size-6 items-center justify-center rounded-md",
-                  accent,
-                )}
-              >
-                <Icon className="size-3.5" />
-              </span>
-              {label}
-            </CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {progress !== undefined && <Progress value={progress} />}
-            <p className="text-xs text-muted-foreground">{hint}</p>
-          </CardContent>
-        </Card>
+    <dl className="hidden items-center divide-x divide-border/70 2xl:flex">
+      {stats.map(({ label, value, hint }) => (
+        <div
+          key={label}
+          className="flex min-w-0 flex-col gap-1 px-4 first:pl-2 last:pr-2"
+        >
+          <dt className="text-[11px] font-medium leading-none whitespace-nowrap text-muted-foreground">
+            {label}
+          </dt>
+          <dd className="flex items-baseline gap-1.5 leading-none whitespace-nowrap">
+            <span className="text-sm font-semibold tabular-nums">{value}</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{hint}</span>
+          </dd>
+        </div>
       ))}
-    </div>
+    </dl>
   );
 }
 
@@ -228,45 +227,162 @@ const chartConfig = {
   signups: { label: "Anmeldungen", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
-function ChannelChart({ campaigns }: { campaigns: Campaign[] }) {
-  const chartData = useMemo(
-    () =>
-      CHANNELS.map((channel) => {
-        const inChannel = campaigns.filter((c) => c.channel === channel);
-        return {
-          channel,
-          leads: inChannel.reduce((s, c) => s + c.leads, 0),
-          signups: inChannel.reduce((s, c) => s + c.signups, 0),
-        };
-      }).filter((row) => row.leads > 0 || row.signups > 0),
-    [campaigns],
+type ChannelPerformance = {
+  channel: CampaignChannel;
+  campaigns: number;
+  leads: number;
+  signups: number;
+  spentCents: number;
+  conversion: number;
+  costPerLead: number | null;
+};
+
+function getChannelPerformance(campaigns: Campaign[]): ChannelPerformance[] {
+  return CHANNELS.map((channel) => {
+    const inChannel = campaigns.filter((campaign) => campaign.channel === channel);
+    const leads = inChannel.reduce((sum, campaign) => sum + campaign.leads, 0);
+    const signups = inChannel.reduce((sum, campaign) => sum + campaign.signups, 0);
+    const spentCents = inChannel.reduce((sum, campaign) => sum + campaign.spentCents, 0);
+
+    return {
+      channel,
+      campaigns: inChannel.length,
+      leads,
+      signups,
+      spentCents,
+      conversion: leads > 0 ? Math.round((signups / leads) * 100) : 0,
+      costPerLead: costPerLeadCents(spentCents, leads),
+    };
+  }).filter(
+    (channel) => channel.leads > 0 || channel.signups > 0 || channel.campaigns > 0,
   );
+}
+
+function ChannelChart({ campaigns }: { campaigns: Campaign[] }) {
+  const chartData = useMemo(() => getChannelPerformance(campaigns), [campaigns]);
+  const rankedChannels = useMemo(
+    () =>
+      chartData
+        .toSorted((left, right) =>
+          right.leads === left.leads
+            ? right.signups - left.signups
+            : right.leads - left.leads,
+        )
+        .slice(0, 3),
+    [chartData],
+  );
+  const totals = getCampaignTotals(campaigns);
+  const maxLeads = Math.max(...rankedChannels.map((channel) => channel.leads), 1);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <span className="flex size-6 items-center justify-center rounded-md bg-sky-500/10 text-sky-600">
-            <BarChart3 className="size-3.5" />
-          </span>
-          Leads nach Kanal
-        </CardTitle>
-        <CardDescription>Leads und Anmeldungen über alle Kampagnen</CardDescription>
+    <Card className={cn(panelCardClass, "gap-0")}>
+      <CardHeader className={cn(panelHeaderClass, "gap-2")}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="text-sm font-medium">Kanalperformance</CardTitle>
+            <CardDescription>
+              <span className="tabular-nums">{totals.totalLeads}</span> Leads ·{" "}
+              <span className="tabular-nums">{totals.totalSignups}</span> Anmeldungen
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="size-2 rounded-[2px] bg-chart-1" />
+              Leads
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="size-2 rounded-[2px] bg-chart-2" />
+              Anmeldungen
+            </span>
+          </div>
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         {chartData.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Noch keine Leads erfasst.</p>
+          <div className="flex min-h-[240px] flex-col items-center justify-center gap-1 text-center">
+            <Megaphone className="size-5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              Noch keine Leads erfasst
+            </span>
+          </div>
         ) : (
-          <ChartContainer config={chartConfig} className="h-[240px] w-full 2xl:h-[300px]">
-            <BarChart data={chartData} margin={{ top: 8, left: 0, right: 0, bottom: 0 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="channel" tickLine={false} axisLine={false} tickMargin={8} />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-              <ChartLegend content={<ChartLegendContent />} />
-              <Bar dataKey="leads" fill="var(--color-leads)" radius={6} />
-              <Bar dataKey="signups" fill="var(--color-signups)" radius={6} />
-            </BarChart>
-          </ChartContainer>
+          <div className="grid min-h-[300px] xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="min-w-0 p-4 2xl:p-5">
+              <ChartContainer config={chartConfig} className="h-[280px] w-full">
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 8, left: 0, right: 0, bottom: 0 }}
+                  barCategoryGap="28%"
+                >
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="channel"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                  <Bar
+                    dataKey="leads"
+                    fill="var(--color-leads)"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={46}
+                  />
+                  <Bar
+                    dataKey="signups"
+                    fill="var(--color-signups)"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={46}
+                  />
+                </BarChart>
+              </ChartContainer>
+            </div>
+
+            <div className="border-t border-border/70 bg-muted/15 p-4 xl:border-t-0 xl:border-l">
+              <div className="mb-2.5 flex items-baseline justify-between gap-3">
+                <h3 className="text-sm font-medium">Stärkste Kanäle</h3>
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  nach Leads
+                </span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {rankedChannels.map((channel) => (
+                  <div
+                    key={channel.channel}
+                    className="rounded-md border border-border/70 bg-background/70 px-3 py-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">
+                          {channel.channel}
+                        </div>
+                        <div className="mt-1 text-xs tabular-nums text-muted-foreground">
+                          {channel.signups} Anmeldungen · {channel.conversion} % Quote
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium tabular-nums">
+                          {channel.leads}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">Leads</div>
+                      </div>
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-3">
+                      <Progress
+                        value={Math.round((channel.leads / maxLeads) * 100)}
+                        className="h-1"
+                      />
+                      <span className="w-20 text-right text-xs tabular-nums text-muted-foreground">
+                        {channel.costPerLead === null
+                          ? "–"
+                          : formatEuro(channel.costPerLead)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -544,117 +660,329 @@ function CampaignEditDialog({
 }
 
 /* ------------------------------------------------------------------ */
-/* Campaign card                                                        */
+/* Campaign table                                                       */
 /* ------------------------------------------------------------------ */
 
-function CampaignCard({
-  campaign,
+type CampaignSortKey =
+  | "name"
+  | "channel"
+  | "status"
+  | "startDate"
+  | "budget"
+  | "result"
+  | "costPerLead";
+type SortDirection = "asc" | "desc";
+
+const campaignSortLabels: Record<CampaignSortKey, string> = {
+  name: "Kampagne",
+  channel: "Kanal",
+  status: "Status",
+  startDate: "Laufzeit",
+  budget: "Budget",
+  result: "Ergebnis",
+  costPerLead: "Kosten/Lead",
+};
+
+const statusSortRank: Record<CampaignStatus, number> = {
+  aktiv: 0,
+  pausiert: 1,
+  beendet: 2,
+};
+
+function getCampaignSortValue(campaign: Campaign, sortKey: CampaignSortKey) {
+  if (sortKey === "channel") return CHANNELS.indexOf(campaign.channel);
+  if (sortKey === "status") return statusSortRank[campaign.status];
+  if (sortKey === "startDate") return Date.parse(campaign.startDate);
+  if (sortKey === "budget") return campaign.budgetCents;
+  if (sortKey === "result") return campaign.leads;
+  if (sortKey === "costPerLead") {
+    return (
+      costPerLeadCents(campaign.spentCents, campaign.leads) ?? Number.POSITIVE_INFINITY
+    );
+  }
+
+  return campaign.name;
+}
+
+function getCampaignTieBreakValue(campaign: Campaign, sortKey: CampaignSortKey) {
+  if (sortKey === "budget") return campaign.spentCents;
+  if (sortKey === "result") return campaign.signups;
+  if (sortKey === "costPerLead") return campaign.leads;
+  if (sortKey === "startDate") {
+    return campaign.endDate ? Date.parse(campaign.endDate) : Number.POSITIVE_INFINITY;
+  }
+
+  return campaign.name;
+}
+
+function compareSortValues(left: number | string, right: number | string) {
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+
+  return String(left).localeCompare(String(right), "de", { sensitivity: "base" });
+}
+
+function SortableCampaignHead({
+  sortKey,
+  activeKey,
+  direction,
+  className,
+  align = "left",
+  onSort,
+}: {
+  sortKey: CampaignSortKey;
+  activeKey: CampaignSortKey;
+  direction: SortDirection;
+  className?: string;
+  align?: "left" | "right";
+  onSort: (key: CampaignSortKey) => void;
+}) {
+  const isActive = activeKey === sortKey;
+  const Icon = isActive ? (direction === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+
+  return (
+    <TableHead
+      className={className}
+      aria-sort={isActive ? (direction === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className={cn("h-7 px-2 text-xs", align === "left" ? "-ml-2" : "-mr-2")}
+        onClick={() => onSort(sortKey)}
+      >
+        {campaignSortLabels[sortKey]}
+        <Icon data-icon="inline-end" />
+      </Button>
+    </TableHead>
+  );
+}
+
+function CampaignsTable({
+  campaigns,
+  loading,
   onEdit,
   onToggleStatus,
   onDelete,
 }: {
-  campaign: Campaign;
-  onEdit: () => void;
-  onToggleStatus: () => void;
-  onDelete: () => void;
+  campaigns: Campaign[];
+  loading: boolean;
+  onEdit: (campaign: Campaign) => void;
+  onToggleStatus: (campaign: Campaign) => void;
+  onDelete: (campaign: Campaign) => void;
 }) {
-  const pct = budgetPercent(campaign);
-  const cpl = costPerLeadCents(campaign.spentCents, campaign.leads);
-  const period = `${formatDate(campaign.startDate)} – ${
-    campaign.endDate ? formatDate(campaign.endDate) : "laufend"
-  }`;
+  const [sortKey, setSortKey] = useState<CampaignSortKey>("startDate");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  const sortedCampaigns = useMemo(() => {
+    return campaigns.toSorted((left, right) => {
+      const leftValue = getCampaignSortValue(left, sortKey);
+      const rightValue = getCampaignSortValue(right, sortKey);
+      const primary = compareSortValues(leftValue, rightValue);
+      const tieBreak =
+        primary === 0
+          ? compareSortValues(
+              getCampaignTieBreakValue(left, sortKey),
+              getCampaignTieBreakValue(right, sortKey),
+            )
+          : primary;
+
+      if (tieBreak !== 0) {
+        return sortDirection === "asc" ? tieBreak : -tieBreak;
+      }
+
+      return left.id - right.id;
+    });
+  }, [campaigns, sortDirection, sortKey]);
+
+  const handleSort = (key: CampaignSortKey) => {
+    if (key === sortKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection(
+      key === "name" || key === "channel" || key === "status" ? "asc" : "desc",
+    );
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          <div
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-lg",
-              channelAccents[campaign.channel],
-            )}
-          >
-            <Megaphone className="size-6" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <CardTitle className="text-base">{campaign.name}</CardTitle>
-            <CardDescription>{period}</CardDescription>
-          </div>
-        </div>
-        <CardAction>
-          <div className="flex items-center gap-2">
-            <StatusBadge status={campaign.status} />
-            {campaign.status !== "beendet" && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={
-                  campaign.status === "aktiv"
-                    ? `${campaign.name} pausieren`
-                    : `${campaign.name} fortsetzen`
-                }
-                onClick={onToggleStatus}
-              >
-                {campaign.status === "aktiv" ? <Pause /> : <Play />}
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`${campaign.name} bearbeiten`}
-              onClick={onEdit}
-            >
-              <Pencil />
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon-sm"
-              aria-label={`${campaign.name} löschen`}
-              onClick={onDelete}
-            >
-              <Trash2 />
-            </Button>
-          </div>
-        </CardAction>
+    <Card className={cn(panelCardClass, "gap-0")}>
+      <CardHeader className={panelHeaderClass}>
+        <CardTitle className="text-sm font-medium">Kampagnen</CardTitle>
+        <CardDescription>
+          <span className="tabular-nums">{campaigns.length}</span>{" "}
+          {campaigns.length === 1 ? "Eintrag" : "Einträge"}
+        </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <Badge variant="outline" className="w-fit">
-          {campaign.channel}
-        </Badge>
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between text-sm">
-            <span className="text-muted-foreground">Budget</span>
-            <span className="font-medium tabular-nums">
-              {formatEuro(campaign.spentCents)} / {formatEuro(campaign.budgetCents)}
+      <CardContent className="p-0">
+        {loading ? (
+          <div className="p-4 text-sm text-muted-foreground">Lade Kampagnen…</div>
+        ) : campaigns.length === 0 ? (
+          <div className="flex min-h-[220px] flex-col items-center justify-center gap-1 px-4 py-10 text-center">
+            <Megaphone className="size-5 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              Noch keine Kampagnen angelegt
             </span>
           </div>
-          <Progress value={pct} />
-          <span className="text-xs text-muted-foreground">
-            {pct} % des Budgets ausgegeben
-          </span>
-        </div>
-        <Separator />
-        <dl className="grid grid-cols-3 gap-x-6 gap-y-1">
-          <div className="flex flex-col">
-            <dt className="text-xs text-muted-foreground">Leads</dt>
-            <dd className="text-sm font-medium tabular-nums">{campaign.leads}</dd>
-          </div>
-          <div className="flex flex-col">
-            <dt className="text-xs text-muted-foreground">Anmeldungen</dt>
-            <dd className="text-sm font-medium tabular-nums">{campaign.signups}</dd>
-          </div>
-          <div className="flex flex-col">
-            <dt className="text-xs text-muted-foreground">Kosten/Lead</dt>
-            <dd className="text-sm font-medium tabular-nums">
-              {cpl === null ? "–" : formatEuro(cpl)}
-            </dd>
-          </div>
-        </dl>
-        {campaign.notes && (
-          <p className="text-xs text-muted-foreground">{campaign.notes}</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
+                <SortableCampaignHead
+                  sortKey="name"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  className="min-w-[320px] pl-4"
+                  onSort={handleSort}
+                />
+                <SortableCampaignHead
+                  sortKey="channel"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  className="w-32"
+                  onSort={handleSort}
+                />
+                <SortableCampaignHead
+                  sortKey="status"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  className="w-32"
+                  onSort={handleSort}
+                />
+                <SortableCampaignHead
+                  sortKey="startDate"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  className="w-40"
+                  onSort={handleSort}
+                />
+                <SortableCampaignHead
+                  sortKey="budget"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  className="w-44"
+                  onSort={handleSort}
+                />
+                <SortableCampaignHead
+                  sortKey="result"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  align="right"
+                  className="w-40 text-right"
+                  onSort={handleSort}
+                />
+                <SortableCampaignHead
+                  sortKey="costPerLead"
+                  activeKey={sortKey}
+                  direction={sortDirection}
+                  align="right"
+                  className="w-36 text-right"
+                  onSort={handleSort}
+                />
+                <TableHead className="w-28 pr-4 text-right">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedCampaigns.map((campaign) => {
+                const pct = budgetPercent(campaign);
+                const cpl = costPerLeadCents(campaign.spentCents, campaign.leads);
+                const period = `${formatDate(campaign.startDate)} – ${
+                  campaign.endDate ? formatDate(campaign.endDate) : "laufend"
+                }`;
+
+                return (
+                  <TableRow key={campaign.id} className="h-[58px]">
+                    <TableCell className="pl-4">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="truncate font-medium">{campaign.name}</span>
+                        {campaign.notes && (
+                          <span className="truncate text-xs text-muted-foreground">
+                            {campaign.notes}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal">
+                        {campaign.channel}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={campaign.status} />
+                    </TableCell>
+                    <TableCell className="tabular-nums text-muted-foreground">
+                      {period}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex min-w-36 flex-col gap-1">
+                        <div className="flex items-baseline justify-between gap-3 text-xs">
+                          <span className="tabular-nums text-muted-foreground">
+                            {formatEuro(campaign.spentCents)}
+                          </span>
+                          <span className="font-medium tabular-nums">
+                            {formatEuro(campaign.budgetCents)}
+                          </span>
+                        </div>
+                        <Progress value={pct} className="h-1" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-end gap-0.5 text-right tabular-nums">
+                        <span className="text-sm">{campaign.leads} Leads</span>
+                        <span className="text-xs text-muted-foreground">
+                          {campaign.signups} Anmeldungen
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right text-sm tabular-nums">
+                      {cpl === null ? "–" : formatEuro(cpl)}
+                    </TableCell>
+                    <TableCell className="pr-4">
+                      <div className="flex justify-end gap-1">
+                        {campaign.status !== "beendet" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={
+                              campaign.status === "aktiv"
+                                ? `${campaign.name} pausieren`
+                                : `${campaign.name} fortsetzen`
+                            }
+                            onClick={() => onToggleStatus(campaign)}
+                          >
+                            {campaign.status === "aktiv" ? <Pause /> : <Play />}
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`${campaign.name} bearbeiten`}
+                          onClick={() => onEdit(campaign)}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon-sm"
+                          aria-label={`${campaign.name} löschen`}
+                          onClick={() => onDelete(campaign)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </CardContent>
     </Card>
@@ -670,6 +998,7 @@ export function Marketing() {
   const [editingCampaignId, setEditingCampaignId] = useState<number | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
+  const totals = useMemo(() => getCampaignTotals(campaigns), [campaigns]);
 
   const editingMode: "create" | "edit" = isCreateOpen ? "create" : "edit";
   const editingCampaign = isCreateOpen
@@ -711,49 +1040,42 @@ export function Marketing() {
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader
+        center={<HeaderStats totals={totals} />}
         end={
           <Button
             type="button"
             size="sm"
+            aria-label="Kampagne erstellen"
             onClick={() => {
               setEditingCampaignId(null);
               setIsCreateOpen(true);
             }}
           >
             <Plus data-icon="inline-start" />
-            Kampagne erstellen
+            <span className="hidden sm:inline">Kampagne erstellen</span>
           </Button>
         }
-      />
+      >
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em]">
+            Marketing
+          </h1>
+          <span className="hidden text-xs tabular-nums text-muted-foreground sm:inline">
+            {campaigns.length} {campaigns.length === 1 ? "Kampagne" : "Kampagnen"}
+          </span>
+        </div>
+      </PageHeader>
 
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
-        <div className="stagger-in flex flex-col gap-4 2xl:gap-5">
-          {loading && (
-            <div className="text-sm text-muted-foreground">Lade Kampagnen…</div>
-          )}
-
-          {!loading && (
-            <>
-              <KpiCards campaigns={campaigns} />
-              <ChannelChart campaigns={campaigns} />
-              <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">
-                {campaigns.map((campaign) => (
-                  <CampaignCard
-                    key={campaign.id}
-                    campaign={campaign}
-                    onEdit={() => setEditingCampaignId(campaign.id)}
-                    onToggleStatus={() => void toggleStatus(campaign)}
-                    onDelete={() => setPendingDelete(campaign)}
-                  />
-                ))}
-              </div>
-              {campaigns.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Noch keine Kampagnen angelegt.
-                </p>
-              )}
-            </>
-          )}
+        <div className="stagger-in mx-auto flex w-full max-w-[1800px] flex-col gap-4 2xl:gap-5">
+          <ChannelChart campaigns={campaigns} />
+          <CampaignsTable
+            campaigns={campaigns}
+            loading={loading}
+            onEdit={(campaign) => setEditingCampaignId(campaign.id)}
+            onToggleStatus={(campaign) => void toggleStatus(campaign)}
+            onDelete={setPendingDelete}
+          />
         </div>
       </div>
 
