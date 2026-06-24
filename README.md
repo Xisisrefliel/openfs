@@ -24,6 +24,17 @@ bun run start            # production server
 
 `data/fahrschule.db` is created and seeded automatically on first start — no migration step needed.
 
+### Demo mode
+
+Set `DEMO_MODE=1` to run against an in-memory database instead of the file. The full
+persistence layer still runs (same schema, migrations, seeds and read/write paths) — but
+every start begins from the freshly seeded state and changes are discarded on restart
+rather than written to disk. Use it for public demos where visitor edits should not stick:
+
+```bash
+DEMO_MODE=1 bun run start
+```
+
 ## Security & deployment
 
 This application currently has **no authentication**. It is designed for single-user local use on a trusted machine. The database holds personal data (student names, addresses, phone numbers) and financial records. Do not expose the server to a network or the internet without first adding an authentication layer; doing so would give anyone with network access full read and write access to all data. (Multi-tenant auth is part of the SaaS plan.) The one deliberate exception is `/anfrage` and its POST endpoint, which are intentionally public (rate-limited per IP and length-capped); everything else keeps this no-auth local posture.

@@ -8,9 +8,16 @@ import { ensureTheoryGroupTables } from "./server/theory-groups";
 import { ensureAttestationTables } from "./server/ausbildungsnachweis";
 import { buildApiRoutes } from "./server/app-routes";
 
-// SQLite needs the directory to exist before it can create the file.
-mkdirSync("data", { recursive: true });
-const db = openDb();
+// Demo mode keeps the full persistence layer intact but points it at an
+// in-memory database, so every visitor starts from the freshly seeded state
+// and changes are discarded on restart instead of being written to disk.
+const demoMode = process.env.DEMO_MODE === "1" || process.env.DEMO_MODE === "true";
+
+if (!demoMode) {
+  // SQLite needs the directory to exist before it can create the file.
+  mkdirSync("data", { recursive: true });
+}
+const db = openDb(demoMode ? ":memory:" : undefined);
 seedTransactions(db);
 // Runs after the students/instructors seeds so seed groups pick up real names.
 ensureTheoryGroupTables(db);
@@ -33,4 +40,6 @@ const server = serve({
   },
 });
 
-console.log(`🚀 Server running at ${server.url}`);
+console.log(
+  `🚀 Server running at ${server.url}${demoMode ? " (demo mode: in-memory DB, changes are not persisted)" : ""}`,
+);
