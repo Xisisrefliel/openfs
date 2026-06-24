@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  CalendarDays,
   CheckSquare,
-  Clock,
-  DoorOpen,
   GraduationCap,
   Pencil,
   Plus,
   Trash2,
-  User,
   UserPlus,
   Users,
   X,
@@ -16,6 +12,7 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "./components/PageHeader.tsx";
+import { panelActionsClass, panelInteractiveClass } from "./components/Panel.tsx";
 import { useInstructors } from "@/hooks/use-instructors";
 import { useStudents } from "@/hooks/use-students";
 import {
@@ -73,6 +70,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 const WEEKDAYS = [
   "Montag",
@@ -702,6 +701,38 @@ function AttendanceDialog({
 /* Group card                                                          */
 /* ------------------------------------------------------------------ */
 
+const STATUS_DOTS: Record<TheoryGroupStatus, string> = {
+  aktiv: "bg-green-500",
+  abgeschlossen: "bg-muted-foreground/50",
+};
+
+const STATUS_LABELS: Record<TheoryGroupStatus, string> = {
+  aktiv: "Aktiv",
+  abgeschlossen: "Abgeschlossen",
+};
+
+/* Status as a colored dot + plain label in an outline badge (guideline §3). */
+function StatusBadge({ status }: { status: TheoryGroupStatus }) {
+  return (
+    <Badge variant="outline" className="gap-1.5 font-normal">
+      <span aria-hidden className={cn("size-1.5 rounded-full", STATUS_DOTS[status])} />
+      {STATUS_LABELS[status]}
+    </Badge>
+  );
+}
+
+/* Quiet readout: micro-label over value, no icon chips (guideline §3, §5). */
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-[11px] font-medium leading-none text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="truncate text-sm font-medium">{value || "—"}</dd>
+    </div>
+  );
+}
+
 function GroupCard({
   group,
   onEdit,
@@ -719,74 +750,52 @@ function GroupCard({
   const percent =
     group.capacity > 0 ? Math.min(100, Math.round((occupied / group.capacity) * 100)) : 0;
 
-  const details = [
-    { Icon: CalendarDays, label: "Wochentag", value: group.weekday },
-    { Icon: Clock, label: "Uhrzeit", value: `${group.time} Uhr` },
-    { Icon: DoorOpen, label: "Raum", value: group.room || "Kein Raum" },
-    { Icon: User, label: "Fahrlehrer/in", value: group.instructor },
-  ];
-
   return (
-    <Card>
+    <Card className={cn("border-border/70", panelInteractiveClass)}>
       <CardHeader>
-        <div className="flex items-start gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
-            <GraduationCap className="size-6" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <CardTitle className="text-base">{group.name}</CardTitle>
-            <CardDescription>
-              {group.weekday}, {group.time} Uhr
-            </CardDescription>
-          </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <CardTitle className="truncate text-sm font-semibold">{group.name}</CardTitle>
+          <CardDescription className="text-xs">
+            {group.weekday}, {group.time} Uhr
+          </CardDescription>
         </div>
         <CardAction>
-          <div className="flex items-center gap-2">
-            <Badge variant={group.status === "aktiv" ? "secondary" : "outline"}>
-              {group.status === "aktiv" ? "Aktiv" : "Abgeschlossen"}
-            </Badge>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`${group.name} bearbeiten`}
-              onClick={onEdit}
-            >
-              <Pencil />
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon-sm"
-              aria-label={`${group.name} löschen`}
-              onClick={onDelete}
-            >
-              <Trash2 />
-            </Button>
+          <div className="flex items-center gap-1.5">
+            <StatusBadge status={group.status} />
+            <div className={cn("flex items-center", panelActionsClass)}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`${group.name} bearbeiten`}
+                onClick={onEdit}
+              >
+                <Pencil />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                aria-label={`${group.name} löschen`}
+                onClick={onDelete}
+              >
+                <Trash2 />
+              </Button>
+            </div>
           </div>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <Badge variant="outline" className="w-fit">
+        <Badge variant="outline" className="w-fit font-normal text-muted-foreground">
           Klasse {group.klass}
         </Badge>
-        <Separator />
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-          {details.map(({ Icon, label, value }) => (
-            <div key={label} className="flex items-center gap-2.5">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <Icon className="size-4" />
-              </div>
-              <div className="flex min-w-0 flex-col">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="truncate text-sm font-medium">{value}</dd>
-              </div>
-            </div>
-          ))}
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3.5">
+          <Detail label="Raum" value={group.room || "Kein Raum"} />
+          <Detail label="Fahrlehrer/in" value={group.instructor} />
         </dl>
-        <Separator />
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
             <span>Belegung</span>
             <span className="tabular-nums">
               {occupied}/{group.capacity}
@@ -893,29 +902,34 @@ export function TheorieGruppen() {
       />
 
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
-        <div className="stagger-in grid gap-4 md:grid-cols-2 2xl:gap-5">
-          {loading && (
-            <div className="text-sm text-muted-foreground">Lade Theorie-Gruppen…</div>
-          )}
-          {!loading && groups.length === 0 && (
-            <div className="text-sm text-muted-foreground">
-              Noch keine Theorie-Gruppen angelegt.
-            </div>
-          )}
-          {groups.map((group) => (
-            <GroupCard
-              key={group.id}
-              group={group}
-              onEdit={() => {
-                setIsCreateOpen(false);
-                setEditingGroupId(group.id);
-              }}
-              onMembers={() => setMembersGroupId(group.id)}
-              onAttendance={() => setAttendanceGroupId(group.id)}
-              onDelete={() => setDeleteGroupId(group.id)}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">
+            {Array.from({ length: 2 }, (_, index) => (
+              <Skeleton key={index} className="h-72 rounded-lg" />
+            ))}
+          </div>
+        ) : groups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-muted-foreground">
+            <GraduationCap className="size-5" />
+            <span className="text-sm">Noch keine Theorie-Gruppen angelegt.</span>
+          </div>
+        ) : (
+          <div className="stagger-in grid gap-4 md:grid-cols-2 2xl:gap-5">
+            {groups.map((group) => (
+              <GroupCard
+                key={group.id}
+                group={group}
+                onEdit={() => {
+                  setIsCreateOpen(false);
+                  setEditingGroupId(group.id);
+                }}
+                onMembers={() => setMembersGroupId(group.id)}
+                onAttendance={() => setAttendanceGroupId(group.id)}
+                onDelete={() => setDeleteGroupId(group.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <GroupEditDialog

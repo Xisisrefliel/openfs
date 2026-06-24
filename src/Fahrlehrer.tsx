@@ -1,18 +1,9 @@
 import { useState } from "react";
-import {
-  Car,
-  CalendarDays,
-  GraduationCap,
-  IdCard,
-  Mail,
-  Pencil,
-  Phone,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { GraduationCap, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "./components/PageHeader.tsx";
+import { panelActionsClass, panelInteractiveClass } from "./components/Panel.tsx";
 import {
   createInstructor,
   deleteInstructor,
@@ -51,17 +42,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-const accents = [
-  "bg-sky-500/10 text-sky-600",
-  "bg-emerald-500/10 text-emerald-600",
-  "bg-amber-500/10 text-amber-600",
-  "bg-rose-500/10 text-rose-600",
-  "bg-violet-500/10 text-violet-600",
-];
+const STATUS_DOTS: Record<InstructorInput["status"], string> = {
+  aktiv: "bg-green-500",
+  inaktiv: "bg-muted-foreground/50",
+};
+
+const STATUS_LABELS: Record<InstructorInput["status"], string> = {
+  aktiv: "Aktiv",
+  inaktiv: "Inaktiv",
+};
 
 const emptyDraft: InstructorInput = {
   firstName: "",
@@ -77,6 +69,36 @@ const emptyDraft: InstructorInput = {
 function instructorToDraft(instructor: Instructor): InstructorInput {
   const { id: _id, ...draft } = instructor;
   return draft;
+}
+
+/* Status as a colored dot + plain label in an outline badge (guideline §3). */
+function StatusBadge({ status }: { status: InstructorInput["status"] }) {
+  return (
+    <Badge variant="outline" className="gap-1.5 font-normal">
+      <span aria-hidden className={cn("size-1.5 rounded-full", STATUS_DOTS[status])} />
+      {STATUS_LABELS[status]}
+    </Badge>
+  );
+}
+
+/* Quiet readout: micro-label over value, no icon chips (guideline §3, §5). */
+function Detail({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-[11px] font-medium leading-none text-muted-foreground">
+        {label}
+      </dt>
+      <dd className={cn("truncate text-sm font-medium", className)}>{value || "—"}</dd>
+    </div>
+  );
 }
 
 function InstructorDialog({
@@ -233,74 +255,60 @@ function InstructorDialog({
 
 function InstructorCard({
   instructor,
-  accent,
   onEdit,
 }: {
   instructor: Instructor;
-  accent: string;
   onEdit: () => void;
 }) {
   const fullName = instructorName(instructor);
   const details = [
-    { Icon: Phone, label: "Telefon", value: instructor.phone },
-    { Icon: Mail, label: "E-Mail", value: instructor.email },
-    { Icon: Car, label: "Stammfahrzeug", value: instructor.vehicle },
-    { Icon: CalendarDays, label: "Dabei seit", value: instructor.since },
+    { label: "Telefon", value: instructor.phone, nums: true },
+    { label: "E-Mail", value: instructor.email, nums: false },
+    { label: "Stammfahrzeug", value: instructor.vehicle, nums: false },
+    { label: "Dabei seit", value: instructor.since, nums: true },
   ].filter((detail) => detail.value);
 
   return (
-    <Card>
+    <Card className={cn("border-border/70", panelInteractiveClass)}>
       <CardHeader>
-        <div className="flex items-start gap-3">
-          <div
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-lg",
-              accent,
-            )}
-          >
-            <GraduationCap className="size-6" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <CardTitle className="text-base">{fullName}</CardTitle>
-            <CardDescription>Fahrlehrer/in</CardDescription>
-          </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <CardTitle className="truncate text-sm font-semibold">{fullName}</CardTitle>
+          <CardDescription className="text-xs">
+            Klassen {instructor.classes || "—"}
+          </CardDescription>
         </div>
         <CardAction>
-          <div className="flex items-center gap-2">
-            <Badge variant={instructor.status === "aktiv" ? "secondary" : "outline"}>
-              {instructor.status === "aktiv" ? "Aktiv" : "Inaktiv"}
-            </Badge>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`${fullName} bearbeiten`}
-              onClick={onEdit}
-            >
-              <Pencil />
-            </Button>
+          <div className={cn("flex items-center gap-1.5", panelActionsClass)}>
+            <StatusBadge status={instructor.status} />
+            <div className="flex items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`${fullName} bearbeiten`}
+                onClick={onEdit}
+              >
+                <Pencil />
+              </Button>
+            </div>
           </div>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <Badge variant="outline" className="w-fit">
-          <IdCard data-icon="inline-start" />
-          Klassen {instructor.classes || "—"}
-        </Badge>
-        <Separator />
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-          {details.map(({ Icon, label, value }) => (
-            <div key={label} className="flex items-center gap-2.5">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <Icon className="size-4" />
-              </div>
-              <div className="flex min-w-0 flex-col">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="truncate text-sm font-medium">{value}</dd>
-              </div>
-            </div>
-          ))}
-        </dl>
+      <CardContent>
+        {details.length > 0 ? (
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3.5">
+            {details.map(({ label, value, nums }) => (
+              <Detail
+                key={label}
+                label={label}
+                value={value}
+                className={nums ? "tabular-nums" : undefined}
+              />
+            ))}
+          </dl>
+        ) : (
+          <p className="text-sm text-muted-foreground">Keine Kontaktdaten hinterlegt.</p>
+        )}
       </CardContent>
     </Card>
   );
@@ -365,17 +373,22 @@ export function Fahrlehrer() {
 
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">
-            <Skeleton className="h-64 rounded-xl" />
-            <Skeleton className="h-64 rounded-xl" />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Skeleton key={index} className="h-40 rounded-lg" />
+            ))}
+          </div>
+        ) : instructors.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-muted-foreground">
+            <GraduationCap className="size-5" />
+            <span className="text-sm">Noch keine Fahrlehrer/innen angelegt.</span>
           </div>
         ) : (
-          <div className="stagger-in grid gap-4 md:grid-cols-2 2xl:gap-5">
-            {instructors.map((instructor, index) => (
+          <div className="stagger-in grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
+            {instructors.map((instructor) => (
               <InstructorCard
                 key={instructor.id}
                 instructor={instructor}
-                accent={accents[index % accents.length]!}
                 onEdit={() => startEditing(instructor)}
               />
             ))}

@@ -1,19 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Car,
-  Cog,
-  Fuel,
-  Gauge,
-  Pencil,
-  Plus,
-  ShieldCheck,
-  Trash2,
-  User,
-  Wrench,
-} from "lucide-react";
+import { Car, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "./components/PageHeader.tsx";
+import { panelActionsClass, panelInteractiveClass } from "./components/Panel.tsx";
 import { useInstructors } from "@/hooks/use-instructors";
 import {
   useVehicles,
@@ -52,23 +42,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-type IconCmp = React.ComponentType<{ className?: string }>;
-
-type Detail = { Icon: IconCmp; label: string; value: string };
+type Detail = { label: string; value: string };
 type Vehicle = Omit<VehicleRecord, "details"> & {
   details: Detail[];
-};
-
-const detailIcons: Readonly<Record<string, IconCmp>> = {
-  Getriebe: Cog,
-  Kraftstoff: Fuel,
-  Kilometerstand: Gauge,
-  "Fahrlehrer/in": User,
-  "Nächste HU": Wrench,
-  Versicherung: ShieldCheck,
 };
 
 type VehicleDraft = Omit<VehicleRecord, "id" | "details" | "accent"> & {
@@ -89,12 +68,22 @@ const detailLabels = {
   insurance: "Versicherung",
 } as const;
 
-const DEFAULT_ICON = Wrench;
+/* Values that read as numbers/dates get tabular-nums (guideline §3). */
+const NUMERIC_LABELS = new Set<string>([detailLabels.mileage, detailLabels.inspection]);
+
+const STATUS_DOTS: Record<VehicleRecord["status"], string> = {
+  aktiv: "bg-green-500",
+  wartung: "bg-amber-500",
+};
+
+const STATUS_LABELS: Record<VehicleRecord["status"], string> = {
+  aktiv: "Aktiv",
+  wartung: "In Wartung",
+};
 
 function mapVehicleDetails(details: VehicleDetail[]): Detail[] {
   const values = new Map(details.map((item) => [item.label, item.value]));
   return Object.values(detailLabels).map((label) => ({
-    Icon: detailIcons[label] ?? DEFAULT_ICON,
     label,
     value: values.get(label) ?? "",
   }));
@@ -116,7 +105,6 @@ function createEmptyVehicle(): Vehicle {
     status: "aktiv",
     accent: "bg-slate-500/10 text-slate-600",
     details: Object.values(detailLabels).map((label) => ({
-      Icon: detailIcons[label] ?? DEFAULT_ICON,
       label,
       value: label === "Fahrlehrer/in" ? "Nicht zugeteilt" : "",
     })),
@@ -176,6 +164,16 @@ function applyDraft(vehicle: Vehicle, draft: VehicleDraft): Vehicle {
       value: detailValues.get(detail.label) ?? detail.value,
     })),
   };
+}
+
+/* Status as a colored dot + plain label in an outline badge (guideline §3). */
+function StatusBadge({ status }: { status: VehicleRecord["status"] }) {
+  return (
+    <Badge variant="outline" className="gap-1.5 font-normal">
+      <span aria-hidden className={cn("size-1.5 rounded-full", STATUS_DOTS[status])} />
+      {STATUS_LABELS[status]}
+    </Badge>
+  );
 }
 
 function VehicleEditDialog({
@@ -370,65 +368,61 @@ function VehicleCard({
   onDelete: () => void;
 }) {
   return (
-    <Card>
+    <Card className={cn("border-border/70", panelInteractiveClass)}>
       <CardHeader>
-        <div className="flex items-start gap-3">
-          <div
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-lg",
-              vehicle.accent,
-            )}
-          >
-            <Car className="size-6" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <CardTitle className="text-base">{vehicle.model}</CardTitle>
-            <CardDescription className="font-mono tracking-tight">
-              {vehicle.plate}
-            </CardDescription>
-          </div>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <CardTitle className="truncate text-sm font-semibold">
+            {vehicle.model}
+          </CardTitle>
+          <CardDescription className="font-mono text-xs tracking-tight">
+            {vehicle.plate}
+          </CardDescription>
         </div>
         <CardAction>
-          <div className="flex items-center gap-2">
-            <Badge variant={vehicle.status === "aktiv" ? "secondary" : "outline"}>
-              {vehicle.status === "aktiv" ? "Aktiv" : "In Wartung"}
-            </Badge>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`${vehicle.model} bearbeiten`}
-              onClick={onEdit}
-            >
-              <Pencil />
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon-sm"
-              aria-label={`${vehicle.model} löschen`}
-              onClick={onDelete}
-            >
-              <Trash2 />
-            </Button>
+          <div className={cn("flex items-center gap-1.5", panelActionsClass)}>
+            <StatusBadge status={vehicle.status} />
+            <div className="flex items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`${vehicle.model} bearbeiten`}
+                onClick={onEdit}
+              >
+                <Pencil />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                aria-label={`${vehicle.model} löschen`}
+                onClick={onDelete}
+              >
+                <Trash2 />
+              </Button>
+            </div>
           </div>
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <Badge variant="outline" className="w-fit">
-          Klasse {vehicle.klass}
+        <Badge variant="outline" className="w-fit font-normal text-muted-foreground">
+          Klasse {vehicle.klass || "—"}
         </Badge>
-        <Separator />
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-          {vehicle.details.map(({ Icon, label, value }) => (
-            <div key={label} className="flex items-center gap-2.5">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <Icon className="size-4" />
-              </div>
-              <div className="flex min-w-0 flex-col">
-                <dt className="text-xs text-muted-foreground">{label}</dt>
-                <dd className="truncate text-sm font-medium">{value}</dd>
-              </div>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3.5">
+          {vehicle.details.map(({ label, value }) => (
+            <div key={label} className="flex min-w-0 flex-col gap-0.5">
+              <dt className="text-[11px] font-medium leading-none text-muted-foreground">
+                {label}
+              </dt>
+              <dd
+                className={cn(
+                  "truncate text-sm font-medium",
+                  NUMERIC_LABELS.has(label) && "tabular-nums",
+                )}
+              >
+                {value || "—"}
+              </dd>
             </div>
           ))}
         </dl>
@@ -489,19 +483,29 @@ export function Fahrzeuge() {
       />
 
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
-        <div className="stagger-in grid gap-4 md:grid-cols-2 2xl:gap-5">
-          {loading && (
-            <div className="text-sm text-muted-foreground">Lade Fahrzeuge…</div>
-          )}
-          {vehicleList.map((vehicle) => (
-            <VehicleCard
-              key={vehicle.id}
-              vehicle={vehicle}
-              onEdit={() => setEditingVehicleId(vehicle.id)}
-              onDelete={() => void removeVehicle(vehicle)}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
+            {Array.from({ length: 3 }, (_, index) => (
+              <Skeleton key={index} className="h-52 rounded-lg" />
+            ))}
+          </div>
+        ) : vehicleList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-muted-foreground">
+            <Car className="size-5" />
+            <span className="text-sm">Noch keine Fahrzeuge angelegt.</span>
+          </div>
+        ) : (
+          <div className="stagger-in grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
+            {vehicleList.map((vehicle) => (
+              <VehicleCard
+                key={vehicle.id}
+                vehicle={vehicle}
+                onEdit={() => setEditingVehicleId(vehicle.id)}
+                onDelete={() => void removeVehicle(vehicle)}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <VehicleEditDialog
