@@ -193,13 +193,13 @@ export function Vertraege({ navigate }: { navigate: (to: string) => void }) {
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
-      <PageHeader className="h-auto min-h-11 flex-wrap py-2 2xl:min-h-12">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+      <PageHeader>
+        <div className="flex min-w-0 items-center gap-2">
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Name, Vertrags- oder Kundennummer suchen"
-            className="h-8 w-80 max-w-full"
+            className="h-8 w-44 sm:w-64 lg:w-80"
           />
           <ToggleGroup
             type="single"
@@ -213,6 +213,7 @@ export function Vertraege({ navigate }: { navigate: (to: string) => void }) {
             size="sm"
             spacing={0}
             aria-label="Vertragsstatus"
+            className="hidden sm:flex"
           >
             <ToggleGroupItem value="alle" aria-label="Alle Verträge">
               Alle
@@ -224,7 +225,13 @@ export function Vertraege({ navigate }: { navigate: (to: string) => void }) {
               Inaktiv
             </ToggleGroupItem>
           </ToggleGroup>
-          <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="hidden md:inline-flex"
+            onClick={resetFilters}
+          >
             Zurücksetzen
           </Button>
         </div>
