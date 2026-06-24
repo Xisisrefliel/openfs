@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 /* SQLite stores sent_at as UTC "YYYY-MM-DD HH:MM:SS" — parse explicitly
@@ -100,13 +101,17 @@ function ConversationListItem({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const unread = conversation.unread > 0;
+
   return (
     <button
       type="button"
       onClick={onSelect}
+      aria-pressed={selected}
       className={cn(
-        "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted/60",
-        selected && "bg-muted",
+        // Hover fills appear instantly, fade out only (guideline §0.1).
+        "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors duration-150 hover:bg-muted/60 hover:duration-0 focus-visible:bg-muted/60 focus-visible:outline-none",
+        selected && "bg-muted hover:bg-muted",
       )}
     >
       <Avatar size="lg">
@@ -114,16 +119,33 @@ function ConversationListItem({
       </Avatar>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-sm font-medium">{conversation.studentName}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span
+            className={cn(
+              "min-w-0 truncate text-sm",
+              unread ? "font-semibold" : "font-medium",
+            )}
+          >
+            {conversation.studentName}
+          </span>
+          <span
+            className={cn(
+              "shrink-0 text-[11px] tabular-nums",
+              unread ? "font-medium text-foreground" : "text-muted-foreground",
+            )}
+          >
             {formatListTime(conversation.lastMessageAt)}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-xs text-muted-foreground">
+          <span
+            className={cn(
+              "min-w-0 truncate text-xs",
+              unread ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
             {conversation.lastMessage || "Noch keine Nachrichten"}
           </span>
-          {conversation.unread > 0 && (
+          {unread && (
             <Badge className="h-5 min-w-5 shrink-0 rounded-full px-1.5 tabular-nums">
               {conversation.unread}
             </Badge>
@@ -140,7 +162,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={cn("flex", fromSchool ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "flex max-w-[75%] flex-col gap-0.5 rounded-2xl px-3.5 py-2",
+          "flex max-w-[75%] flex-col gap-0.5 rounded-xl px-3.5 py-2",
           fromSchool
             ? "rounded-br-sm bg-primary text-primary-foreground"
             : "rounded-bl-sm bg-muted",
@@ -160,12 +182,13 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   );
 }
 
+/* Quiet centered day marker — a muted pill, no hairline-through-text. */
 function DateSeparator({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-3 py-1">
-      <Separator className="flex-1" />
-      <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
-      <Separator className="flex-1" />
+    <div className="flex justify-center py-1">
+      <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
+        {label}
+      </span>
     </div>
   );
 }
@@ -265,6 +288,11 @@ export function Plaudern() {
   const selected =
     conversations.find((conversation) => conversation.id === selectedId) ?? null;
 
+  const totalUnread = conversations.reduce(
+    (sum, conversation) => sum + conversation.unread,
+    0,
+  );
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return conversations;
@@ -350,51 +378,82 @@ export function Plaudern() {
             Neue Unterhaltung
           </Button>
         }
-      />
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em]">
+            Plaudern
+          </h1>
+          <div className="hidden items-center gap-3 text-[11px] text-muted-foreground sm:flex">
+            <span className="tabular-nums">
+              {conversations.length}{" "}
+              {conversations.length === 1 ? "Unterhaltung" : "Unterhaltungen"}
+            </span>
+            {totalUnread > 0 && (
+              <>
+                <span aria-hidden className="h-4 w-px bg-border" />
+                <span className="tabular-nums text-foreground">
+                  {totalUnread} ungelesen
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </PageHeader>
 
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-t-sm rounded-b-lg border border-border/70 bg-background">
         {/* Left pane — conversation list */}
         <aside className="flex w-64 shrink-0 flex-col border-r border-border/70 md:w-80">
-          <div className="relative p-3">
-            <Search className="pointer-events-none absolute top-1/2 left-5.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Unterhaltungen durchsuchen"
-              className="pl-8"
-              aria-label="Unterhaltungen durchsuchen"
-            />
+          <div className="p-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Unterhaltungen durchsuchen"
+                className="pl-8"
+                aria-label="Unterhaltungen durchsuchen"
+              />
+            </div>
           </div>
           <Separator />
-          <ScrollArea className="min-h-0 flex-1">
+          {/* Native scroll (not ScrollArea): the radix viewport's table-wrapper
+              grows to the previews' intrinsic width, which breaks truncation and
+              clips the timestamps/unread badges. */}
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
             <div className="flex flex-col gap-0.5 p-1.5">
-              {loading && (
-                <div className="px-2.5 py-2 text-sm text-muted-foreground">
-                  Lade Unterhaltungen…
-                </div>
+              {loading ? (
+                Array.from({ length: 6 }, (_, index) => (
+                  <div key={index} className="flex items-center gap-3 px-2.5 py-2">
+                    <Skeleton className="size-10 shrink-0 rounded-full" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <Skeleton className="h-3.5 w-28" />
+                      <Skeleton className="h-3 w-40" />
+                    </div>
+                  </div>
+                ))
+              ) : filtered.length === 0 ? (
+                <p className="px-2.5 py-8 text-center text-sm text-muted-foreground">
+                  {query ? "Keine Treffer." : "Noch keine Unterhaltungen."}
+                </p>
+              ) : (
+                filtered.map((conversation) => (
+                  <ConversationListItem
+                    key={conversation.id}
+                    conversation={conversation}
+                    selected={conversation.id === selectedId}
+                    onSelect={() => setSelectedId(conversation.id)}
+                  />
+                ))
               )}
-              {!loading && filtered.length === 0 && (
-                <div className="px-2.5 py-2 text-sm text-muted-foreground">
-                  Keine Unterhaltungen gefunden.
-                </div>
-              )}
-              {filtered.map((conversation) => (
-                <ConversationListItem
-                  key={conversation.id}
-                  conversation={conversation}
-                  selected={conversation.id === selectedId}
-                  onSelect={() => setSelectedId(conversation.id)}
-                />
-              ))}
             </div>
-          </ScrollArea>
+          </div>
         </aside>
 
         {/* Right pane — message thread */}
         <section className="flex min-w-0 flex-1 flex-col">
           {selected ? (
             <>
-              <div className="flex shrink-0 items-center gap-3 border-b border-border/70 px-4 py-2.5">
+              <div className="group/thread flex shrink-0 items-center gap-3 border-b border-border/70 px-4 py-2.5">
                 <Avatar>
                   <AvatarFallback>{initials(selected.studentName)}</AvatarFallback>
                 </Avatar>
@@ -408,9 +467,15 @@ export function Plaudern() {
                 </div>
                 <Button
                   type="button"
-                  variant="destructive"
+                  variant="ghost"
                   size="icon-sm"
-                  className="ml-auto"
+                  className={cn(
+                    "ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive",
+                    // Quiet until the thread header is hovered or the button is focused.
+                    "pointer-fine:opacity-0 pointer-fine:transition-opacity pointer-fine:duration-150",
+                    "group-hover/thread:opacity-100 group-hover/thread:duration-0",
+                    "focus-visible:opacity-100",
+                  )}
                   aria-label={`Unterhaltung mit ${selected.studentName} löschen`}
                   onClick={() => void handleDelete(selected)}
                 >
