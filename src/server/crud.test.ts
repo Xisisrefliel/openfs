@@ -298,7 +298,7 @@ describe("students", () => {
       start: "09:00",
       end: "10:00",
       title: "Fahrstunde",
-      instructor: "Köksal Gül",
+      instructor: "Martin Weber",
       type: "Praktisch",
       studentId: student.id,
     });
@@ -339,14 +339,14 @@ describe("students", () => {
       start: "09:00",
       end: "10:00",
       title: "Fahrstunde",
-      instructor: "Köksal Gül",
+      instructor: "Martin Weber",
       type: "Praktisch",
       studentId: student.id,
     });
     createAttestation(db, {
       eventId: Number(event.id),
       studentId: student.id,
-      instructor: "Köksal Gül",
+      instructor: "Martin Weber",
       content: "Überlandfahrt",
       durationMin: 45,
       signatureDataUrl: "data:image/png;base64,abc123",

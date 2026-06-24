@@ -583,7 +583,7 @@ describe("Quittung payload", () => {
     expect(quittung.date).toBe("2026-06-09");
     expect(quittung.belegNr).toBe("T0000124A");
     expect(quittung.paymentMethod).toBe("bar");
-    expect(quittung.issuer.name).toBe("Fahrschule Gül");
+    expect(quittung.issuer.name).toBe("Fahrschule Demo");
     expect(quittung.issuer.steuernummer).toBe("012 345 67890");
     expect(quittung.issuer.ustIdNr).toBe("DE123456789");
     expect(quittung.recipient).toEqual({

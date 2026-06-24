@@ -88,7 +88,7 @@ const REVIEW_SEED: ReviewSeed[] = [
     author: "Mara Köhler",
     rating: 5,
     source: "Google",
-    text: "Die Autobahnfahrten haben mir am Anfang Angst gemacht, aber das Team hat mich super vorbereitet. Danke an die ganze Fahrschule Gül!",
+    text: "Die Autobahnfahrten haben mir am Anfang Angst gemacht, aber das Team hat mich super vorbereitet. Danke an die ganze Fahrschule Demo!",
     date: "2026-04-27",
   },
   {

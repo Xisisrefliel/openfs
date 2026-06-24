@@ -215,7 +215,7 @@ function AppSidebar({
                       <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <CollapsibleContent>
+                  <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-sidebar-sub-close data-[state=open]:animate-sidebar-sub-open">
                     <SidebarMenuSub>
                       {items.map(({ label: subLabel, Icon: SubIcon, route }) => (
                         <SidebarMenuSubItem key={subLabel}>

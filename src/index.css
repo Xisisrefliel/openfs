@@ -64,6 +64,11 @@
   --ease-fluid: cubic-bezier(0.77, 0, 0.175, 1);
   /* iOS-like drawer curve (Ionic) — fast out, gentle settle */
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Sidebar sub-nav disclosure — height + fade on the same (Collapsible.Content)
+     node so Radix's mount-animation guard covers both; matches the chevron's 200ms. */
+  --animate-sidebar-sub-open: sidebar-sub-open 0.2s var(--ease-drawer);
+  --animate-sidebar-sub-close: sidebar-sub-close 0.2s var(--ease-drawer);
 }
 
 html,
@@ -161,6 +166,30 @@ body {
   animation: enter-up 0.42s var(--ease-snappy) both;
 }
 
+/* Sidebar collapsible sub-items: clip height (driven by Radix's content-height
+   var) while fading, so items settle in rather than snapping to full opacity. */
+@keyframes sidebar-sub-open {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes sidebar-sub-close {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
 .stagger-in > * {
   animation: enter-up 0.42s var(--ease-snappy) both;
 }
@@ -200,6 +229,11 @@ body {
   [data-slot="sidebar-gap"],
   [data-slot="sidebar-container"] {
     transition-duration: 0ms;
+  }
+
+  /* Disclosure still opens/closes instantly via data-state — just no height tween. */
+  [data-slot="collapsible-content"] {
+    animation: none !important;
   }
 }
 

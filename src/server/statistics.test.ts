@@ -180,7 +180,7 @@ function insertEvent(
   start: string,
   end: string,
   type: string,
-  instructor = "Köksal Gül",
+  instructor = "Martin Weber",
 ) {
   db.prepare(
     `INSERT INTO calendar_events (date, start, "end", title, instructor, type)
@@ -296,20 +296,20 @@ describe("lessonStatistics", () => {
 
 describe("instructorStatistics", () => {
   test("counts instructors and sums event minutes per instructor", () => {
-    insertInstructor("aktiv", "Gül");
+    insertInstructor("aktiv", "Weber");
     insertInstructor("aktiv", "Aksoy");
     insertInstructor("inaktiv", "Kappel");
 
     insertEvent("2026-06-01", "09:00", "09:45", "Praktisch", "Nadine Aksoy");
-    insertEvent("2026-06-02", "10:00", "11:30", "Praktisch", "Köksal Gül");
-    insertEvent("2026-06-03", "18:00", "19:30", "Theorie", "Köksal Gül");
+    insertEvent("2026-06-02", "10:00", "11:30", "Praktisch", "Martin Weber");
+    insertEvent("2026-06-03", "18:00", "19:30", "Theorie", "Martin Weber");
 
     const stats = instructorStatistics(db);
     expect(stats.total).toBe(3);
     expect(stats.aktiv).toBe(2);
     // Sorted by minutes descending.
     expect(stats.utilization).toEqual([
-      { instructor: "Köksal Gül", events: 2, minutes: 180 },
+      { instructor: "Martin Weber", events: 2, minutes: 180 },
       { instructor: "Nadine Aksoy", events: 1, minutes: 45 },
     ]);
   });
@@ -362,7 +362,7 @@ describe("statisticsRoutes", () => {
   test("GET /api/statistics returns the combined payload", async () => {
     insertStudent("aktiv", "12.05.2026");
     insertVehicle("aktiv");
-    insertInstructor("aktiv", "Gül");
+    insertInstructor("aktiv", "Weber");
     insertEvent("2026-06-01", "09:00", "10:00", "Praktisch");
     insertAccounts();
     insertRevenue("2026-06-01", 10000);

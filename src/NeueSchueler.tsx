@@ -123,7 +123,7 @@ const initialForm: FormState = {
   customerNumber: "",
   registrationDate: TODAY,
   contractNumber: "",
-  drivingSchool: "Fahrschule Guel",
+  drivingSchool: "Fahrschule Demo",
   balance: "0,00 EUR",
   status: "aktiv",
   documents: [],

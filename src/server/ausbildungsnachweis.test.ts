@@ -49,7 +49,7 @@ function insertPraktischEvent(
     .query<{ id: number }, [string, number | null]>(
       `INSERT INTO calendar_events
          (date, start, "end", title, instructor, type, student_id)
-       VALUES ('2026-06-10', '09:00', '10:30', 'Fahrstunde', 'Köksal Gül', ?, ?)
+       VALUES ('2026-06-10', '09:00', '10:30', 'Fahrstunde', 'Martin Weber', ?, ?)
        RETURNING id`,
     )
     .get(type, studentId)!;
@@ -77,7 +77,7 @@ describe("createAttestation — happy path", () => {
     const att = createAttestation(db, {
       eventId: eid,
       studentId: sid,
-      instructor: "Köksal Gül",
+      instructor: "Martin Weber",
       content: "Stadtfahrt, Einparken",
       durationMin: 90,
       signatureDataUrl: SIG,

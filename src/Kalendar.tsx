@@ -190,7 +190,7 @@ const calendarEventThemes: Record<EventType, CalendarEventCardTheme> = {
 /* Filter configuration                                               */
 /* ------------------------------------------------------------------ */
 
-const niederlassungOptions = ["Fahrschule Gül"];
+const niederlassungOptions = ["Fahrschule Demo"];
 /* ------------------------------------------------------------------ */
 /* Date formatters                                                    */
 /* ------------------------------------------------------------------ */

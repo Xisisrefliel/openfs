@@ -31,7 +31,7 @@ const VALID = {
   start: "09:00",
   end: "10:00",
   title: "Fahrstunde",
-  instructor: "Köksal Gül",
+  instructor: "Martin Weber",
   type: "Praktisch" as const,
 };
 
@@ -55,7 +55,7 @@ describe("createCalendarEvent", () => {
     const event = createCalendarEvent(db, VALID);
     expect(typeof event.id).toBe("string");
     expect(event.title).toBe("Fahrstunde");
-    expect(event.instructor).toBe("Köksal Gül");
+    expect(event.instructor).toBe("Martin Weber");
     expect(event.subtitle).toBeUndefined();
     expect(event.location).toBeUndefined();
     expect(event.vehicle).toBeUndefined();
@@ -384,7 +384,7 @@ describe("recordExamResult", () => {
     start: "09:00",
     end: "11:00",
     title: "Theorieprüfung",
-    instructor: "Köksal Gül",
+    instructor: "Martin Weber",
   };
 
   test("records 'bestanden' on a Theorieprüfung event", () => {

@@ -103,7 +103,7 @@ function tableExists(db: Database, name: string): boolean {
   );
 }
 
-const FALLBACK_INSTRUCTORS = ["Köksal Gül", "Nadine Aksoy", "Emre Gül", "Sven Kappel"];
+const FALLBACK_INSTRUCTORS = ["Martin Weber", "Nadine Aksoy", "Emre Yilmaz", "Sven Kappel"];
 
 /* Seed groups — only on an empty table. Instructor names come from the
    instructors table when it exists and has rows; member ids from the

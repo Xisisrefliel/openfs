@@ -261,7 +261,7 @@ const validEvent = {
   start: "09:00",
   end: "10:00",
   title: "Route-Test Termin",
-  instructor: "Köksal Gül",
+  instructor: "Martin Weber",
   type: "Praktisch",
 };
 
@@ -494,7 +494,7 @@ async function createPraktischEvent(studentId: number): Promise<{ id: string }> 
       start: "09:00",
       end: "09:45",
       title: "Fahrstunde",
-      instructor: "Köksal Gül",
+      instructor: "Martin Weber",
       type: "Praktisch",
       studentId,
     }),
@@ -634,7 +634,7 @@ describe("POST /api/calendar-events/:id/bill", () => {
         start: "10:00",
         end: "11:30",
         title: "Theorieunterricht",
-        instructor: "Köksal Gül",
+        instructor: "Martin Weber",
         type: "Theorie",
       }),
     });
@@ -673,7 +673,7 @@ describe("POST /api/calendar-events/:id/bill", () => {
         start: "11:00",
         end: "11:45",
         title: "Fahrstunde ohne Student",
-        instructor: "Köksal Gül",
+        instructor: "Martin Weber",
         type: "Praktisch",
         // No studentId
       }),
@@ -827,7 +827,7 @@ async function createEventOfType(
       start: "10:00",
       end: "10:45",
       title: type,
-      instructor: "Köksal Gül",
+      instructor: "Martin Weber",
       type,
       studentId,
     }),
@@ -839,7 +839,7 @@ async function createEventOfType(
 function attestationBody(studentId: number) {
   return {
     studentId,
-    instructor: "Köksal Gül",
+    instructor: "Martin Weber",
     content: "Grundfahraufgaben, Einparken, Autobahn",
     durationMin: 45,
     signatureDataUrl: VALID_SIGNATURE,

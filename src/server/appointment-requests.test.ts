@@ -261,12 +261,12 @@ describe("acceptAppointmentRequest", () => {
       date: "2026-06-20",
       start: "08:00",
       end: "09:30",
-      instructor: "Köksal Gül",
+      instructor: "Martin Weber",
     });
     expect(event.date).toBe("2026-06-20");
     expect(event.start).toBe("08:00");
     expect(event.end).toBe("09:30");
-    expect(event.instructor).toBe("Köksal Gül");
+    expect(event.instructor).toBe("Martin Weber");
   });
 
   test("already accepted request cannot be accepted again", () => {
@@ -323,7 +323,7 @@ describe("conflict detection", () => {
       start: "11:00", // request window ends 11:00 — touching, not overlapping
       end: "12:00",
       title: "Fahrstunde",
-      instructor: "Emre Gül",
+      instructor: "Emre Yilmaz",
       type: "Praktisch",
     });
     const created = createAppointmentRequest(db, VALID);
@@ -336,7 +336,7 @@ describe("conflict detection", () => {
       start: "10:00",
       end: "11:00",
       title: "Fahrstunde",
-      instructor: "Emre Gül",
+      instructor: "Emre Yilmaz",
       type: "Praktisch",
     });
     const created = createAppointmentRequest(db, VALID);
@@ -413,7 +413,7 @@ describe("appointmentRequestRoutes", () => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ instructor: "Köksal Gül" }),
+          body: JSON.stringify({ instructor: "Martin Weber" }),
         },
       );
       expect(acceptRes.status).toBe(200);
@@ -423,7 +423,7 @@ describe("appointmentRequestRoutes", () => {
       };
       expect(accepted.request.status).toBe("bestätigt");
       expect(accepted.event.title).toBe("Max Mustermann");
-      expect(accepted.event.instructor).toBe("Köksal Gül");
+      expect(accepted.event.instructor).toBe("Martin Weber");
 
       // POST decline on another seeded request
       const open = list.requests[0]!;

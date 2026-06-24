@@ -27,7 +27,7 @@ function makeStudent(overrides: Partial<StudentRecord> = {}): StudentRecord {
     email: "lena.braun@example.com",
     address: "Weidingweg 31, 64297 Darmstadt",
     classes: "B",
-    drivingSchool: "Fahrschule Guel",
+    drivingSchool: "Fahrschule Demo",
     registrationDate: "12.05.2026",
     contractNumber: "V-2026-1042",
     customerNumber: "10057",

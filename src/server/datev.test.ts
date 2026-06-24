@@ -92,7 +92,7 @@ describe("file structure", () => {
       from: "2026-01-01",
       to: "2026-12-31",
     });
-    expect(bytes).toContain(0xfc); // ü  (TÜV, Gül)
+    expect(bytes).toContain(0xfc); // ü  (TÜV)
     expect(bytes).toContain(0x96); // –  (Beleginfo – Art 1)
     expect(bytes[0]).toBe(0x22); // starts with '"' — no BOM
   });
@@ -333,9 +333,10 @@ describe("formula injection", () => {
 
 describe("encodeCp1252", () => {
   test("maps Latin-1 1:1 and CP1252 extras", () => {
-    const bytes = encodeCp1252("Gül – 10€ ßä");
+    const bytes = encodeCp1252("Müller – 10€ ßä");
     expect([...bytes]).toEqual([
-      0x47, 0xfc, 0x6c, 0x20, 0x96, 0x20, 0x31, 0x30, 0x80, 0x20, 0xdf, 0xe4,
+      0x4d, 0xfc, 0x6c, 0x6c, 0x65, 0x72, 0x20, 0x96, 0x20, 0x31, 0x30, 0x80,
+      0x20, 0xdf, 0xe4,
     ]);
     // unmappable characters degrade to '?'
     expect([...encodeCp1252("漢")]).toEqual([0x3f]);

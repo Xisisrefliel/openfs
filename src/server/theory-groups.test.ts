@@ -57,7 +57,7 @@ const VALID = {
   weekday: "Montag",
   time: "18:00",
   room: "Schulungsraum 1",
-  instructor: "Köksal Gül",
+  instructor: "Martin Weber",
   capacity: 20,
 };
 
@@ -129,7 +129,7 @@ describe("createTheoryGroup", () => {
     expect(group.weekday).toBe("Montag");
     expect(group.time).toBe("18:00");
     expect(group.room).toBe("Schulungsraum 1");
-    expect(group.instructor).toBe("Köksal Gül");
+    expect(group.instructor).toBe("Martin Weber");
     expect(group.capacity).toBe(20);
     expect(group.studentIds).toEqual([]);
     expect(group.members).toEqual([]);
