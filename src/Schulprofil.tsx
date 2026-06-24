@@ -1,18 +1,13 @@
 import { useState } from "react";
 import {
   ArrowRight,
-  Award,
   CalendarDays,
   Camera,
   Check,
-  Clock,
   Globe,
   Info,
-  ListChecks,
   MapPin,
   Quote,
-  Share2,
-  Store,
   ThumbsUp,
   X,
 } from "lucide-react";
@@ -26,15 +21,10 @@ import {
 } from "@/hooks/use-school-profile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { FormSection as Section, FormSectionIndex } from "./components/FormSection.tsx";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -43,42 +33,6 @@ type IconCmp = React.ComponentType<{ className?: string }>;
 /* ------------------------------------------------------------------ */
 /* Primitives composed from shadcn (same shapes as Profil.tsx)          */
 /* ------------------------------------------------------------------ */
-
-function Section({
-  title,
-  description,
-  Icon,
-  accent,
-  children,
-}: {
-  title: string;
-  description?: string;
-  Icon: IconCmp;
-  accent: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardHeader className="border-b">
-        <div className="flex items-start gap-2.5">
-          <div
-            className={cn(
-              "flex size-8 shrink-0 items-center justify-center rounded-lg",
-              accent,
-            )}
-          >
-            <Icon className="size-[18px]" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <CardTitle>{title}</CardTitle>
-            {description && <CardDescription>{description}</CardDescription>}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
 
 function Field({
   label,
@@ -163,9 +117,153 @@ function TagEditor({
   );
 }
 
+const CLOSED_HOURS = "Geschlossen";
+const DEFAULT_OPEN_TIME = "09:00";
+const DEFAULT_CLOSE_TIME = "18:00";
+const TIME_RANGE_RE = /(\d{1,2}:\d{2}).*?(\d{1,2}:\d{2})/;
+
+const TIME_OPTIONS = Array.from({ length: 33 }, (_, index) => {
+  const minutes = 6 * 60 + index * 30;
+  const hours = String(Math.floor(minutes / 60)).padStart(2, "0");
+  const mins = String(minutes % 60).padStart(2, "0");
+  return `${hours}:${mins}`;
+});
+
+function normalizeTime(value: string, fallback: string) {
+  const [rawHours, rawMinutes] = value.split(":");
+  const hours = Number(rawHours);
+  const minutes = Number(rawMinutes);
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return fallback;
+  }
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function getTimeOptions(...selected: string[]) {
+  return [...new Set([...TIME_OPTIONS, ...selected])].sort();
+}
+
+function parseOpeningHours(hours: string) {
+  if (hours.toLocaleLowerCase("de-DE").includes("geschlossen")) {
+    return {
+      closed: true,
+      opens: DEFAULT_OPEN_TIME,
+      closes: DEFAULT_CLOSE_TIME,
+    };
+  }
+
+  const match = hours.match(TIME_RANGE_RE);
+  return {
+    closed: false,
+    opens: normalizeTime(match?.[1] ?? "", DEFAULT_OPEN_TIME),
+    closes: normalizeTime(match?.[2] ?? "", DEFAULT_CLOSE_TIME),
+  };
+}
+
+function formatOpeningHours({
+  closed,
+  opens,
+  closes,
+}: {
+  closed: boolean;
+  opens: string;
+  closes: string;
+}) {
+  return closed ? CLOSED_HOURS : `${opens} – ${closes}`;
+}
+
+function OpeningHoursControls({
+  day,
+  value,
+  onChange,
+}: {
+  day: string;
+  value: string;
+  onChange: (hours: string) => void;
+}) {
+  const parsed = parseOpeningHours(value);
+  const timeOptions = getTimeOptions(parsed.opens, parsed.closes);
+
+  return (
+    <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-[minmax(8rem,10rem)_minmax(7rem,1fr)_minmax(7rem,1fr)]">
+      <NativeSelect
+        aria-label={`${day}: Status`}
+        value={parsed.closed ? "closed" : "open"}
+        onChange={(event) =>
+          onChange(
+            formatOpeningHours({
+              ...parsed,
+              closed: event.target.value === "closed",
+            }),
+          )
+        }
+        className="w-full"
+      >
+        <NativeSelectOption value="open">Geöffnet</NativeSelectOption>
+        <NativeSelectOption value="closed">Geschlossen</NativeSelectOption>
+      </NativeSelect>
+      <NativeSelect
+        aria-label={`${day}: Von`}
+        value={parsed.opens}
+        disabled={parsed.closed}
+        onChange={(event) =>
+          onChange(
+            formatOpeningHours({
+              ...parsed,
+              opens: event.target.value,
+            }),
+          )
+        }
+        className="w-full [&_select]:tabular-nums"
+      >
+        {timeOptions.map((time) => (
+          <NativeSelectOption key={time} value={time}>
+            {time}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+      <NativeSelect
+        aria-label={`${day}: Bis`}
+        value={parsed.closes}
+        disabled={parsed.closed}
+        onChange={(event) =>
+          onChange(
+            formatOpeningHours({
+              ...parsed,
+              closes: event.target.value,
+            }),
+          )
+        }
+        className="w-full [&_select]:tabular-nums"
+      >
+        {timeOptions.map((time) => (
+          <NativeSelectOption key={time} value={time}>
+            {time}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Page                                                                 */
 /* ------------------------------------------------------------------ */
+
+const sections = [
+  { id: "ueber-uns", label: "Über uns" },
+  { id: "social-media", label: "Social Media" },
+  { id: "oeffnungszeiten", label: "Öffnungszeiten" },
+  { id: "leistungen", label: "Leistungen" },
+  { id: "highlights", label: "Highlights" },
+];
 
 export function Schulprofil() {
   const { profile, setProfile, refresh } = useSchoolProfile();
@@ -175,13 +273,15 @@ export function Schulprofil() {
   const update = (patch: Partial<SchoolProfile>) =>
     setProfile((current) => ({ ...current, ...patch }));
 
-  const updateHours = (index: number, hours: string) =>
+  const updateHours = (index: number, hours: string) => {
+    setDirty(true);
     setProfile((current) => ({
       ...current,
       opening_hours: current.opening_hours.map((entry, i) =>
         i === index ? { ...entry, hours } : entry,
       ),
     }));
+  };
 
   const markDirty = () => setDirty(true);
 
@@ -237,175 +337,175 @@ export function Schulprofil() {
           if ((event.target as HTMLElement).closest("button")) markDirty();
         }}
       >
-        <div className="stagger-in mx-auto flex w-full max-w-[1080px] flex-col gap-4 2xl:gap-5">
-          {/* Über uns */}
-          <Section
-            title="Über uns"
-            description="So stellt sich Ihre Fahrschule öffentlich vor"
-            Icon={Store}
-            accent="bg-indigo-500/10 text-indigo-600"
-          >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Slogan" htmlFor="slogan" hint="Ein kurzer, prägnanter Satz.">
-                <IconInput
-                  Icon={Quote}
-                  id="slogan"
-                  placeholder="z. B. Sicher ans Ziel."
-                  value={profile.slogan}
-                  onChange={(e) => update({ slogan: e.target.value })}
-                />
-              </Field>
-              <Field
-                label="Gegründet"
-                htmlFor="founded"
-                hint="Jahr der Gründung (optional)."
-              >
-                <IconInput
-                  Icon={CalendarDays}
-                  id="founded"
-                  inputMode="numeric"
-                  placeholder="z. B. 1998"
-                  value={profile.founded_year ?? ""}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
-                    update({ founded_year: digits ? Number(digits) : null });
-                  }}
-                />
-              </Field>
-              <Field label="Webseite" htmlFor="website">
-                <IconInput
-                  Icon={Globe}
-                  id="website"
-                  type="url"
-                  placeholder="https://…"
-                  value={profile.website}
-                  onChange={(e) => update({ website: e.target.value })}
-                />
-              </Field>
-              <div className="md:col-span-2">
-                <Field label="Beschreibung" htmlFor="description">
-                  <Textarea
-                    id="description"
-                    rows={4}
-                    placeholder="Beschreiben Sie Ihre Fahrschule in wenigen Sätzen…"
-                    value={profile.description}
-                    onChange={(e) => update({ description: e.target.value })}
+        <div className="mx-auto flex w-full max-w-[1080px] gap-10">
+          <FormSectionIndex sections={sections} />
+
+          <div className="stagger-in flex min-w-0 flex-1 flex-col gap-8 pb-[50svh]">
+            {/* Über uns */}
+            <Section
+              id="ueber-uns"
+              title="Über uns"
+              description="So stellt sich Ihre Fahrschule öffentlich vor."
+            >
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field
+                  label="Slogan"
+                  htmlFor="slogan"
+                  hint="Ein kurzer, prägnanter Satz."
+                >
+                  <IconInput
+                    Icon={Quote}
+                    id="slogan"
+                    placeholder="z. B. Sicher ans Ziel."
+                    value={profile.slogan}
+                    onChange={(e) => update({ slogan: e.target.value })}
+                  />
+                </Field>
+                <Field
+                  label="Gegründet"
+                  htmlFor="founded"
+                  hint="Jahr der Gründung (optional)."
+                >
+                  <IconInput
+                    Icon={CalendarDays}
+                    id="founded"
+                    inputMode="numeric"
+                    placeholder="z. B. 1998"
+                    value={profile.founded_year ?? ""}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      update({ founded_year: digits ? Number(digits) : null });
+                    }}
+                  />
+                </Field>
+                <Field label="Webseite" htmlFor="website">
+                  <IconInput
+                    Icon={Globe}
+                    id="website"
+                    type="url"
+                    placeholder="https://…"
+                    value={profile.website}
+                    onChange={(e) => update({ website: e.target.value })}
+                  />
+                </Field>
+                <div className="md:col-span-2">
+                  <Field label="Beschreibung" htmlFor="description">
+                    <Textarea
+                      id="description"
+                      rows={4}
+                      placeholder="Beschreiben Sie Ihre Fahrschule in wenigen Sätzen…"
+                      value={profile.description}
+                      onChange={(e) => update({ description: e.target.value })}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </Section>
+
+            {/* Social Media */}
+            <Section
+              id="social-media"
+              title="Social Media"
+              description="Verlinken Sie Ihre Kanäle und Ihren Google-Maps-Eintrag."
+            >
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Instagram" htmlFor="instagram">
+                  <IconInput
+                    Icon={Camera}
+                    id="instagram"
+                    placeholder="https://instagram.com/…"
+                    value={profile.instagram}
+                    onChange={(e) => update({ instagram: e.target.value })}
+                  />
+                </Field>
+                <Field label="Facebook" htmlFor="facebook">
+                  <IconInput
+                    Icon={ThumbsUp}
+                    id="facebook"
+                    placeholder="https://facebook.com/…"
+                    value={profile.facebook}
+                    onChange={(e) => update({ facebook: e.target.value })}
+                  />
+                </Field>
+                <Field label="Google Maps" htmlFor="maps">
+                  <IconInput
+                    Icon={MapPin}
+                    id="maps"
+                    placeholder="https://maps.google.com/…"
+                    value={profile.google_maps_url}
+                    onChange={(e) => update({ google_maps_url: e.target.value })}
                   />
                 </Field>
               </div>
-            </div>
-          </Section>
+            </Section>
 
-          {/* Social Media */}
-          <Section
-            title="Social Media"
-            description="Verlinken Sie Ihre Kanäle und Ihren Google-Maps-Eintrag"
-            Icon={Share2}
-            accent="bg-pink-500/10 text-pink-600"
-          >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Instagram" htmlFor="instagram">
-                <IconInput
-                  Icon={Camera}
-                  id="instagram"
-                  placeholder="https://instagram.com/…"
-                  value={profile.instagram}
-                  onChange={(e) => update({ instagram: e.target.value })}
-                />
-              </Field>
-              <Field label="Facebook" htmlFor="facebook">
-                <IconInput
-                  Icon={ThumbsUp}
-                  id="facebook"
-                  placeholder="https://facebook.com/…"
-                  value={profile.facebook}
-                  onChange={(e) => update({ facebook: e.target.value })}
-                />
-              </Field>
-              <Field label="Google Maps" htmlFor="maps">
-                <IconInput
-                  Icon={MapPin}
-                  id="maps"
-                  placeholder="https://maps.google.com/…"
-                  value={profile.google_maps_url}
-                  onChange={(e) => update({ google_maps_url: e.target.value })}
-                />
-              </Field>
-            </div>
-          </Section>
-
-          {/* Öffnungszeiten */}
-          <Section
-            title="Öffnungszeiten"
-            description="Wann ist Ihr Büro erreichbar?"
-            Icon={Clock}
-            accent="bg-sky-500/10 text-sky-600"
-          >
-            <div className="flex flex-col divide-y">
-              {profile.opening_hours.map((entry, i) => (
-                <div
-                  key={entry.day}
-                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
-                >
-                  <span className="w-32 shrink-0 text-sm font-medium">{entry.day}</span>
-                  <Input
-                    value={entry.hours}
-                    onChange={(e) => updateHours(i, e.target.value)}
-                    placeholder="z. B. 09:00 – 18:00 oder Geschlossen"
-                    className="flex-1"
-                  />
-                </div>
-              ))}
-            </div>
-          </Section>
-
-          {/* Leistungen */}
-          <Section
-            title="Leistungen"
-            description="Welche Angebote umfasst Ihre Fahrschule?"
-            Icon={ListChecks}
-            accent="bg-emerald-500/10 text-emerald-600"
-          >
-            <Field
-              label="Leistungen"
-              hint="Enter drücken zum Hinzufügen — z. B. Klasse B, Intensivkurse, Theorieunterricht online."
+            {/* Öffnungszeiten */}
+            <Section
+              id="oeffnungszeiten"
+              title="Öffnungszeiten"
+              description="Wann ist Ihr Büro erreichbar?"
             >
-              <TagEditor
-                value={profile.services}
-                onChange={(services) => {
-                  update({ services });
-                  markDirty();
-                }}
-                placeholder="Leistung hinzufügen…"
-              />
-            </Field>
-          </Section>
+              <div className="flex flex-col divide-y">
+                {profile.opening_hours.map((entry, i) => (
+                  <div
+                    key={entry.day}
+                    className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-3"
+                  >
+                    <span className="w-32 shrink-0 text-sm font-medium">{entry.day}</span>
+                    <OpeningHoursControls
+                      day={entry.day}
+                      value={entry.hours}
+                      onChange={(hours) => updateHours(i, hours)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </Section>
 
-          {/* Highlights */}
-          <Section
-            title="Highlights"
-            description="Was macht Ihre Fahrschule besonders?"
-            Icon={Award}
-            accent="bg-amber-500/10 text-amber-600"
-          >
-            <Field
-              label="Highlights"
-              hint="Enter drücken zum Hinzufügen — z. B. Moderne Fahrzeugflotte, Hohe Bestehensquote."
+            {/* Leistungen */}
+            <Section
+              id="leistungen"
+              title="Leistungen"
+              description="Welche Angebote umfasst Ihre Fahrschule?"
             >
-              <TagEditor
-                value={profile.highlights}
-                onChange={(highlights) => {
-                  update({ highlights });
-                  markDirty();
-                }}
-                placeholder="Highlight hinzufügen…"
-              />
-            </Field>
-          </Section>
+              <Field
+                label="Leistungen"
+                hint="Enter drücken zum Hinzufügen — z. B. Klasse B, Intensivkurse, Theorieunterricht online."
+              >
+                <TagEditor
+                  value={profile.services}
+                  onChange={(services) => {
+                    update({ services });
+                    markDirty();
+                  }}
+                  placeholder="Leistung hinzufügen…"
+                />
+              </Field>
+            </Section>
 
-          {/* Footer */}
-          <Card>
-            <CardContent className="flex items-center justify-between gap-3">
+            {/* Highlights */}
+            <Section
+              id="highlights"
+              title="Highlights"
+              description="Was macht Ihre Fahrschule besonders?"
+            >
+              <Field
+                label="Highlights"
+                hint="Enter drücken zum Hinzufügen — z. B. Moderne Fahrzeugflotte, Hohe Bestehensquote."
+              >
+                <TagEditor
+                  value={profile.highlights}
+                  onChange={(highlights) => {
+                    update({ highlights });
+                    markDirty();
+                  }}
+                  placeholder="Highlight hinzufügen…"
+                />
+              </Field>
+            </Section>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between gap-3 border-t pt-6">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Info className="size-4 shrink-0" />
                 <span className="text-sm">
@@ -416,8 +516,8 @@ export function Schulprofil() {
                 Speichern
                 <ArrowRight />
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>
