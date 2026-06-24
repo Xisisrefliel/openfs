@@ -242,7 +242,7 @@ export function NeueSchueler() {
         <div className="mx-auto flex w-full max-w-[1080px] gap-10">
           <FormSectionIndex sections={sections} />
 
-          <div className="stagger-in flex min-w-0 flex-1 flex-col gap-8 pb-4">
+          <div className="stagger-in flex min-w-0 flex-1 flex-col gap-8 pb-[50svh]">
             {/* Stammdaten */}
             <Section
               id="stammdaten"
