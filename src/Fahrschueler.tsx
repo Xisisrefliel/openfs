@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Printer } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Printer, UserPlus } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
 import { VertragDialog } from "./components/VertragDialog.tsx";
@@ -178,13 +178,20 @@ export function Fahrschueler({ navigate }: { navigate: (to: string) => void }) {
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
-      <PageHeader className="h-auto min-h-11 flex-wrap py-2 2xl:min-h-12">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+      <PageHeader
+        end={
+          <Button type="button" size="sm" onClick={() => navigate("/neue-schueler")}>
+            <UserPlus data-icon="inline-start" />
+            Schüler Anmeldung
+          </Button>
+        }
+      >
+        <div className="flex min-w-0 items-center gap-2">
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Name, Telefon, Klasse oder Vertrag suchen"
-            className="h-8 w-80 max-w-full"
+            className="h-8 w-44 sm:w-64 lg:w-72"
           />
           <ToggleGroup
             type="single"
@@ -198,6 +205,7 @@ export function Fahrschueler({ navigate }: { navigate: (to: string) => void }) {
             size="sm"
             spacing={0}
             aria-label="Fahrschueler Status"
+            className="hidden sm:flex"
           >
             <ToggleGroupItem value="aktiv" aria-label="Aktive Fahrschueler">
               Aktiv
@@ -206,7 +214,13 @@ export function Fahrschueler({ navigate }: { navigate: (to: string) => void }) {
               Inaktiv
             </ToggleGroupItem>
           </ToggleGroup>
-          <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="hidden md:inline-flex"
+            onClick={resetFilters}
+          >
             Zurücksetzen
           </Button>
         </div>
