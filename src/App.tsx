@@ -12,6 +12,7 @@ import {
   CalendarClock,
   CalendarDays,
   Car,
+  ChevronDown,
   ChevronRight,
   ChevronsUpDown,
   FileText,
@@ -179,6 +180,44 @@ function AppSidebar({
   path: string;
   navigate: (to: string) => void;
 }) {
+  const [sidebarCanScrollDown, setSidebarCanScrollDown] = useState(false);
+
+  useEffect(() => {
+    const content = document.querySelector('[data-slot="sidebar-content"]');
+    if (!(content instanceof HTMLElement)) return;
+
+    const updateFooterFade = () => {
+      setSidebarCanScrollDown(
+        content.scrollTop + content.clientHeight < content.scrollHeight - 1,
+      );
+    };
+
+    updateFooterFade();
+    content.addEventListener("scroll", updateFooterFade, { passive: true });
+    window.addEventListener("resize", updateFooterFade);
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateFooterFade);
+    observer?.observe(content);
+
+    return () => {
+      content.removeEventListener("scroll", updateFooterFade);
+      window.removeEventListener("resize", updateFooterFade);
+      observer?.disconnect();
+    };
+  }, []);
+
+  // The footer cue is a real affordance: clicking it pages the nav down so the
+  // items hidden under the fold scroll into view (smooth, reduced-motion aware).
+  const scrollNavDown = () => {
+    const content = document.querySelector('[data-slot="sidebar-content"]');
+    if (!(content instanceof HTMLElement)) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    content.scrollBy({
+      top: Math.round(content.clientHeight * 0.7),
+      behavior: reduce ? "auto" : "smooth",
+    });
+  };
+
   return (
     <Sidebar variant="inset">
       <SidebarContent className="pt-[52px]">
@@ -261,7 +300,33 @@ function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter
+        className={cn(
+          "relative z-20 bg-sidebar before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-14 before:bg-gradient-to-t before:from-sidebar before:via-sidebar/90 before:to-transparent before:transition-opacity before:duration-300",
+          sidebarCanScrollDown ? "before:opacity-100" : "before:opacity-0",
+        )}
+      >
+        <div
+          className={cn(
+            "pointer-events-none absolute inset-x-0 -top-7 z-10 flex justify-center transition-[opacity,transform] duration-300 ease-snappy group-data-[collapsible=icon]:hidden motion-reduce:transition-none",
+            sidebarCanScrollDown
+              ? "translate-y-0 scale-100 opacity-100"
+              : "translate-y-1.5 scale-90 opacity-0",
+          )}
+        >
+          <button
+            type="button"
+            aria-label="Weitere Menüpunkte anzeigen"
+            tabIndex={sidebarCanScrollDown ? 0 : -1}
+            onClick={scrollNavDown}
+            className={cn(
+              "group/cue flex size-6 items-center justify-center rounded-full border border-sidebar-border/70 bg-sidebar text-muted-foreground shadow-[var(--shadow-lift)] transition-[color,background-color] duration-150 hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
+              sidebarCanScrollDown ? "pointer-events-auto" : "pointer-events-none",
+            )}
+          >
+            <ChevronDown className="size-3.5 transition-transform duration-150 group-hover/cue:translate-y-0.5" />
+          </button>
+        </div>
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
