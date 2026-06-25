@@ -1,3 +1,9 @@
+<p align="center">
+  <span style="display: inline-block; background: #ffffff; padding: 12px 16px; border-radius: 12px;">
+    <img src="logos/OpenFS%20LOGO%20%2B%20TEXT.svg" alt="OpenFS" width="180" />
+  </span>
+</p>
+
 # OpenFS
 
 Management software for German driving schools (Fahrschulen). It covers the full operational workflow: a week-based lesson calendar, student and instructor management, vehicle fleet tracking, configurable price plans, and a GoBD-shaped double-entry accounting engine (SKR 04, immutable bookings, Storno-only corrections, gapless receipt sequences) with Quittungen printing and DATEV CSV export. On top of that: lesson billing (confirm-to-bill per lesson, plus batch billing), exam result tracking with a Prüfungsplaner, a digital Ausbildungsnachweis (signed per lesson, printable per student), theory attendance, statistics, an internal chat, and a public appointment request form at `/anfrage`.
