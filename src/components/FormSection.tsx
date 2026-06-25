@@ -172,6 +172,14 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
   const [highlight, setHighlight] = useState<{ top: number; height: number } | null>(
     null,
   );
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{
+    pointerId: number;
+    startY: number;
+    moved: boolean;
+    lastId: string | null;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
   const visibleSet = useMemo(() => new Set(visible), [visible]);
   const visibleRange = useMemo(() => {
     let first = -1;
@@ -235,16 +243,90 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     };
   }, [sections, visible, visibleKey, visibleRange]);
 
+  const scrollToSection = (id: string, behavior: ScrollBehavior) => {
+    document.getElementById(id)?.scrollIntoView({ behavior, block: "center" });
+  };
+
+  // The section whose rail button is nearest the pointer's vertical position —
+  // used while dragging so the scrub never falls into the gaps between buttons.
+  const sectionIdAt = (clientY: number) => {
+    let bestId: string | null = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const s of sections) {
+      const rect = buttonRefs.current[s.id]?.getBoundingClientRect();
+      if (!rect) continue;
+      const distance =
+        clientY < rect.top
+          ? rect.top - clientY
+          : clientY > rect.bottom
+            ? clientY - rect.bottom
+            : 0;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestId = s.id;
+      }
+    }
+    return bestId;
+  };
+
+  // Click jumps to a section; press-and-drag scrubs through them — the active
+  // highlight tracks the pointer so the rail behaves like a scrollbar thumb.
+  const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startY: e.clientY,
+      moved: false,
+      lastId: null,
+    };
+    suppressClickRef.current = false;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    if (!drag.moved) {
+      if (Math.abs(e.clientY - drag.startY) < 4) return;
+      drag.moved = true;
+      suppressClickRef.current = true;
+      setIsDragging(true);
+      navRef.current?.setPointerCapture(drag.pointerId);
+    }
+    e.preventDefault();
+    const id = sectionIdAt(e.clientY);
+    if (id && id !== drag.lastId) {
+      drag.lastId = id;
+      scrollToSection(id, "instant");
+    }
+  };
+
+  const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    if (drag.moved) setIsDragging(false);
+    dragRef.current = null;
+  };
+
   return (
     <nav
       ref={navRef}
-      className="sticky top-2 hidden h-fit w-44 shrink-0 flex-col gap-px self-start pt-1 lg:flex"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      className={cn(
+        "sticky top-2 hidden h-fit w-44 shrink-0 touch-none flex-col gap-px self-start pt-1 select-none lg:flex",
+        isDragging && "cursor-grabbing",
+      )}
     >
       {highlight && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute right-0 left-0 rounded-md bg-muted"
-          style={{ top: highlight.top, height: highlight.height }}
+          className="pointer-events-none absolute inset-x-0 top-0 rounded-md bg-muted transition-[transform,height] duration-200 ease-out motion-reduce:transition-none"
+          style={{
+            transform: `translateY(${highlight.top}px)`,
+            height: highlight.height,
+          }}
         />
       )}
       {sections.map((s) => {
@@ -258,17 +340,21 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
             }}
             type="button"
             aria-current={isActive ? "location" : undefined}
-            onClick={() =>
-              document
-                .getElementById(s.id)
-                ?.scrollIntoView({ behavior: "smooth", block: "center" })
-            }
+            onClick={() => {
+              if (suppressClickRef.current) {
+                suppressClickRef.current = false;
+                return;
+              }
+              scrollToSection(s.id, "smooth");
+            }}
             className={cn(
-              "relative z-10 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors duration-150 hover:duration-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50",
+              // Active state uses a faux-bold text-shadow rather than font-weight so the
+              // glyph advances stay identical — the label never reflows or shifts.
+              "relative z-10 rounded-md px-2.5 py-1.5 text-left text-[13px] [text-shadow:0_0_0_transparent,0_0_0_transparent] transition-[color,text-shadow] duration-150 hover:duration-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50",
               isVisible
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground",
-              isActive && "font-medium",
+              isActive && "[text-shadow:0.3px_0_0_currentColor,-0.3px_0_0_currentColor]",
               !highlight && isVisible && "bg-muted",
             )}
           >
