@@ -264,11 +264,13 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
                 ?.scrollIntoView({ behavior: "smooth", block: "center" })
             }
             className={cn(
-              "relative z-10 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors duration-150 hover:duration-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50",
+              // Active state uses a faux-bold text-shadow rather than font-weight so the
+              // glyph advances stay identical — the label never reflows or shifts.
+              "relative z-10 rounded-md px-2.5 py-1.5 text-left text-[13px] [text-shadow:0_0_0_transparent,0_0_0_transparent] transition-[color,text-shadow] duration-150 hover:duration-0 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50",
               isVisible
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground",
-              isActive && "font-medium",
+              isActive && "[text-shadow:0.3px_0_0_currentColor,-0.3px_0_0_currentColor]",
               !highlight && isVisible && "bg-muted",
             )}
           >
