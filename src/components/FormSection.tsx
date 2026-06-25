@@ -243,8 +243,11 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
       {highlight && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute right-0 left-0 rounded-md bg-muted"
-          style={{ top: highlight.top, height: highlight.height }}
+          className="pointer-events-none absolute inset-x-0 top-0 rounded-md bg-muted transition-[transform,height] duration-200 ease-out motion-reduce:transition-none"
+          style={{
+            transform: `translateY(${highlight.top}px)`,
+            height: highlight.height,
+          }}
         />
       )}
       {sections.map((s) => {
