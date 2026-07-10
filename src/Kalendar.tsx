@@ -90,8 +90,8 @@ const HOUR_MARKS = Array.from(
   (_, i) => START_HOUR + i,
 );
 
-/* Demo "now" — anchored to the seeded week so the indicator lands sensibly. */
-const NOW_MINUTES = 13 * 60 + 30;
+const NOW = new Date();
+const NOW_MINUTES = NOW.getHours() * 60 + NOW.getMinutes();
 const NEW_EVENT_ID = "__new_calendar_event__";
 
 const clamp = (value: number, min: number, max: number) =>
@@ -625,7 +625,9 @@ const DayColumn = memo(
               top: topForMinutes(NOW_MINUTES),
             }}
           >
-            <span className="-ml-1 size-2 shrink-0 rounded-full bg-red-500" />
+            <span className="relative z-10 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white tabular-nums">
+              {formatMinutes(NOW_MINUTES)}
+            </span>
             <span className="h-px flex-1 bg-red-500" />
           </div>
         )}
@@ -1191,7 +1193,7 @@ export function Kalendar({
               }}
               weekStartsOn={1}
               showOutsideDays
-              className="mx-auto w-full p-0 [--cell-size:--spacing(8)]"
+              className="mx-auto w-full bg-transparent px-1 py-0 [--cell-size:--spacing(8)]"
               formatters={{
                 formatCaption: (date) =>
                   date.toLocaleDateString("de-DE", {

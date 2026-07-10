@@ -3,7 +3,6 @@ import { Car, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "./components/PageHeader.tsx";
-import { panelActionsClass, panelInteractiveClass } from "./components/Panel.tsx";
 import { useInstructors } from "@/hooks/use-instructors";
 import {
   useVehicles,
@@ -16,13 +15,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogClose,
@@ -43,6 +44,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
 type Detail = { label: string; value: string };
@@ -67,9 +76,6 @@ const detailLabels = {
   inspection: "Nächste HU",
   insurance: "Versicherung",
 } as const;
-
-/* Values that read as numbers/dates get tabular-nums (guideline §3). */
-const NUMERIC_LABELS = new Set<string>([detailLabels.mileage, detailLabels.inspection]);
 
 const STATUS_DOTS: Record<VehicleRecord["status"], string> = {
   aktiv: "bg-green-500",
@@ -358,7 +364,11 @@ function VehicleEditDialog({
   );
 }
 
-function VehicleCard({
+function vehicleDetail(vehicle: Vehicle, label: string) {
+  return vehicle.details.find((detail) => detail.label === label)?.value || "—";
+}
+
+function VehicleRow({
   vehicle,
   onEdit,
   onDelete,
@@ -368,66 +378,74 @@ function VehicleCard({
   onDelete: () => void;
 }) {
   return (
-    <Card className={cn("border-border/70", panelInteractiveClass)}>
-      <CardHeader>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <CardTitle className="truncate text-sm font-semibold">
-            {vehicle.model}
-          </CardTitle>
-          <CardDescription className="font-mono text-xs tracking-tight">
+    <TableRow
+      tabIndex={0}
+      className="group/row cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      onClick={onEdit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onEdit();
+        }
+      }}
+    >
+      <TableCell>
+        <div className="flex min-w-40 flex-col gap-0.5">
+          <span className="font-medium">{vehicle.model}</span>
+          <span className="font-mono text-xs tracking-tight text-muted-foreground">
             {vehicle.plate}
-          </CardDescription>
+          </span>
         </div>
-        <CardAction>
-          <div className={cn("flex items-center gap-1.5", panelActionsClass)}>
-            <StatusBadge status={vehicle.status} />
-            <div className="flex items-center">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`${vehicle.model} bearbeiten`}
-                onClick={onEdit}
-              >
-                <Pencil />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                aria-label={`${vehicle.model} löschen`}
-                onClick={onDelete}
-              >
-                <Trash2 />
-              </Button>
-            </div>
-          </div>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <Badge variant="outline" className="w-fit font-normal text-muted-foreground">
-          Klasse {vehicle.klass || "—"}
-        </Badge>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3.5">
-          {vehicle.details.map(({ label, value }) => (
-            <div key={label} className="flex min-w-0 flex-col gap-0.5">
-              <dt className="text-[11px] font-medium leading-none text-muted-foreground">
-                {label}
-              </dt>
-              <dd
-                className={cn(
-                  "truncate text-sm font-medium",
-                  NUMERIC_LABELS.has(label) && "tabular-nums",
-                )}
-              >
-                {value || "—"}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </CardContent>
-    </Card>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{vehicle.klass || "—"}</TableCell>
+      <TableCell className="hidden text-muted-foreground md:table-cell">
+        {vehicleDetail(vehicle, detailLabels.gearbox)}
+      </TableCell>
+      <TableCell className="hidden text-muted-foreground lg:table-cell">
+        {vehicleDetail(vehicle, detailLabels.fuel)}
+      </TableCell>
+      <TableCell className="hidden tabular-nums xl:table-cell">
+        {vehicleDetail(vehicle, detailLabels.mileage)}
+      </TableCell>
+      <TableCell className="hidden xl:table-cell">
+        {vehicleDetail(vehicle, detailLabels.instructor)}
+      </TableCell>
+      <TableCell className="hidden tabular-nums 2xl:table-cell">
+        {vehicleDetail(vehicle, detailLabels.inspection)}
+      </TableCell>
+      <TableCell>
+        <StatusBadge status={vehicle.status} />
+      </TableCell>
+      <TableCell className="w-20 text-right">
+        <div className="flex justify-end opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover/row:opacity-100 pointer-fine:group-focus-within/row:opacity-100">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`${vehicle.model} bearbeiten`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit();
+            }}
+          >
+            <Pencil />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            aria-label={`${vehicle.model} löschen`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+          >
+            <Trash2 />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -435,6 +453,7 @@ export function Fahrzeuge() {
   const { assignableNames: instructorOptions } = useInstructors();
   const { vehicles: storedVehicles, loading, refresh } = useVehicles();
   const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
+  const [deletingVehicleId, setDeletingVehicleId] = useState<number | null>(null);
   const [isCreateVehicleOpen, setIsCreateVehicleOpen] = useState(false);
   const emptyVehicle = useMemo(() => createEmptyVehicle(), []);
   const vehicleList = useMemo(() => storedVehicles.map(toVehicle), [storedVehicles]);
@@ -443,23 +462,22 @@ export function Fahrzeuge() {
     ? emptyVehicle
     : (vehicleList.find((vehicle) => vehicle.id === editingVehicleId) ?? null);
   const isDialogOpen = editingMode === "create" || editingVehicleId !== null;
+  const deletingVehicle =
+    vehicleList.find((vehicle) => vehicle.id === deletingVehicleId) ?? null;
 
-  async function removeVehicle(vehicle: Vehicle) {
-    const confirmed = window.confirm(
-      `"${vehicle.model}" (${vehicle.plate}) wirklich löschen? Zugeordnete Schüler und Fahrlehrer werden auf „Nicht zugeteilt“ gesetzt.`,
-    );
-    if (!confirmed) return;
-
+  async function removeVehicle() {
+    if (!deletingVehicle) return;
     try {
-      await deleteVehicle(vehicle.id);
+      await deleteVehicle(deletingVehicle.id);
       await refresh();
       toast.success("Fahrzeug gelöscht.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     } finally {
-      if (editingVehicleId === vehicle.id) {
+      if (editingVehicleId === deletingVehicle.id) {
         setEditingVehicleId(null);
       }
+      setDeletingVehicleId(null);
     }
   }
 
@@ -480,13 +498,23 @@ export function Fahrzeuge() {
             Fahrzeug hinzufügen
           </Button>
         }
-      />
+      >
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h1 className="text-[15px] font-semibold tracking-[-0.01em]">Fahrzeuge</h1>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {loading ? "—" : vehicleList.length}
+          </span>
+        </div>
+      </PageHeader>
 
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
-            {Array.from({ length: 3 }, (_, index) => (
-              <Skeleton key={index} className="h-52 rounded-lg" />
+          <div className="overflow-hidden rounded-lg border">
+            {Array.from({ length: 4 }, (_, index) => (
+              <Skeleton
+                key={index}
+                className="h-14 rounded-none border-b last:border-0"
+              />
             ))}
           </div>
         ) : vehicleList.length === 0 ? (
@@ -495,15 +523,34 @@ export function Fahrzeuge() {
             <span className="text-sm">Noch keine Fahrzeuge angelegt.</span>
           </div>
         ) : (
-          <div className="stagger-in grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:gap-5">
-            {vehicleList.map((vehicle) => (
-              <VehicleCard
-                key={vehicle.id}
-                vehicle={vehicle}
-                onEdit={() => setEditingVehicleId(vehicle.id)}
-                onDelete={() => void removeVehicle(vehicle)}
-              />
-            ))}
+          <div className="animate-enter overflow-hidden rounded-lg border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  <TableHead>Fahrzeug</TableHead>
+                  <TableHead>Klasse</TableHead>
+                  <TableHead className="hidden md:table-cell">Getriebe</TableHead>
+                  <TableHead className="hidden lg:table-cell">Kraftstoff</TableHead>
+                  <TableHead className="hidden xl:table-cell">Kilometerstand</TableHead>
+                  <TableHead className="hidden xl:table-cell">Fahrlehrer/in</TableHead>
+                  <TableHead className="hidden 2xl:table-cell">Nächste HU</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Aktionen</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {vehicleList.map((vehicle) => (
+                  <VehicleRow
+                    key={vehicle.id}
+                    vehicle={vehicle}
+                    onEdit={() => setEditingVehicleId(vehicle.id)}
+                    onDelete={() => setDeletingVehicleId(vehicle.id)}
+                  />
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
@@ -532,6 +579,28 @@ export function Fahrzeuge() {
           setIsCreateVehicleOpen(false);
         }}
       />
+
+      <AlertDialog
+        open={deletingVehicle !== null}
+        onOpenChange={(open) => !open && setDeletingVehicleId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fahrzeug löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingVehicle
+                ? `„${deletingVehicle.model}" (${deletingVehicle.plate}) wird entfernt. Zugeordnete Schüler und Fahrlehrer werden auf „Nicht zugeteilt" gesetzt.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => void removeVehicle()}>
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
