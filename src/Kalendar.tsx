@@ -5,11 +5,11 @@ import type {
   WheelEvent as ReactWheelEvent,
 } from "react";
 import {
-  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   GripVertical,
+  PanelRight,
   Plus,
 } from "lucide-react";
 
@@ -147,7 +147,8 @@ const handleCalendarWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
    its one-accent system instead: event type is written on the card and the
    selected state carries the stronger blue emphasis. */
 const calendarEventTheme: CalendarEventCardTheme = {
-  surface: "border-primary/20 bg-primary/[0.07] hover:bg-primary/[0.1]",
+  surface:
+    "border-primary/20 bg-[color-mix(in_oklab,var(--background)_93%,var(--primary))] hover:bg-[color-mix(in_oklab,var(--background)_90%,var(--primary))]",
   text: "text-foreground",
   meta: "text-muted-foreground",
   focus: "focus-visible:ring-primary/30",
@@ -167,18 +168,14 @@ const getISOWeek = (date: Date) => {
   return Math.ceil(((utc.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
 };
 
-const getTimezoneLabel = (date: Date) => {
-  const offset = -date.getTimezoneOffset() / 60;
-  const sign = offset >= 0 ? "+" : "−";
-  return `UTC${sign}${Math.abs(offset)}`;
-};
-
 /* ------------------------------------------------------------------ */
 /* Event block                                                        */
 /* ------------------------------------------------------------------ */
 
 type DragState = {
   id: string;
+  pointerStartX: number;
+  pointerStartY: number;
   /* The event's position when the drag started — drag math is a pure
      function of this + the pointer, so drag-end never depends on React
      having committed the last move (see dragResultRef below). */
@@ -215,7 +212,7 @@ function computeDragPosition(
       ((clientY - rect.top - dragging.pointerOffsetY) / HOUR_HEIGHT) * 60 +
       START_HOUR * 60;
     const startMinutes = clamp(
-      snapMinutes(rawStartMinutes),
+      Math.round(rawStartMinutes),
       START_HOUR * 60,
       END_HOUR * 60 - dragging.duration,
     );
@@ -229,7 +226,10 @@ function computeDragPosition(
 
   // Resize by pointer delta from where the edge was grabbed, not by
   // absolute pointer position — see DragState.grabOffsetMinutes.
-  const pointerMinutes = snapMinutes(rawPointerMinutes - dragging.grabOffsetMinutes);
+  // Keep the preview attached to the pointer. The final value is snapped to
+  // a quarter-hour on release so resizing feels fluid without changing the
+  // calendar's stored time increments.
+  const pointerMinutes = Math.round(rawPointerMinutes - dragging.grabOffsetMinutes);
 
   if (dragging.mode === "resize-start") {
     const endMinutes = toMinutes(dragging.end);
@@ -261,8 +261,8 @@ function computeDragPosition(
 
 function EventBlock({
   event,
-  column,
-  columns,
+  cascadeOffset,
+  cascadeDepth,
   isDragging,
   isSelected,
   onDragStart,
@@ -272,8 +272,8 @@ function EventBlock({
   onDelete,
 }: {
   event: CalEvent;
-  column: number;
-  columns: number;
+  cascadeOffset: number;
+  cascadeDepth: number;
   isDragging: boolean;
   isSelected: boolean;
   onDragStart: (
@@ -292,14 +292,15 @@ function EventBlock({
   const startMin = toMinutes(event.start);
   const endMin = toMinutes(event.end);
   const duration = endMin - startMin;
-  const top = topForMinutes(startMin);
   const slotHeight = Math.max((duration / 60) * HOUR_HEIGHT - 2, 38);
-  const widthPct = 100 / columns;
+  const horizontalOffset = Math.min(cascadeDepth * 6, 24);
+  const top = topForMinutes(startMin) + cascadeOffset;
+  const visibleHeight = slotHeight - cascadeOffset;
   const theme = calendarEventTheme;
-  const compact = slotHeight < 52;
+  const compact = visibleHeight < 52;
   // Cards up to ~1h are too short for a wrapped meta row — it would squeeze
   // the title. Title and meta stay single-line and truncate instead.
-  const dense = !compact && slotHeight < 76;
+  const dense = !compact && visibleHeight < 76;
 
   return (
     <CalendarEventCard
@@ -322,9 +323,10 @@ function EventBlock({
       style={
         {
           top,
-          left: `calc(${column * widthPct}% + 3px)`,
-          width: `calc(${widthPct}% - 6px)`,
-          "--card-h": `${slotHeight}px`,
+          left: 3 + horizontalOffset,
+          width: `calc(100% - ${6 + horizontalOffset}px)`,
+          zIndex: isDragging ? 40 : 3,
+          "--card-h": `${visibleHeight}px`,
         } as CSSProperties
       }
     />
@@ -378,12 +380,40 @@ const DayColumn = memo(
     onEdit: (event: CalEvent) => void;
     onDelete: (event: CalEvent) => void;
   }) {
-    const { placed, columns } = useMemo(() => layoutDay(events), [events]);
+    const placed = useMemo(() => {
+      const layout = layoutDay(events).placed;
+      let overlapEnd = -1;
+      let previousDisplayTop = -Infinity;
+      let cascadeDepth = 0;
+
+      return layout.map((placement) => {
+        const start = toMinutes(placement.event.start);
+        const end = toMinutes(placement.event.end);
+        const actualTop = topForMinutes(start);
+        const slotHeight = Math.max(((end - start) / 60) * HOUR_HEIGHT - 2, 38);
+
+        if (start >= overlapEnd) {
+          overlapEnd = end;
+          previousDisplayTop = actualTop;
+          cascadeDepth = 0;
+          return { ...placement, cascadeOffset: 0, cascadeDepth };
+        }
+
+        cascadeDepth += 1;
+        overlapEnd = Math.max(overlapEnd, end);
+        const cascadeOffset = Math.min(
+          Math.max(previousDisplayTop + 22 - actualTop, 0),
+          Math.max(slotHeight - 38, 0),
+        );
+        previousDisplayTop = actualTop + cascadeOffset;
+        return { ...placement, cascadeOffset, cascadeDepth };
+      });
+    }, [events]);
     return (
       <div
         className={cn(
           "relative h-full border-l border-border/60",
-          isToday && "bg-primary/[0.015]",
+          isToday && "bg-destructive/[0.025]",
         )}
       >
         {/* Hour lines */}
@@ -396,12 +426,12 @@ const DayColumn = memo(
         ))}
 
         {/* Events */}
-        {placed.map(({ event, column }) => (
+        {placed.map(({ event, cascadeOffset, cascadeDepth }) => (
           <EventBlock
             key={event.id}
             event={event}
-            column={column}
-            columns={columns}
+            cascadeOffset={cascadeOffset}
+            cascadeDepth={cascadeDepth}
             isDragging={draggingId === event.id}
             isSelected={selectedEventId === event.id}
             onDragStart={onDragStart}
@@ -484,6 +514,7 @@ export function Kalendar({
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalEvent | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   // Live placement while a preset from the "Ereignis" menu is dragged over
@@ -501,16 +532,26 @@ export function Kalendar({
     return () => window.clearInterval(timer);
   }, []);
 
-  // Open the grid scrolled to the morning, like a real calendar — and with
-  // today's column in view when the week overflows horizontally.
+  // Open with the current time centered and today's column in view when the
+  // week overflows horizontally.
   useEffect(() => {
     const grid = gridRef.current;
     const dayGrid = dayGridRef.current;
     if (!grid) return;
 
-    grid.scrollTop = (8 - START_HOUR) * HOUR_HEIGHT;
-
     if (!dayGrid) return;
+    const initialNow = new Date();
+    const currentMinutes = initialNow.getHours() * 60 + initialNow.getMinutes();
+    const gridContentTop =
+      dayGrid.getBoundingClientRect().top -
+      grid.getBoundingClientRect().top +
+      grid.scrollTop;
+    grid.scrollTop = clamp(
+      gridContentTop + topForMinutes(currentMinutes) - grid.clientHeight / 2,
+      0,
+      grid.scrollHeight - grid.clientHeight,
+    );
+
     // The initial anchor is TODAY, so the mounted week always contains it.
     const dayIndex = (TODAY.getDay() + 6) % 7; // Monday = 0
     // scrollLeft is 0 on mount, so rect offsets are content coordinates.
@@ -568,13 +609,58 @@ export function Kalendar({
 
     const handlePointerMove = (event: PointerEvent) => {
       event.preventDefault();
+      if (
+        dragResultRef.current === null &&
+        Math.hypot(
+          event.clientX - dragging.pointerStartX,
+          event.clientY - dragging.pointerStartY,
+        ) < 3
+      ) {
+        return;
+      }
       updateEventFromPointer(event.clientX, event.clientY);
     };
 
     const stopDragging = () => {
-      // Cancel any pending frame before applying the final result so the
-      // UI lands on exactly the position the user released at.
+      // Keep drag previews fluid and snap to a quarter-hour only on release.
       if (rafId !== null) cancelAnimationFrame(rafId);
+      const preview = dragResultRef.current;
+      if (preview && dragging.mode === "move") {
+        const startMinutes = clamp(
+          snapMinutes(toMinutes(preview.start)),
+          START_HOUR * 60,
+          END_HOUR * 60 - dragging.duration,
+        );
+        dragResultRef.current = {
+          ...preview,
+          start: formatMinutes(startMinutes),
+          end: formatMinutes(startMinutes + dragging.duration),
+        };
+      } else if (preview && dragging.mode === "resize-start") {
+        dragResultRef.current = {
+          ...preview,
+          start: formatMinutes(
+            clamp(
+              snapMinutes(toMinutes(preview.start)),
+              START_HOUR * 60,
+              toMinutes(dragging.end) - SNAP_MINUTES,
+            ),
+          ),
+        };
+      } else if (preview && dragging.mode === "resize-end") {
+        dragResultRef.current = {
+          ...preview,
+          end: formatMinutes(
+            clamp(
+              snapMinutes(toMinutes(preview.end)),
+              toMinutes(dragging.start) + SNAP_MINUTES,
+              END_HOUR * 60,
+            ),
+          ),
+        };
+      }
+
+      // Apply the snapped final result synchronously before persisting it.
       applyPendingDragResult();
       // If dragResultRef is still null the user never moved (plain click) —
       // skip the PATCH so a tap on an event doesn't dirty the DB.
@@ -627,7 +713,7 @@ export function Kalendar({
 
   const handleEventSelect = useCallback((event: CalEvent) => {
     setSelectedEventId(event.id);
-    setSelected(new Date(`${event.date}T12:00:00`));
+    setInspectorOpen(true);
     if (window.matchMedia("(max-width: 1279px)").matches) {
       setMobileInspectorOpen(true);
     }
@@ -636,8 +722,11 @@ export function Kalendar({
   const handleEventDragStart = useCallback(
     (event: CalEvent, pointerEvent: ReactPointerEvent<HTMLButtonElement>) => {
       const rect = pointerEvent.currentTarget.getBoundingClientRect();
+      dragResultRef.current = null;
       setDragging({
         id: event.id,
+        pointerStartX: pointerEvent.clientX,
+        pointerStartY: pointerEvent.clientY,
         date: event.date,
         start: event.start,
         end: event.end,
@@ -664,8 +753,11 @@ export function Kalendar({
         ? ((pointerEvent.clientY - grid.getBoundingClientRect().top) / HOUR_HEIGHT) * 60 +
           START_HOUR * 60
         : edgeMinutes;
+      dragResultRef.current = null;
       setDragging({
         id: event.id,
+        pointerStartX: pointerEvent.clientX,
+        pointerStartY: pointerEvent.clientY,
         date: event.date,
         start: event.start,
         end: event.end,
@@ -853,8 +945,6 @@ export function Kalendar({
     month: "long",
     year: "numeric",
   });
-  const timezoneLabel = getTimezoneLabel(anchor);
-
   const rangeLabel =
     weekStart.getMonth() === weekEnd.getMonth()
       ? `${weekStart.getDate()}.–${weekEnd.getDate()}. ${monthLong(weekEnd)}`
@@ -900,9 +990,6 @@ export function Kalendar({
                 <ChevronRight />
               </Button>
             </div>
-            <span className="hidden h-8 items-center rounded-md border border-border bg-background px-3 text-sm font-medium sm:inline-flex">
-              Woche
-            </span>
             <Button type="button" variant="outline" size="sm" onClick={goToToday}>
               Heute
             </Button>
@@ -941,11 +1028,22 @@ export function Kalendar({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="hidden xl:inline-flex"
+              aria-label={inspectorOpen ? "Detailleiste ausblenden" : "Detailleiste einblenden"}
+              aria-pressed={inspectorOpen}
+              title={inspectorOpen ? "Detailleiste ausblenden" : "Detailleiste einblenden"}
+              onClick={() => setInspectorOpen((open) => !open)}
+            >
+              <PanelRight />
+            </Button>
           </>
         }
       >
         <div className="flex min-w-0 items-center gap-2.5">
-          <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
           <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em] capitalize tabular-nums">
             {monthYearLabel}
           </h1>
@@ -966,11 +1064,9 @@ export function Kalendar({
             onWheel={handleCalendarWheel}
             style={{ scrollbarGutter: "stable" }}
           >
-            <div className="sticky top-0 z-30 min-w-[740px] bg-background/95 backdrop-blur-sm">
-              <div className="flex h-11 border-b border-border/70">
-                <div className="flex w-16 shrink-0 items-center justify-end pr-2.5 text-[10px] font-medium text-muted-foreground tabular-nums">
-                  {timezoneLabel}
-                </div>
+            <div className="sticky top-0 z-40 min-w-[740px] bg-background">
+              <div className="flex h-9 border-b border-border/70">
+                <div aria-hidden className="w-16 shrink-0" />
                 <div className="grid flex-1 grid-cols-7">
                   {days.map((day) => {
                     const today = isSameDay(day, TODAY);
@@ -980,9 +1076,8 @@ export function Kalendar({
                         key={day.toISOString()}
                         type="button"
                         className={cn(
-                          "flex items-center justify-center gap-1.5 border-l border-border/60 px-1 text-xs font-medium text-muted-foreground outline-hidden transition-colors duration-150 hover:bg-muted hover:duration-0 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring",
-                          daySelected && "bg-muted/70 text-foreground",
-                          today && "text-primary",
+                          "flex min-w-0 items-center justify-center gap-1.5 px-1 text-xs font-medium outline-hidden transition-colors duration-150 hover:bg-muted hover:duration-0 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                          daySelected && "text-foreground",
                         )}
                         aria-label={day.toLocaleDateString("de-DE", {
                           weekday: "long",
@@ -992,12 +1087,20 @@ export function Kalendar({
                         aria-pressed={daySelected}
                         onClick={() => setSelected(day)}
                       >
-                        <span className="capitalize">
+                        <span className="truncate text-muted-foreground">
                           {day
-                            .toLocaleDateString("de-DE", { weekday: "short" })
-                            .replace(".", "")}
+                            .toLocaleDateString("de-DE", { weekday: "long" })
+                            .slice(0, 3)
+                            .toUpperCase()}
                         </span>
-                        <span className="tabular-nums">{day.getDate()}</span>
+                        <span
+                          className={cn(
+                            "tabular-nums",
+                            (daySelected || today) && "text-destructive",
+                          )}
+                        >
+                          {day.getDate()}
+                        </span>
                       </button>
                     );
                   })}
@@ -1017,25 +1120,35 @@ export function Kalendar({
 
             <div className="flex min-w-[740px]">
               <div className="relative w-16 shrink-0" style={{ height: GRID_HEIGHT }}>
-                {HOUR_MARKS.map((hour) => (
-                  <span
-                    key={hour}
-                    className="absolute right-2.5 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums"
-                    style={{
-                      top:
-                        hour === START_HOUR
-                          ? 14
-                          : hour === END_HOUR
-                            ? GRID_HEIGHT - 1
-                            : topForMinutes(hour * 60),
-                    }}
-                  >
-                    {String(hour).padStart(2, "0")}:00
-                  </span>
-                ))}
+                {HOUR_MARKS.map((hour) => {
+                  if (
+                    isCurrentWeek &&
+                    hour === now.getHours() &&
+                    now.getMinutes() < SNAP_MINUTES
+                  ) {
+                    return null;
+                  }
+
+                  return (
+                    <span
+                      key={hour}
+                      className="absolute right-2.5 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums"
+                      style={{
+                        top:
+                          hour === START_HOUR
+                            ? 14
+                            : hour === END_HOUR
+                              ? GRID_HEIGHT - 1
+                              : topForMinutes(hour * 60),
+                      }}
+                    >
+                      {String(hour).padStart(2, "0")}:00
+                    </span>
+                  );
+                })}
                 {isCurrentWeek && (
                   <span
-                    className="absolute right-1.5 z-20 -translate-y-1/2 bg-background px-1 text-[10px] font-medium text-primary tabular-nums"
+                    className="absolute right-1.5 z-20 -translate-y-1/2 bg-background px-1 text-[10px] font-medium text-red-500 tabular-nums"
                     style={{ top: topForMinutes(nowMinutes) }}
                   >
                     {formatMinutes(nowMinutes)}
@@ -1053,8 +1166,18 @@ export function Kalendar({
                     className="pointer-events-none absolute right-0 left-0 z-30 flex items-center"
                     style={{ top: topForMinutes(nowMinutes) }}
                   >
-                    <span className="size-1.5 -translate-x-0.5 rounded-full bg-primary" />
-                    <span className="h-px flex-1 bg-primary/70" />
+                    <span className="size-1.5 -translate-x-0.5 rounded-full bg-red-500" />
+                    <span className="-ml-0.5 grid flex-1 grid-cols-7">
+                      {days.map((day) => (
+                        <span
+                          key={day.toISOString()}
+                          className={cn(
+                            "h-0.5 bg-red-500",
+                            !isSameDay(day, TODAY) && "bg-red-500/30",
+                          )}
+                        />
+                      ))}
+                    </span>
                   </div>
                 )}
 
@@ -1095,7 +1218,7 @@ export function Kalendar({
                       iso={iso}
                       isToday={isSameDay(day, TODAY)}
                       events={eventsByDay.get(iso) ?? NO_EVENTS}
-                      draggingId={dragging?.id ?? null}
+                      draggingId={dragResultRef.current ? (dragging?.id ?? null) : null}
                       selectedEventId={selectedEventId}
                       onDragStart={handleEventDragStart}
                       onResizeStart={handleEventResizeStart}
@@ -1110,14 +1233,26 @@ export function Kalendar({
           </div>
         </main>
 
-        <section className="hidden w-64 shrink-0 overflow-hidden rounded-t-sm rounded-b-lg border border-border/70 bg-background xl:block 2xl:w-72">
-          <CalendarEventInspector
-            event={selectedEvent}
-            onEdit={handleEventEdit}
-            onDelete={handleEventDelete}
-            onCreate={handleEventCreate}
-            onClear={() => setSelectedEventId(null)}
-          />
+        <section
+          className={cn(
+            "hidden shrink-0 overflow-hidden rounded-t-sm rounded-b-lg bg-background transition-[width,border-width] duration-300 ease-drawer motion-reduce:transition-none xl:block",
+            inspectorOpen
+              ? "w-64 border border-border/70 2xl:w-72"
+              : "w-0 border-0",
+          )}
+        >
+          <div className="h-full w-64 2xl:w-72">
+            <CalendarEventInspector
+              event={selectedEvent}
+              onEdit={handleEventEdit}
+              onDelete={handleEventDelete}
+              onCreate={handleEventCreate}
+              onClear={() => {
+                setSelectedEventId(null);
+                setInspectorOpen(false);
+              }}
+            />
+          </div>
         </section>
       </div>
 

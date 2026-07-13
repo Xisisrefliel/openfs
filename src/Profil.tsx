@@ -14,6 +14,11 @@ import {
 import { toast } from "sonner";
 
 import type { CompanyProfile } from "@/lib/accounting-types";
+import {
+  saveSchoolProfile,
+  useSchoolProfile,
+  type OpeningHoursEntry,
+} from "@/hooks/use-school-profile";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -252,10 +257,19 @@ const sections = [
 /* Hours editor                                                        */
 /* ------------------------------------------------------------------ */
 
-function HoursEditor({ initial }: { initial: Hours[] }) {
-  const [rows, setRows] = useState(initial);
+function HoursEditor({
+  initial,
+  value,
+  onChange,
+}: {
+  initial: Hours[];
+  value?: Hours[];
+  onChange?: (rows: Hours[]) => void;
+}) {
+  const [localRows, setLocalRows] = useState(initial);
+  const rows = value ?? localRows;
   const update = (i: number, patch: Partial<Hours>) =>
-    setRows(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+    (onChange ?? setLocalRows)(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
   return (
     <div className="flex flex-col divide-y">
@@ -328,6 +342,8 @@ export function Profil() {
   const [formVersion, setFormVersion] = useState(0);
   // Company block is persisted server-side — it feeds the Quittungen.
   const [company, setCompany] = useState<CompanyProfile>(EMPTY_COMPANY);
+  const { profile: schoolProfile, setProfile: setSchoolProfile, refresh: refreshSchoolProfile } =
+    useSchoolProfile(() => toast.error("Schulprofil konnte nicht geladen werden."));
 
   useEffect(() => {
     fetch("/api/profile")
@@ -350,7 +366,11 @@ export function Profil() {
         body: JSON.stringify(company),
       });
       if (!res.ok) throw new Error();
-      setCompany(await res.json());
+      const savedCompany = (await res.json()) as CompanyProfile;
+      setCompany(savedCompany);
+      setSchoolProfile(
+        await saveSchoolProfile({ ...schoolProfile, website: savedCompany.website }),
+      );
       setDirty(false);
       toast.success("Profil gespeichert.");
     } catch {
@@ -368,6 +388,27 @@ export function Profil() {
   const [payments, setPayments] = useState<string[]>(["Banküberweisung", "Bar"]);
   const markDirty = () => setDirty(true);
 
+  const officeHours = schoolProfile.opening_hours.map((entry) => {
+    const match = entry.hours.match(/^(\d{2}:\d{2})\s*[–-]\s*(\d{2}:\d{2})(?:\s+(.+))?$/);
+    return {
+      day: entry.day,
+      open: match?.[1] ?? "",
+      close: match?.[2] ?? "",
+      note: match?.[3] ?? "",
+      closed: entry.hours === "Geschlossen" || !match,
+    };
+  });
+
+  const updateOfficeHours = (rows: Hours[]) => {
+    const opening_hours: OpeningHoursEntry[] = rows.map((row) => ({
+      day: row.day,
+      hours: row.closed
+        ? "Geschlossen"
+        : `${row.open} – ${row.close}${row.note.trim() ? ` ${row.note.trim()}` : ""}`,
+    }));
+    setSchoolProfile((current) => ({ ...current, opening_hours }));
+  };
+
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       {/* Header */}
@@ -382,6 +423,7 @@ export function Profil() {
               onClick={() => {
                 setDirty(false);
                 setFormVersion((v) => v + 1);
+                void refreshSchoolProfile();
               }}
             >
               Verwerfen
@@ -468,7 +510,13 @@ export function Profil() {
                       type="url"
                       className="pl-9"
                       value={company.website}
-                      onChange={(e) => updateCompany({ website: e.target.value })}
+                      onChange={(e) => {
+                        updateCompany({ website: e.target.value });
+                        setSchoolProfile((current) => ({
+                          ...current,
+                          website: e.target.value,
+                        }));
+                      }}
                     />
                   </div>
                 </Field>
@@ -477,6 +525,13 @@ export function Profil() {
                     id="desc"
                     rows={3}
                     placeholder="Beschreiben Sie Ihre Fahrschule in wenigen Sätzen…"
+                    value={schoolProfile.description}
+                    onChange={(e) =>
+                      setSchoolProfile((current) => ({
+                        ...current,
+                        description: e.target.value,
+                      }))
+                    }
                   />
                 </Field>
                 <Field
@@ -573,7 +628,11 @@ export function Profil() {
               title="Öffnungszeiten"
               description="Teilen Sie Ihre Öffnungszeiten mit und erleichtern Sie Ihren Kunden die Terminvereinbarung."
             >
-              <HoursEditor initial={officeDefaults} />
+              <HoursEditor
+                initial={officeDefaults}
+                value={officeHours}
+                onChange={updateOfficeHours}
+              />
             </Section>
 
             {/* Theorieunterricht */}

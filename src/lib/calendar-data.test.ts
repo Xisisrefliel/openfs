@@ -95,6 +95,45 @@ describe("layoutDay", () => {
     expect(placed.every((p) => p.column === 0)).toBe(true);
   });
 
+  test("separate overlap groups keep their own layer counts", () => {
+    const morningA = makeEvent({
+      id: "1",
+      date: "2026-06-08",
+      start: "08:00",
+      end: "09:00",
+    });
+    const morningB = makeEvent({
+      id: "2",
+      date: "2026-06-08",
+      start: "08:15",
+      end: "08:45",
+    });
+    const afternoon = makeEvent({
+      id: "3",
+      date: "2026-06-08",
+      start: "14:00",
+      end: "15:00",
+    });
+
+    const { placed } = layoutDay([morningA, morningB, afternoon]);
+
+    expect(placed.find((item) => item.event.id === "1")?.columns).toBe(2);
+    expect(placed.find((item) => item.event.id === "2")?.columns).toBe(2);
+    expect(placed.find((item) => item.event.id === "3")?.columns).toBe(1);
+  });
+
+  test("transitive overlaps stay in one stack while reusing free layers", () => {
+    const a = makeEvent({ id: "1", date: "2026-06-08", start: "08:00", end: "09:00" });
+    const b = makeEvent({ id: "2", date: "2026-06-08", start: "08:30", end: "09:30" });
+    const c = makeEvent({ id: "3", date: "2026-06-08", start: "09:00", end: "10:00" });
+
+    const { placed } = layoutDay([a, b, c]);
+
+    expect(new Set(placed.map((item) => item.cluster)).size).toBe(1);
+    expect(placed.map((item) => item.columns)).toEqual([2, 2, 2]);
+    expect(placed.map((item) => item.column)).toEqual([0, 1, 0]);
+  });
+
   test("empty input returns placed: [], columns: 1", () => {
     const { placed, columns } = layoutDay([]);
     expect(placed).toEqual([]);

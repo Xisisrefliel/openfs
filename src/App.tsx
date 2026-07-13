@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import { Agentation } from "agentation";
 import {
   Archive,
-  ArrowLeft,
-  ArrowRight,
   BarChart3,
   BookOpen,
   Building2,
@@ -81,7 +79,6 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarProvider,
-  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 
@@ -220,8 +217,8 @@ function AppSidebar({
 
   return (
     <Sidebar variant="inset">
-      <SidebarContent className="pt-[52px]">
-        <SidebarGroup>
+      <SidebarContent>
+        <SidebarGroup className="px-1 py-2 group-data-[collapsible=icon]:p-2">
           <SidebarMenu>
             {navItems.map(({ label, Icon, route }) => (
               <SidebarMenuItem key={label}>
@@ -241,7 +238,10 @@ function AppSidebar({
         </SidebarGroup>
 
         {navGroups.map(({ label, Icon, items }) => (
-          <SidebarGroup key={label}>
+          <SidebarGroup
+            key={label}
+            className="px-1 py-2 group-data-[collapsible=icon]:p-2"
+          >
             <SidebarMenu>
               <Collapsible defaultOpen className="group/collapsible">
                 <SidebarMenuItem>
@@ -284,7 +284,7 @@ function AppSidebar({
         ))}
 
         {/* Archiv — Papierkorb für versehentlich gelöschte Einträge */}
-        <SidebarGroup>
+        <SidebarGroup className="px-1 py-2 group-data-[collapsible=icon]:p-2">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -359,80 +359,6 @@ function AppSidebar({
   );
 }
 
-function ShellControls() {
-  const { state, isMobile } = useSidebar();
-  const [sidebarScrolled, setSidebarScrolled] = useState(false);
-
-  // The sidebar nav scrolls underneath this fixed strip (SidebarContent
-  // starts below it via pt-[52px]). Track its scroll position so the
-  // strip can cast a shadow once items have actually slid under it.
-  useEffect(() => {
-    const content = document.querySelector('[data-slot="sidebar-content"]');
-    if (!(content instanceof HTMLElement)) return;
-    const onScroll = () => setSidebarScrolled(content.scrollTop > 0);
-    onScroll();
-    content.addEventListener("scroll", onScroll, { passive: true });
-    return () => content.removeEventListener("scroll", onScroll);
-  }, []);
-
-  return (
-    <div className="pointer-events-none fixed left-2 top-2 z-40 w-(--sidebar-width) px-3 pb-2 pt-2.5">
-      {/* The backdrop slides in lockstep with the sidebar — same distance
-          (its own width), duration and easing as sidebar-container — so it
-          covers scrolled sidebar items on every animation frame instead of
-          popping in after a timeout (which let them flash through). */}
-      <div
-        className={cn(
-          "absolute inset-0 bg-sidebar transition-transform duration-300 ease-drawer motion-reduce:transition-none",
-          state === "expanded" ? "translate-x-0" : "-translate-x-full",
-        )}
-      >
-        {/* Scroll fade on the bottom edge — not a shadow (gray on the
-            same-colored sidebar reads as a smudge) but a mask in the
-            sidebar's own color: items dissolve as they slide under the
-            strip, hinting there's content to scroll back up to. Lives
-            inside the backdrop so it slides with it. */}
-        <div
-          aria-hidden
-          className={cn(
-            "absolute inset-x-0 top-full h-10 bg-gradient-to-b from-sidebar via-sidebar/70 to-transparent transition-opacity duration-300",
-            !isMobile && state === "expanded" && sidebarScrolled
-              ? "opacity-100"
-              : "opacity-0",
-          )}
-        />
-      </div>
-      {/* w-fit keeps the clickable area to the buttons themselves — the
-          strip container spans the full sidebar width, and a full-width
-          pointer-events-auto row would swallow clicks meant for header
-          content underneath when the sidebar is collapsed. */}
-      <div className="pointer-events-auto relative flex w-fit items-center gap-1">
-        <SidebarTrigger className="size-7 bg-transparent hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent" />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="size-7 bg-transparent text-muted-foreground hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
-          onClick={() => window.history.back()}
-        >
-          <ArrowLeft />
-          <span className="sr-only">Zurück</span>
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="size-7 bg-transparent text-muted-foreground hover:bg-transparent aria-expanded:bg-transparent dark:hover:bg-transparent"
-          onClick={() => window.history.forward()}
-        >
-          <ArrowRight />
-          <span className="sr-only">Vorwärts</span>
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 export function App() {
   const { path, search, navigate } = usePath();
   const calendarTypeFilter =
@@ -503,7 +429,6 @@ export function App() {
         <SidebarInset className="h-[calc(100svh-1rem)] min-h-0 !bg-transparent !shadow-none md:!m-2 md:!rounded-lg">
           {page}
         </SidebarInset>
-        <ShellControls />
       </SidebarProvider>
       <Toaster />
       {process.env.NODE_ENV === "development" && <DevAgentation />}

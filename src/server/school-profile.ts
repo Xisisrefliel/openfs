@@ -9,6 +9,7 @@ import type { BunRequest } from "bun";
 
 import { ValidationError } from "./engine";
 import { handle, json } from "./http";
+import { getCompany, setCompany } from "./db";
 
 export type OpeningHoursEntry = {
   day: string;
@@ -215,6 +216,10 @@ export function schoolProfileRoutes(db: Database) {
           });
           const next = sanitizeSchoolProfile(body, getSchoolProfile(db));
           setSchoolProfile(db, next);
+          const company = getCompany(db);
+          if (next.website !== company.website) {
+            setCompany(db, { ...company, website: next.website });
+          }
           return json(next);
         })(),
     },

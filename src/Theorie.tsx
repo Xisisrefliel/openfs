@@ -433,14 +433,7 @@ export function Theorie() {
             </Button>
           </>
         }
-      >
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">Theorie</p>
-          <p className="truncate text-xs text-muted-foreground tabular-nums">
-            {filteredLearners.length} Schüler
-          </p>
-        </div>
-      </PageHeader>
+      />
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-t-sm rounded-b-lg border border-border/70 bg-background p-2 sm:p-3 2xl:p-4">
         <div className="animate-enter flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">

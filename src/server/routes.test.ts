@@ -22,6 +22,7 @@ import {
 } from "./routes";
 import { openSqlite } from "./sqlite";
 import { attestationRoutes, ensureAttestationTables } from "./ausbildungsnachweis";
+import { getSchoolProfile } from "./school-profile";
 
 /* ------------------------------------------------------------------ */
 /* Server setup — one server for the whole file.                       */
@@ -407,6 +408,17 @@ describe("PUT /api/profile", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { name: string };
     expect(body.name).toBe("Neue Fahrschule");
+  });
+
+  test("synchronizes the website with the public school profile", async () => {
+    const res = await fetch(url("/api/profile"), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ website: " https://neue-seite.example " }),
+    });
+    expect(res.status).toBe(200);
+
+    expect(getSchoolProfile(db).website).toBe("https://neue-seite.example");
   });
 });
 

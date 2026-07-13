@@ -130,13 +130,47 @@ export const toMinutes = (value: string) => {
 /* Layout helpers                                                      */
 /* ------------------------------------------------------------------ */
 
-/* Simple greedy column layout so overlapping events sit side by side. */
+/* Assign a reusable layer within each transitive overlap group. Layer counts
+   are group-local: a busy morning must not offset unrelated afternoon cards. */
 export function layoutDay(dayEvents: CalEvent[]) {
-  const sorted = [...dayEvents].sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
+  const sorted = dayEvents.toSorted(
+    (a, b) =>
+      toMinutes(a.start) - toMinutes(b.start) ||
+      toMinutes(b.end) - toMinutes(a.end) ||
+      a.id.localeCompare(b.id),
+  );
   const columnEnds: number[] = [];
-  const placed = sorted.map((event) => {
+  const placed: Array<{
+    event: CalEvent;
+    column: number;
+    cluster: number;
+    columns: number;
+  }> = [];
+  let cluster = -1;
+  let clusterEnd = -1;
+  let clusterStartIndex = 0;
+
+  const finishCluster = () => {
+    const columns = Math.max(1, columnEnds.length);
+    for (let i = clusterStartIndex; i < placed.length; i += 1) {
+      placed[i]!.columns = columns;
+    }
+  };
+
+  for (const event of sorted) {
     const start = toMinutes(event.start);
     const end = toMinutes(event.end);
+
+    if (start >= clusterEnd) {
+      if (cluster >= 0) finishCluster();
+      cluster += 1;
+      clusterStartIndex = placed.length;
+      clusterEnd = end;
+      columnEnds.length = 0;
+    } else {
+      clusterEnd = Math.max(clusterEnd, end);
+    }
+
     let column = columnEnds.findIndex((columnEnd) => columnEnd <= start);
     if (column === -1) {
       column = columnEnds.length;
@@ -144,9 +178,12 @@ export function layoutDay(dayEvents: CalEvent[]) {
     } else {
       columnEnds[column] = end;
     }
-    return { event, column };
-  });
-  const columns = Math.max(1, columnEnds.length);
+
+    placed.push({ event, column, cluster, columns: 1 });
+  }
+
+  if (cluster >= 0) finishCluster();
+  const columns = Math.max(1, ...placed.map((item) => item.columns));
   return { placed, columns };
 }
 

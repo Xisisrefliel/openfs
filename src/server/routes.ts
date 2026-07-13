@@ -9,6 +9,7 @@ import type { BunRequest } from "bun";
 import type { CompanyProfile } from "../lib/accounting-types";
 import { listArchive, purgeArchived, restoreArchived } from "./archive";
 import { getCompany, setCompany } from "./db";
+import { getSchoolProfile, setSchoolProfile } from "./school-profile";
 import { generateDatevExport } from "./datev";
 import {
   createInstructor,
@@ -454,6 +455,9 @@ export function accountingRoutes(db: Database) {
             if (typeof value === "string") next[key] = value.trim();
           }
           setCompany(db, next);
+          if (next.website !== current.website) {
+            setSchoolProfile(db, { ...getSchoolProfile(db), website: next.website });
+          }
           return json(next);
         })(),
     },

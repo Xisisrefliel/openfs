@@ -1,4 +1,4 @@
-import { useSidebar } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
 type PageHeaderProps = {
@@ -9,12 +9,6 @@ type PageHeaderProps = {
 };
 
 export function PageHeader({ children, center, end, className }: PageHeaderProps) {
-  const { state, isMobile } = useSidebar();
-  // With the sidebar collapsed (or on mobile, where it overlays), the fixed
-  // ShellControls (toggle + history arrows) float above the inset's top-left
-  // corner — leading header content must move out from underneath them.
-  const shellControlsOverlap = isMobile || state === "collapsed";
-
   return (
     <header
       className={cn(
@@ -22,16 +16,8 @@ export function PageHeader({ children, center, end, className }: PageHeaderProps
         className,
       )}
     >
-      {/* Animated spacer — widens in lockstep with the sidebar collapse
-          (same duration/easing as sidebar-container) so leading content
-          glides clear of the fixed controls instead of jumping. */}
-      <div
-        aria-hidden
-        className={cn(
-          "-ml-3 h-px shrink-0 transition-[width] duration-300 ease-drawer motion-reduce:transition-none",
-          shellControlsOverlap ? "w-28" : "w-0",
-        )}
-      />
+      <SidebarTrigger className="-ml-1 size-7 shrink-0" />
+      <div aria-hidden className="h-4 w-px shrink-0 bg-border/70" />
       {children}
       {center && <div className="absolute left-1/2 -translate-x-1/2">{center}</div>}
       {end && <div className="ml-auto flex items-center gap-2">{end}</div>}

@@ -17,6 +17,7 @@ import {
   WEEK_DAYS,
   type SchoolProfile,
 } from "./school-profile";
+import { getCompany } from "./db";
 
 let db: Database;
 
@@ -239,6 +240,13 @@ describe("schoolProfileRoutes", () => {
     expect(data.slogan).toBe("Neu");
     expect(data.services).toEqual(["Klasse BE"]);
     expect(getSchoolProfile(db).slogan).toBe("Neu");
+  });
+
+  test("PUT synchronizes the website with the company profile", async () => {
+    const res = await routes().PUT(putRequest({ website: " https://öffentlich.example " }));
+
+    expect(res.status).toBe(200);
+    expect(getCompany(db).website).toBe("https://öffentlich.example");
   });
 
   test("PUT garbage field → 400 with German error", async () => {

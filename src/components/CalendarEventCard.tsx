@@ -85,14 +85,15 @@ export function CalendarEventCard({
           }}
           style={style}
           className={cn(
-            "group absolute touch-none select-none overflow-hidden rounded-md border text-left outline-hidden transition-colors duration-150 hover:duration-0 focus-visible:ring-2",
+            "group absolute touch-none select-none overflow-hidden rounded-md border text-left outline-hidden transition-[top,height,color,background-color,border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none focus-visible:ring-2",
             theme.surface,
             "h-[var(--card-h)]",
             "cursor-grab active:cursor-grabbing hover:z-30 focus-visible:z-30 data-[state=open]:z-30",
             theme.focus,
-            event.tentative && "border-dashed border-border bg-muted/80 hover:bg-muted",
+            event.tentative &&
+              "border-dashed border-border bg-[color-mix(in_oklab,var(--background)_20%,var(--muted))] hover:bg-muted",
             isSelected &&
-              "z-30 border-primary/45 bg-primary/[0.11] ring-2 ring-primary/20",
+              "z-30 border-primary/45 bg-[color-mix(in_oklab,var(--background)_89%,var(--primary))] ring-2 ring-primary/20",
             isDragging ? "z-40 opacity-90 transition-none" : "z-20",
           )}
         >
@@ -110,7 +111,7 @@ export function CalendarEventCard({
             <div className="flex h-full min-w-0 items-center gap-1.5 px-2">
               <span
                 className={cn(
-                  "min-w-0 flex-1 truncate text-[11px] font-medium",
+                  "block min-w-0 flex-1 truncate text-[11px] font-medium",
                   theme.text,
                 )}
               >
@@ -124,8 +125,7 @@ export function CalendarEventCard({
             <div className="flex h-full min-w-0 flex-col px-2 py-1.5">
               <span
                 className={cn(
-                  "min-w-0 shrink-0 text-[12px] font-medium leading-[1.2]",
-                  dense ? "truncate" : "line-clamp-2",
+                  "block w-full min-w-0 shrink-0 truncate text-[12px] font-medium leading-[1.2]",
                   theme.text,
                 )}
               >
