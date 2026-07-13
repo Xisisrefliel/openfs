@@ -249,11 +249,11 @@ function AppSidebar({
                     <SidebarMenuButton tooltip={label}>
                       <Icon />
                       <span>{label}</span>
-                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                      <ChevronRight className="ml-auto transition-transform duration-200 ease-drawer motion-reduce:transition-none group-data-[state=open]/collapsible:rotate-90" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-sidebar-sub-close data-[state=open]:animate-sidebar-sub-open">
-                    <SidebarMenuSub>
+                  <CollapsibleContent className="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-200 ease-drawer data-[state=open]:grid-rows-[1fr] data-[state=open]:opacity-100 motion-reduce:transition-none">
+                    <SidebarMenuSub className="min-h-0 overflow-hidden">
                       {items.map(({ label: subLabel, Icon: SubIcon, route }) => (
                         <SidebarMenuSubItem key={subLabel}>
                           <SidebarMenuSubButton

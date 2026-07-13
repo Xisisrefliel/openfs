@@ -10,7 +10,7 @@
 /* ------------------------------------------------------------------ */
 
 import { useMemo, useState } from "react";
-import { CalendarPlus, FileCheck2, FileSearch, FileText, FileX2 } from "lucide-react";
+import { FileSearch, FileText } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
 import { VertragDialog } from "./components/VertragDialog.tsx";
@@ -28,13 +28,6 @@ import {
 } from "@/lib/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Empty,
   EmptyDescription,
@@ -54,59 +47,39 @@ import {
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-type IconCmp = React.ComponentType<{ className?: string }>;
-
-function KpiCard({
-  Icon,
-  label,
-  value,
-  hint,
-  accent,
-}: {
-  Icon: IconCmp;
+type KpiItem = {
   label: string;
   value: number;
   hint: string;
-  accent: string;
-}) {
+};
+
+function KpiBand({ items }: { items: KpiItem[] }) {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          <div
-            className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${accent}`}
-          >
-            <Icon className="size-5" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <CardDescription>{label}</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
-          </div>
+    <dl className="grid gap-px overflow-hidden rounded-lg border border-border/80 bg-border/80 shadow-none sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <div key={item.label} className="min-w-0 bg-card px-4 py-3.5">
+          <dt className="text-[11px] font-medium text-muted-foreground">{item.label}</dt>
+          <dd className="mt-1 text-lg font-semibold tracking-[-0.01em] tabular-nums">
+            {item.value}
+          </dd>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{item.hint}</p>
         </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-xs text-muted-foreground">{hint}</p>
-      </CardContent>
-    </Card>
+      ))}
+    </dl>
   );
 }
 
-function KpiCardSkeleton() {
+function KpiBandSkeleton() {
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          <Skeleton className="size-10 rounded-lg" />
-          <div className="flex flex-col gap-1.5">
-            <Skeleton className="h-3.5 w-28" />
-            <Skeleton className="h-7 w-12" />
-          </div>
+    <div className="grid gap-px overflow-hidden rounded-lg border border-border/80 bg-border/80 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 4 }, (_, index) => (
+        <div key={index} className="bg-card px-4 py-3.5">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="mt-2 h-5 w-10" />
+          <Skeleton className="mt-2 h-3 w-36 max-w-full" />
         </div>
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-3 w-36" />
-      </CardContent>
-    </Card>
+      ))}
+    </div>
   );
 }
 
@@ -239,48 +212,34 @@ export function Vertraege({ navigate }: { navigate: (to: string) => void }) {
 
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         <div className="animate-enter flex flex-col gap-4 2xl:gap-5">
-          {/* KPI cards */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:gap-5">
-            {loading ? (
-              <>
-                <KpiCardSkeleton />
-                <KpiCardSkeleton />
-                <KpiCardSkeleton />
-                <KpiCardSkeleton />
-              </>
-            ) : (
-              <>
-                <KpiCard
-                  Icon={FileText}
-                  label="Verträge gesamt"
-                  value={kpis.total}
-                  hint="Alle Ausbildungsverträge"
-                  accent="bg-slate-500/10 text-slate-600"
-                />
-                <KpiCard
-                  Icon={FileCheck2}
-                  label="Aktive Verträge"
-                  value={kpis.active}
-                  hint="Fahrschüler in laufender Ausbildung"
-                  accent="bg-green-500/10 text-green-600"
-                />
-                <KpiCard
-                  Icon={FileX2}
-                  label="Inaktive Verträge"
-                  value={kpis.inactive}
-                  hint="Beendete oder ruhende Verträge"
-                  accent="bg-red-500/10 text-red-600"
-                />
-                <KpiCard
-                  Icon={CalendarPlus}
-                  label="Neu in diesem Monat"
-                  value={kpis.thisMonth}
-                  hint="Anmeldungen im laufenden Monat"
-                  accent="bg-blue-500/10 text-blue-600"
-                />
-              </>
-            )}
-          </div>
+          {loading ? (
+            <KpiBandSkeleton />
+          ) : (
+            <KpiBand
+              items={[
+                {
+                  label: "Verträge gesamt",
+                  value: kpis.total,
+                  hint: "Alle Ausbildungsverträge",
+                },
+                {
+                  label: "Aktive Verträge",
+                  value: kpis.active,
+                  hint: "Fahrschüler in laufender Ausbildung",
+                },
+                {
+                  label: "Inaktive Verträge",
+                  value: kpis.inactive,
+                  hint: "Beendete oder ruhende Verträge",
+                },
+                {
+                  label: "Neu in diesem Monat",
+                  value: kpis.thisMonth,
+                  hint: "Anmeldungen im laufenden Monat",
+                },
+              ]}
+            />
+          )}
 
           {/* Contracts table */}
           <div className="flex flex-col gap-4 rounded-xl border bg-card p-4 2xl:p-5">

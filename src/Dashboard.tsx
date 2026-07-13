@@ -133,7 +133,7 @@ function HeaderStats({ events }: { events: CalEvent[] }) {
           key={label}
           type="button"
           onClick={() => goTo(href)}
-          className="group relative flex flex-col items-start gap-1 rounded-sm px-4 text-left whitespace-nowrap outline-hidden before:absolute before:inset-x-0 before:-inset-y-2 focus-visible:ring-2 focus-visible:ring-ring first:pl-2 last:pr-2"
+          className="group relative flex flex-col items-start gap-1 rounded-none px-4 text-left whitespace-nowrap outline-hidden before:absolute before:inset-x-0 before:-inset-y-2 focus-visible:ring-2 focus-visible:ring-ring first:pl-2 last:pr-2"
         >
           <span className="text-[11px] font-medium leading-none text-muted-foreground">
             {label}
@@ -428,7 +428,7 @@ function MonthCalendar({ events }: { events: CalEvent[] }) {
                       {event.start} Uhr
                     </span>
                   </div>
-                  <ArrowRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/row:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover/row:translate-x-0" />
+                  <ArrowRight className="mr-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-hover/row:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover/row:translate-x-0" />
                 </button>
               ))}
             </div>

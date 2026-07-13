@@ -761,7 +761,6 @@ function GroupCard({
         </div>
         <CardAction>
           <div className="flex items-center gap-1.5">
-            <StatusBadge status={group.status} />
             <div className={cn("flex items-center", panelActionsClass)}>
               <Button
                 type="button"
@@ -783,6 +782,7 @@ function GroupCard({
                 <Trash2 />
               </Button>
             </div>
+            <StatusBadge status={group.status} />
           </div>
         </CardAction>
       </CardHeader>

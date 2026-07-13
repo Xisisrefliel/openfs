@@ -1,8 +1,16 @@
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Printer, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpenCheck,
+  CalendarDays,
+  ChevronRight,
+  Clock3,
+  Phone,
+} from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
 import { useStudents, type StudentRecord } from "@/hooks/use-students";
+import type { TheoryStatus } from "@/lib/student-data";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,17 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
-// The /theorie view derived from the shared DB-backed student roster — same
-// people as /fahrschueler, projected onto the theory-course fields.
 const toLearner = (student: StudentRecord) => ({
   id: student.id,
   name: `${student.firstName} ${student.lastName}`,
@@ -40,38 +38,32 @@ const toLearner = (student: StudentRecord) => ({
   status: student.theory.status,
 });
 
-/* Status as a colored dot + plain label — quiet, scannable. */
-const statusDot: Record<string, string> = {
+const statusDot: Record<TheoryStatus, string> = {
   Aktiv: "bg-primary",
   "In Prüfung": "bg-amber-500",
   Bereit: "bg-green-500",
   Pausiert: "bg-muted-foreground/50",
 };
 
-type Learner = ReturnType<typeof toLearner>;
-type SortKey = Exclude<keyof Learner, "id">;
-type SortDirection = "asc" | "desc";
+const statusOptions: Array<{ value: StatusFilter; label: string }> = [
+  { value: "all", label: "Alle" },
+  { value: "Aktiv", label: "Aktiv" },
+  { value: "Bereit", label: "Bereit" },
+  { value: "In Prüfung", label: "In Prüfung" },
+  { value: "Pausiert", label: "Pausiert" },
+];
 
-/* Mirrors the row navigation on /fahrschueler — same detail page. */
+type Learner = ReturnType<typeof toLearner>;
+type StatusFilter = "all" | TheoryStatus;
+type SortOption = "name" | "progress-desc" | "progress-asc" | "exam" | "activity";
+
 function openStudent(id: number) {
   window.history.pushState({}, "", `/fahrschueler/${id}`);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-const sortLabels: Record<SortKey, string> = {
-  name: "Name",
-  phone: "Telefon",
-  className: "Klasse",
-  lastLogin: "Letzter Login in der App",
-  createdAt: "Erstellt am",
-  progress: "Fortschritt",
-  preExams: "Letzte Vorprüfungen",
-  exam: "Prüfung",
-  status: "Status",
-};
-
 const parseDate = (value: string) => {
-  if (value === "Nicht geplant") return Number.POSITIVE_INFINITY;
+  if (value === "Nicht geplant" || value === "—") return Number.POSITIVE_INFINITY;
 
   const [day, month, year] = value.split(".").map(Number);
   if (!day || !month || !year) return 0;
@@ -80,66 +72,270 @@ const parseDate = (value: string) => {
 };
 
 const parseLastLogin = (value: string) => {
-  if (value.startsWith("Heute")) return 3;
-  if (value.startsWith("Gestern")) return 2;
-
+  if (value.startsWith("Heute")) return Number.MAX_SAFE_INTEGER;
+  if (value.startsWith("Gestern")) return Number.MAX_SAFE_INTEGER - 1;
   return parseDate(value);
 };
 
-const preExamRank = (value: string) => {
-  const number = Number.parseInt(value, 10);
-  if (Number.isNaN(number)) return 0;
-  return number;
-};
-
-function getSortValue(student: Learner, sortKey: SortKey) {
-  if (sortKey === "createdAt" || sortKey === "exam") {
-    return parseDate(student[sortKey]);
-  }
-
-  if (sortKey === "lastLogin") {
-    return parseLastLogin(student.lastLogin);
-  }
-
-  if (sortKey === "preExams") {
-    return preExamRank(student.preExams);
-  }
-
-  return student[sortKey];
+function compareLearners(left: Learner, right: Learner, sort: SortOption) {
+  if (sort === "progress-desc") return right.progress - left.progress;
+  if (sort === "progress-asc") return left.progress - right.progress;
+  if (sort === "exam") return parseDate(left.exam) - parseDate(right.exam);
+  if (sort === "activity")
+    return parseLastLogin(right.lastLogin) - parseLastLogin(left.lastLogin);
+  return left.name.localeCompare(right.name, "de");
 }
 
-function SortableHead({
-  sortKey,
-  activeKey,
-  direction,
-  className,
-  onSort,
-}: {
-  sortKey: SortKey;
-  activeKey: SortKey;
-  direction: SortDirection;
-  className?: string;
-  onSort: (key: SortKey) => void;
-}) {
-  const isActive = activeKey === sortKey;
-  const Icon = isActive ? (direction === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
+function StatusBadge({ status }: { status: TheoryStatus }) {
   return (
-    <TableHead
-      className={className}
-      aria-sort={isActive ? (direction === "asc" ? "ascending" : "descending") : "none"}
+    <Badge variant="outline" className="gap-1.5 whitespace-nowrap font-normal">
+      <span aria-hidden className={cn("size-1.5 rounded-full", statusDot[status])} />
+      {status}
+    </Badge>
+  );
+}
+
+function StatusNavigation({
+  learners,
+  value,
+  onChange,
+  horizontal = false,
+}: {
+  learners: Learner[];
+  value: StatusFilter;
+  onChange: (status: StatusFilter) => void;
+  horizontal?: boolean;
+}) {
+  return (
+    <nav
+      aria-label="Theorie-Status"
+      className={cn(horizontal ? "flex gap-1" : "space-y-1")}
     >
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="-ml-2"
-        onClick={() => onSort(sortKey)}
-      >
-        {sortLabels[sortKey]}
-        <Icon data-icon="inline-end" />
-      </Button>
-    </TableHead>
+      {statusOptions.map((option) => {
+        const count =
+          option.value === "all"
+            ? learners.length
+            : learners.filter((learner) => learner.status === option.value).length;
+        const selected = value === option.value;
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring active:bg-accent",
+              horizontal ? "shrink-0" : "w-full",
+              selected
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:bg-accent/70",
+            )}
+          >
+            <span className="whitespace-nowrap">{option.label}</span>
+            <span className="ml-auto tabular-nums text-xs text-muted-foreground">
+              {count}
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+function LearnerListItem({
+  learner,
+  selected,
+  onSelect,
+}: {
+  learner: Learner;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onSelect}
+      className={cn(
+        "group relative w-full px-4 py-3.5 text-left outline-none transition-colors focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring active:bg-accent",
+        selected ? "bg-primary/5 dark:bg-primary/10" : "hover:bg-muted/60",
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-y-3 left-0 w-0.5 rounded-r-full bg-primary transition-opacity",
+          selected ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground ring-1 ring-foreground/5"
+        >
+          {initials(learner.name)}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{learner.name}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Klasse {learner.className}
+              </p>
+            </div>
+            <StatusBadge status={learner.status} />
+          </div>
+
+          <div className="mt-3 flex items-center gap-2">
+            <Progress value={learner.progress} className="h-1.5" />
+            <span className="w-9 text-right text-xs font-medium tabular-nums">
+              {learner.progress}%
+            </span>
+          </div>
+
+          <div className="mt-2.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span className="flex min-w-0 items-center gap-1.5 truncate tabular-nums">
+              <CalendarDays className="size-3.5 shrink-0" />
+              {learner.exam}
+            </span>
+            <span className="flex min-w-0 items-center gap-1.5 truncate">
+              <Clock3 className="size-3.5 shrink-0" />
+              {learner.lastLogin}
+            </span>
+          </div>
+        </div>
+
+        <ChevronRight
+          aria-hidden
+          className="mt-2 size-4 shrink-0 text-muted-foreground/50 md:hidden"
+        />
+      </div>
+    </button>
+  );
+}
+
+function DetailReadout({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-h-13 items-center justify-between gap-6 px-4 py-3">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-right text-sm font-medium tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function LearnerDetail({ learner, onBack }: { learner: Learner; onBack: () => void }) {
+  return (
+    <section
+      aria-label={`Details für ${learner.name}`}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <div className="flex min-h-14 items-center gap-2 border-b px-4 md:hidden">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          aria-label="Zurück zur Liste"
+        >
+          <ArrowLeft />
+        </Button>
+        <span className="text-sm font-medium">Schüler</span>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl p-5 sm:p-7 lg:p-9">
+          <div className="flex items-start gap-4">
+            <span
+              aria-hidden
+              className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground ring-1 ring-foreground/5"
+            >
+              {initials(learner.name)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-balance text-xl font-semibold tracking-[-0.02em]">
+                {learner.name}
+              </h1>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>Klasse {learner.className}</span>
+                <span aria-hidden>·</span>
+                <StatusBadge status={learner.status} />
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              aria-label="Zum Schülerprofil"
+              onClick={() => openStudent(learner.id)}
+            >
+              <span className="hidden sm:inline">Zum Schülerprofil</span>
+              <ChevronRight data-icon="inline-end" />
+            </Button>
+          </div>
+
+          <div className="mt-6 rounded-xl bg-muted/45 p-4 ring-1 ring-foreground/5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Theorie-Fortschritt</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Aktueller Lernstand in der App
+                </p>
+              </div>
+              <p className="text-2xl font-semibold tracking-[-0.03em] tabular-nums">
+                {learner.progress}%
+              </p>
+            </div>
+            <Progress value={learner.progress} className="mt-4 h-1.5" />
+          </div>
+
+          <section className="mt-7" aria-labelledby="learning-status-heading">
+            <div className="flex items-center gap-2">
+              <BookOpenCheck className="size-4 text-muted-foreground" />
+              <h2 id="learning-status-heading" className="text-sm font-semibold">
+                Lernstand
+              </h2>
+            </div>
+            <dl className="mt-3 overflow-hidden rounded-xl bg-muted/25 ring-1 ring-foreground/10 divide-y">
+              <DetailReadout label="Letzte Vorprüfungen" value={learner.preExams} />
+              <DetailReadout label="Theorieprüfung" value={learner.exam} />
+              <DetailReadout label="Letzte Aktivität" value={learner.lastLogin} />
+              <DetailReadout label="Angemeldet am" value={learner.createdAt} />
+            </dl>
+          </section>
+
+          <section className="mt-7" aria-labelledby="contact-heading">
+            <h2 id="contact-heading" className="text-sm font-semibold">
+              Kontakt
+            </h2>
+            <div className="mt-3 flex min-h-16 items-center gap-3 rounded-xl px-4 ring-1 ring-foreground/10">
+              <Phone className="size-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">Telefon</p>
+                <p className="mt-0.5 truncate text-sm font-medium tabular-nums">
+                  {learner.phone}
+                </p>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <a href={`tel:${learner.phone.replace(/\s/g, "")}`}>Anrufen</a>
+              </Button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -147,58 +343,57 @@ export function Theorie() {
   const { students } = useStudents();
   const [query, setQuery] = useState("");
   const [classFilter, setClassFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sort, setSort] = useState<SortOption>("name");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   const learners = useMemo(() => students.map(toLearner), [students]);
+  const classes = useMemo(
+    () =>
+      [...new Set(learners.map((learner) => learner.className))].toSorted((a, b) =>
+        a.localeCompare(b, "de"),
+      ),
+    [learners],
+  );
 
-  const filteredLearners = useMemo(() => {
+  const matchingLearners = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return learners
-      .filter((student) => {
-        const matchesQuery =
-          normalizedQuery.length === 0 ||
-          [student.name, student.phone, student.className]
-            .join(" ")
-            .toLowerCase()
-            .includes(normalizedQuery);
-        const matchesClass = classFilter === "all" || student.className === classFilter;
-        const matchesStatus = statusFilter === "all" || student.status === statusFilter;
+    return learners.filter((learner) => {
+      const matchesQuery =
+        normalizedQuery.length === 0 ||
+        [learner.name, learner.phone, learner.className]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
+      const matchesClass = classFilter === "all" || learner.className === classFilter;
+      return matchesQuery && matchesClass;
+    });
+  }, [classFilter, learners, query]);
 
-        return matchesQuery && matchesClass && matchesStatus;
-      })
-      .toSorted((left, right) => {
-        const leftValue = getSortValue(left, sortKey);
-        const rightValue = getSortValue(right, sortKey);
-        const result =
-          typeof leftValue === "number" && typeof rightValue === "number"
-            ? leftValue - rightValue
-            : String(leftValue).localeCompare(String(rightValue), "de");
+  const filteredLearners = useMemo(
+    () =>
+      matchingLearners
+        .filter((learner) => statusFilter === "all" || learner.status === statusFilter)
+        .toSorted((left, right) => compareLearners(left, right, sort)),
+    [matchingLearners, sort, statusFilter],
+  );
 
-        if (result !== 0) {
-          return sortDirection === "asc" ? result : -result;
-        }
-
-        return left.name.localeCompare(right.name, "de");
-      });
-  }, [classFilter, learners, query, sortDirection, sortKey, statusFilter]);
-
-  const handleSort = (key: SortKey) => {
-    if (key === sortKey) {
-      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
-      return;
-    }
-
-    setSortKey(key);
-    setSortDirection("asc");
-  };
+  const selectedLearner =
+    filteredLearners.find((learner) => learner.id === selectedId) ??
+    filteredLearners[0] ??
+    null;
 
   const resetFilters = () => {
     setQuery("");
     setClassFilter("all");
     setStatusFilter("all");
+  };
+
+  const selectLearner = (id: number) => {
+    setSelectedId(id);
+    setMobileDetailOpen(true);
   };
 
   return (
@@ -209,189 +404,158 @@ export function Theorie() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Suchen…"
-              className="hidden w-44 sm:flex lg:w-60"
+              placeholder="Schüler suchen…"
+              aria-label="Schüler suchen"
+              className="hidden w-48 sm:flex lg:w-64"
             />
             <Select value={classFilter} onValueChange={setClassFilter}>
-              <SelectTrigger className="hidden w-32 md:flex">
+              <SelectTrigger className="hidden w-36 md:flex">
                 <SelectValue placeholder="Klasse" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value="all">Alle Klassen</SelectItem>
-                  <SelectItem value="A">A</SelectItem>
-                  <SelectItem value="B">B</SelectItem>
-                  <SelectItem value="B197">B197</SelectItem>
-                  <SelectItem value="BE">BE</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="hidden w-36 md:flex">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="all">Alle Status</SelectItem>
-                  <SelectItem value="Aktiv">Aktiv</SelectItem>
-                  <SelectItem value="In Prüfung">In Prüfung</SelectItem>
-                  <SelectItem value="Bereit">Bereit</SelectItem>
-                  <SelectItem value="Pausiert">Pausiert</SelectItem>
+                  {classes.map((className) => (
+                    <SelectItem key={className} value={className}>
+                      Klasse {className}
+                    </SelectItem>
+                  ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
             <Button
               type="button"
               variant="outline"
-              className="hidden md:inline-flex"
+              className="hidden lg:inline-flex"
               onClick={resetFilters}
             >
               Zurücksetzen
             </Button>
           </>
         }
-      />
+      >
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">Theorie</p>
+          <p className="truncate text-xs text-muted-foreground tabular-nums">
+            {filteredLearners.length} Schüler
+          </p>
+        </div>
+      </PageHeader>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
-        <div className="animate-enter flex flex-col rounded-xl border bg-card p-4 2xl:p-5">
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <SortableHead
-                    sortKey="name"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                  <SortableHead
-                    sortKey="phone"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                  <SortableHead
-                    sortKey="className"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                  <SortableHead
-                    sortKey="lastLogin"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                  <SortableHead
-                    sortKey="createdAt"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                  <SortableHead
-                    sortKey="progress"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    className="min-w-36"
-                    onSort={handleSort}
-                  />
-                  <SortableHead
-                    sortKey="preExams"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                  <SortableHead
-                    sortKey="exam"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                  <SortableHead
-                    sortKey="status"
-                    activeKey={sortKey}
-                    direction={sortDirection}
-                    onSort={handleSort}
-                  />
-                  <TableHead className="text-right">Aktionen</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLearners.map((student) => (
-                  <TableRow
-                    key={student.id}
-                    tabIndex={0}
-                    className="cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none"
-                    onClick={() => openStudent(student.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openStudent(student.id);
-                      }
-                    }}
-                  >
-                    <TableCell className="font-medium">{student.name}</TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground">
-                      {student.phone}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{student.className}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {student.lastLogin}
-                    </TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground">
-                      {student.createdAt}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex min-w-32 items-center gap-2">
-                        <Progress value={student.progress} className="h-1.5" />
-                        <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
-                          {student.progress}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="tabular-nums">{student.preExams}</TableCell>
-                    <TableCell className="tabular-nums">{student.exam}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="gap-1.5 font-normal">
-                        <span
-                          aria-hidden
-                          className={cn(
-                            "size-1.5 rounded-full",
-                            statusDot[student.status],
-                          )}
-                        />
-                        {student.status}
-                      </Badge>
-                    </TableCell>
-                    {/* Row click navigates; keep the action buttons from
-                        triggering it. */}
-                    <TableCell onClick={(event) => event.stopPropagation()}>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`${student.name} drucken`}
-                        >
-                          <Printer data-icon="inline-start" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          aria-label={`${student.name} löschen`}
-                        >
-                          <Trash2 data-icon="inline-start" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+      <div className="min-h-0 flex-1 overflow-hidden rounded-t-sm rounded-b-lg border border-border/70 bg-background p-2 sm:p-3 2xl:p-4">
+        <div className="animate-enter flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <div
+            className={cn(
+              "shrink-0 items-center gap-1 overflow-x-auto border-b p-2 lg:hidden",
+              mobileDetailOpen ? "hidden md:flex" : "flex",
+            )}
+          >
+            <StatusNavigation
+              learners={matchingLearners}
+              value={statusFilter}
+              onChange={setStatusFilter}
+              horizontal
+            />
+          </div>
+
+          <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(18rem,0.85fr)_minmax(0,1.15fr)] lg:grid-cols-[10.5rem_minmax(20rem,0.85fr)_minmax(26rem,1.4fr)]">
+            <aside className="hidden min-h-0 flex-col border-r p-2 lg:flex">
+              <p className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                Status
+              </p>
+              <StatusNavigation
+                learners={matchingLearners}
+                value={statusFilter}
+                onChange={setStatusFilter}
+              />
+            </aside>
+
+            <section
+              aria-label="Schülerliste"
+              className={cn(
+                "min-h-0 flex-col border-r md:flex",
+                mobileDetailOpen ? "hidden" : "flex",
+              )}
+            >
+              <div className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-4">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {statusFilter === "all" ? "Alle Schüler" : statusFilter}
+                  </p>
+                  <p className="text-xs text-muted-foreground tabular-nums">
+                    {filteredLearners.length} Einträge
+                  </p>
+                </div>
+                <Select
+                  value={sort}
+                  onValueChange={(value) => setSort(value as SortOption)}
+                >
+                  <SelectTrigger className="w-36">
+                    <SelectValue placeholder="Sortieren" />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    <SelectGroup>
+                      <SelectItem value="name">Name</SelectItem>
+                      <SelectItem value="progress-desc">Fortschritt ↓</SelectItem>
+                      <SelectItem value="progress-asc">Fortschritt ↑</SelectItem>
+                      <SelectItem value="exam">Prüfung</SelectItem>
+                      <SelectItem value="activity">Aktivität</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="border-b p-2 sm:hidden">
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Schüler suchen…"
+                  aria-label="Schüler suchen"
+                />
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto divide-y">
+                {filteredLearners.length > 0 ? (
+                  filteredLearners.map((learner) => (
+                    <LearnerListItem
+                      key={learner.id}
+                      learner={learner}
+                      selected={selectedLearner?.id === learner.id}
+                      onSelect={() => selectLearner(learner.id)}
+                    />
+                  ))
+                ) : (
+                  <div className="flex h-full min-h-48 flex-col items-center justify-center px-6 text-center">
+                    <BookOpenCheck className="size-5 text-muted-foreground/60" />
+                    <p className="mt-3 text-sm font-medium">Keine Schüler gefunden</p>
+                    <p className="mt-1 text-pretty text-xs text-muted-foreground">
+                      Ändern Sie die Suche oder setzen Sie die Filter zurück.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-4"
+                      onClick={resetFilters}
+                    >
+                      Filter zurücksetzen
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <div className={cn("min-h-0", mobileDetailOpen ? "flex" : "hidden md:flex")}>
+              {selectedLearner ? (
+                <LearnerDetail
+                  learner={selectedLearner}
+                  onBack={() => setMobileDetailOpen(false)}
+                />
+              ) : (
+                <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
+                  Wählen Sie einen Schüler aus.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

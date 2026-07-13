@@ -135,13 +135,13 @@ describe("createTransaction", () => {
       type: "direktzahlung",
       date: "2026-06-09",
       amountCents: 5000,
-      geldkonto: "1600",
+      geldkonto: "1800",
       habenKonto: "4400",
       paymentMethod: "ec",
       student: STUDENT,
       description: "Lehrmaterial Klasse B",
     });
-    expect(created.bookings[0]).toMatchObject({ soll: "1600", haben: "4400" });
+    expect(created.bookings[0]).toMatchObject({ soll: "1800", haben: "4400" });
     expect(created.belegNr).toBe("T0000124A");
   });
 

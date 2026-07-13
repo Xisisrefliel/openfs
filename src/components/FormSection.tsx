@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 export type FormSectionDef = { id: string; label: string };
 
 const MIN_VISIBLE_SECTION_HEIGHT = 24;
+const QUICK_SCROLL_DURATION_MS = 140;
 
 export function FormSection({
   id,
@@ -78,6 +79,106 @@ function distanceFromCenter(elementRect: DOMRect, center: number) {
     Math.abs(elementRect.top - center),
     Math.abs(elementRect.bottom - center),
   );
+}
+
+function scrollToSection(id: string, behavior: ScrollBehavior) {
+  const resolvedBehavior =
+    behavior === "smooth" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "instant"
+      : behavior;
+  document
+    .getElementById(id)
+    ?.scrollIntoView({ behavior: resolvedBehavior, block: "center" });
+}
+
+function stretchHighlightTowardPointer(
+  element: HTMLDivElement | null,
+  clientX: number,
+  clientY: number,
+) {
+  if (!element) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    resetHighlightStretch(element);
+    return;
+  }
+
+  const rect = element.getBoundingClientRect();
+  const signedX = Math.max(
+    -1,
+    Math.min(1, (clientX - (rect.left + rect.width / 2)) / Math.max(rect.width / 2, 1)),
+  );
+  const signedY = Math.max(
+    -1,
+    Math.min(1, (clientY - (rect.top + rect.height / 2)) / Math.max(rect.height / 2, 1)),
+  );
+  const strengthX = Math.abs(signedX);
+  const strengthY = Math.abs(signedY);
+  const scaleX = 1 + strengthX * 0.014 - strengthY * 0.004;
+  const scaleY = 1 + strengthY * 0.022 - strengthX * 0.003;
+  const originX = signedX < -0.08 ? "right" : signedX > 0.08 ? "left" : "center";
+  const originY = signedY < -0.08 ? "bottom" : signedY > 0.08 ? "top" : "center";
+
+  element.style.transformOrigin = `${originX} ${originY}`;
+  element.style.transform = `scaleX(${scaleX}) scaleY(${scaleY})`;
+}
+
+function resetHighlightStretch(element: HTMLDivElement | null) {
+  if (!element) return;
+  element.style.transformOrigin = "center";
+  element.style.transform = "scaleX(1) scaleY(1)";
+}
+
+function quickScrollToSection(id: string, animationFrameRef: { current: number | null }) {
+  const element = document.getElementById(id);
+  if (!element) return;
+
+  if (animationFrameRef.current !== null) {
+    window.cancelAnimationFrame(animationFrameRef.current);
+    animationFrameRef.current = null;
+  }
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    element.scrollIntoView({ behavior: "instant", block: "center" });
+    return;
+  }
+
+  const root = getScrollRoot(element);
+  const rootRect = getRootRect(root);
+  const elementRect = element.getBoundingClientRect();
+  const start = root instanceof HTMLElement ? root.scrollTop : window.scrollY;
+  const max =
+    root instanceof HTMLElement
+      ? root.scrollHeight - root.clientHeight
+      : document.documentElement.scrollHeight - window.innerHeight;
+  const target = Math.max(
+    0,
+    Math.min(
+      max,
+      start +
+        elementRect.top +
+        elementRect.height / 2 -
+        (rootRect.top + rootRect.height / 2),
+    ),
+  );
+  const distance = target - start;
+  const startedAt = performance.now();
+
+  const tick = (now: number) => {
+    const progress = Math.min((now - startedAt) / QUICK_SCROLL_DURATION_MS, 1);
+    const eased = 1 - (1 - progress) ** 3;
+    const next = start + distance * eased;
+
+    if (root instanceof HTMLElement) root.scrollTop = next;
+    else window.scrollTo({ top: next });
+
+    if (progress < 1) {
+      animationFrameRef.current = window.requestAnimationFrame(tick);
+    } else {
+      animationFrameRef.current = null;
+    }
+  };
+
+  animationFrameRef.current = window.requestAnimationFrame(tick);
 }
 
 function useScrollSpy(ids: string[]) {
@@ -168,6 +269,7 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
   const ids = useMemo(() => sections.map((s) => s.id), [sections]);
   const { active, visible } = useScrollSpy(ids);
   const navRef = useRef<HTMLElement | null>(null);
+  const highlightSurfaceRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [highlight, setHighlight] = useState<{ top: number; height: number } | null>(
     null,
@@ -180,6 +282,7 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     lastId: string | null;
   } | null>(null);
   const suppressClickRef = useRef(false);
+  const scrollAnimationFrameRef = useRef<number | null>(null);
   const visibleSet = useMemo(() => new Set(visible), [visible]);
   const visibleRange = useMemo(() => {
     let first = -1;
@@ -192,6 +295,15 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     return first === -1 ? null : { first, last };
   }, [sections, visibleSet]);
   const visibleKey = visible.join("\u0000");
+
+  useEffect(
+    () => () => {
+      if (scrollAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+      }
+    },
+    [],
+  );
 
   useLayoutEffect(() => {
     const nav = navRef.current;
@@ -243,10 +355,6 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     };
   }, [sections, visible, visibleKey, visibleRange]);
 
-  const scrollToSection = (id: string, behavior: ScrollBehavior) => {
-    document.getElementById(id)?.scrollIntoView({ behavior, block: "center" });
-  };
-
   // The section whose rail button is nearest the pointer's vertical position —
   // used while dragging so the scrub never falls into the gaps between buttons.
   const sectionIdAt = (clientY: number) => {
@@ -282,7 +390,26 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     suppressClickRef.current = false;
   };
 
+  const handlePointerHover = (e: React.PointerEvent<HTMLElement>) => {
+    if (e.pointerType !== "mouse") return;
+    const nav = navRef.current;
+    if (!nav) return;
+    const rect = nav.getBoundingClientRect();
+    const isHovering =
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom;
+
+    if (isHovering) {
+      stretchHighlightTowardPointer(highlightSurfaceRef.current, e.clientX, e.clientY);
+    } else {
+      resetHighlightStretch(highlightSurfaceRef.current);
+    }
+  };
+
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    handlePointerHover(e);
     const drag = dragRef.current;
     if (!drag || e.pointerId !== drag.pointerId) return;
     if (!drag.moved) {
@@ -296,7 +423,7 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     const id = sectionIdAt(e.clientY);
     if (id && id !== drag.lastId) {
       drag.lastId = id;
-      scrollToSection(id, "instant");
+      quickScrollToSection(id, scrollAnimationFrameRef);
     }
   };
 
@@ -311,7 +438,9 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     <nav
       ref={navRef}
       onPointerDown={handlePointerDown}
+      onPointerEnter={handlePointerHover}
       onPointerMove={handlePointerMove}
+      onPointerLeave={() => resetHighlightStretch(highlightSurfaceRef.current)}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       className={cn(
@@ -322,12 +451,17 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
       {highlight && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 rounded-md bg-muted transition-[transform,height] duration-200 ease-out motion-reduce:transition-none"
+          className="pointer-events-none absolute inset-x-0 top-0 transition-[transform,height] duration-200 ease-out motion-reduce:transition-none"
           style={{
             transform: `translateY(${highlight.top}px)`,
             height: highlight.height,
           }}
-        />
+        >
+          <div
+            ref={highlightSurfaceRef}
+            className="size-full rounded-md bg-muted transition-transform duration-75 ease-out motion-reduce:transition-none"
+          />
+        </div>
       )}
       {sections.map((s) => {
         const isActive = active === s.id;

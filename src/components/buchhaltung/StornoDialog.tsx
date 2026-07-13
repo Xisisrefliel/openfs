@@ -16,8 +16,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { accountingApi } from "./api";
+import { accountingApi, toIsoDate } from "./api";
 
 export type StornoTarget = { id: number; label: string };
 
@@ -31,6 +32,7 @@ export function StornoDialog({
   onDone: () => void;
 }) {
   const [reason, setReason] = useState("");
+  const [date, setDate] = useState(() => toIsoDate(new Date()));
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
@@ -41,7 +43,7 @@ export function StornoDialog({
     }
     setSubmitting(true);
     try {
-      await accountingApi.storno(target.id, reason.trim());
+      await accountingApi.storno(target.id, reason.trim(), date);
       toast.success("Buchung storniert — Gegenbuchung wurde erstellt.");
       setReason("");
       onClose();
@@ -70,6 +72,13 @@ export function StornoDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
+          <Label htmlFor="storno-date">Stornodatum</Label>
+          <Input
+            id="storno-date"
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+          />
           <Label htmlFor="storno-reason">Stornogrund</Label>
           <Textarea
             id="storno-reason"

@@ -59,7 +59,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -82,8 +81,6 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-type IconCmp = React.ComponentType<{ className?: string }>;
 
 /* Sentinel id for a not-yet-persisted exam event — same trick as the
    calendar's NEW_EVENT_ID, just scoped to this page. */
@@ -120,75 +117,46 @@ const dayHeading = (iso: string) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* KPI cards                                                           */
+/* Compact KPI band                                                    */
 /* ------------------------------------------------------------------ */
 
 function StatCards({ exams }: { exams: CalEvent[] }) {
   const stats = examStats(exams, toISODate(TODAY));
-
-  const cards: {
-    label: string;
-    value: number;
-    hint: string;
-    Icon: IconCmp;
-    iconClass: string;
-  }[] = [
+  const items = [
     {
       label: "Anstehende Theorieprüfungen",
       value: stats.theory,
-      hint: `nächste ${HORIZON_DAYS} Tage`,
-      Icon: GraduationCap,
-      iconClass: "bg-sky-500/10 text-sky-600",
+      hint: `Nächste ${HORIZON_DAYS} Tage`,
     },
     {
       label: "Anstehende praktische Prüfungen",
       value: stats.practical,
-      hint: `nächste ${HORIZON_DAYS} Tage`,
-      Icon: Car,
-      iconClass: "bg-emerald-500/10 text-emerald-600",
+      hint: `Nächste ${HORIZON_DAYS} Tage`,
     },
     {
       label: "Prüfungen diese Woche",
       value: stats.thisWeek,
-      hint: "Mo. – So.",
-      Icon: CalendarDays,
-      iconClass: "bg-amber-500/10 text-amber-600",
+      hint: "Montag bis Sonntag",
     },
     {
       label: "Vorläufige Termine",
       value: stats.tentative,
-      hint: "unbestätigt",
-      Icon: CircleDashed,
-      iconClass: "bg-rose-500/10 text-rose-600",
+      hint: "Noch unbestätigt",
     },
   ];
 
   return (
-    <section className="stagger-in grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {cards.map(({ label, value, hint, Icon, iconClass }) => (
-        <Card key={label} size="sm">
-          <CardHeader>
-            <div
-              className={cn(
-                "flex size-9 items-center justify-center rounded-lg",
-                iconClass,
-              )}
-            >
-              <Icon className="size-[18px]" />
-            </div>
-            <CardAction>
-              <Badge variant="secondary">{hint}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <div className="font-heading text-2xl font-medium tracking-tight">
-              {value}
-            </div>
-            <div className="text-sm text-muted-foreground">{label}</div>
-          </CardContent>
-        </Card>
+    <dl className="stagger-in grid gap-px overflow-hidden rounded-lg border border-border/80 bg-border/80 shadow-none sm:grid-cols-2 xl:grid-cols-4">
+      {items.map((item) => (
+        <div key={item.label} className="min-w-0 bg-card px-4 py-3.5">
+          <dt className="text-[11px] font-medium text-muted-foreground">{item.label}</dt>
+          <dd className="mt-1 text-lg font-semibold tracking-[-0.01em] tabular-nums">
+            {item.value}
+          </dd>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{item.hint}</p>
+        </div>
       ))}
-    </section>
+    </dl>
   );
 }
 

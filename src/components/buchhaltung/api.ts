@@ -93,9 +93,10 @@ export const accountingApi = {
     }),
   createTransaction: (input: CreateTransactionInput) =>
     post<{ id: number; belegNr: string | null }>("/api/accounting/transactions", input),
-  storno: (id: number, reason: string) =>
+  storno: (id: number, reason: string, date: string) =>
     post<{ id: number }>(`/api/accounting/transactions/${id}/storno`, {
       reason,
+      date,
     }),
   quittung: (id: number) => request<QuittungData>(`/api/accounting/quittung/${id}`),
 };

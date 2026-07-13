@@ -64,11 +64,6 @@
   --ease-fluid: cubic-bezier(0.77, 0, 0.175, 1);
   /* iOS-like drawer curve (Ionic) — fast out, gentle settle */
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-
-  /* Sidebar sub-nav disclosure — height + fade on the same (Collapsible.Content)
-     node so Radix's mount-animation guard covers both; matches the chevron's 200ms. */
-  --animate-sidebar-sub-open: sidebar-sub-open 0.2s var(--ease-drawer);
-  --animate-sidebar-sub-close: sidebar-sub-close 0.2s var(--ease-drawer);
 }
 
 html,
@@ -147,7 +142,7 @@ body {
 }
 
 .animate-agenda-fade {
-  animation: agenda-fade-in 0.3s ease both;
+  animation: agenda-fade-in 150ms var(--ease-snappy) both;
 }
 
 /* Generic page/card entrance + staggered children */
@@ -163,64 +158,33 @@ body {
 }
 
 .animate-enter {
-  animation: enter-up 0.42s var(--ease-snappy) both;
-}
-
-/* Sidebar collapsible sub-items: clip height (driven by Radix's content-height
-   var) while fading, so items settle in rather than snapping to full opacity. */
-@keyframes sidebar-sub-open {
-  from {
-    height: 0;
-    opacity: 0;
-  }
-  to {
-    height: var(--radix-collapsible-content-height);
-    opacity: 1;
-  }
-}
-
-@keyframes sidebar-sub-close {
-  from {
-    height: var(--radix-collapsible-content-height);
-    opacity: 1;
-  }
-  to {
-    height: 0;
-    opacity: 0;
-  }
+  animation: enter-up 220ms var(--ease-snappy) both;
 }
 
 .stagger-in > * {
-  animation: enter-up 0.42s var(--ease-snappy) both;
+  animation: enter-up 180ms var(--ease-snappy) both;
 }
 .stagger-in > *:nth-child(1) {
-  animation-delay: 40ms;
+  animation-delay: 0ms;
 }
 .stagger-in > *:nth-child(2) {
-  animation-delay: 90ms;
+  animation-delay: 30ms;
 }
 .stagger-in > *:nth-child(3) {
-  animation-delay: 140ms;
+  animation-delay: 60ms;
 }
 .stagger-in > *:nth-child(4) {
-  animation-delay: 190ms;
+  animation-delay: 90ms;
 }
 .stagger-in > *:nth-child(5) {
-  animation-delay: 240ms;
+  animation-delay: 120ms;
 }
-.stagger-in > *:nth-child(6) {
-  animation-delay: 290ms;
-}
-.stagger-in > *:nth-child(7) {
-  animation-delay: 340ms;
-}
-.stagger-in > *:nth-child(8) {
-  animation-delay: 390ms;
+.stagger-in > *:nth-child(n + 6) {
+  animation-delay: 120ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-agenda-row,
-  .animate-agenda-fade,
   .animate-enter,
   .stagger-in > * {
     animation: none;
@@ -231,9 +195,8 @@ body {
     transition-duration: 0ms;
   }
 
-  /* Disclosure still opens/closes instantly via data-state — just no height tween. */
-  [data-slot="collapsible-content"] {
-    animation: none !important;
+  .animate-agenda-fade {
+    animation: agenda-fade-in 0.2s ease both;
   }
 }
 

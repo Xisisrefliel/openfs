@@ -695,7 +695,7 @@ export function Profil() {
                         )
                       }
                       className={cn(
-                        "flex items-center justify-between rounded-lg border px-4 py-3 text-left transition-all active:scale-[0.99]",
+                        "flex items-center justify-between rounded-lg border px-4 py-3 text-left transition-[background-color,border-color,transform] duration-150 ease-snappy hover:duration-0 active:duration-150 active:scale-[0.99] motion-reduce:active:scale-100",
                         active ? "border-primary bg-secondary" : "hover:border-ring",
                       )}
                     >

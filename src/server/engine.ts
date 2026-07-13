@@ -92,23 +92,19 @@ function requireAccount(
   return account;
 }
 
-/* The Anzahlungs- and Geldtransit-Konten are unique per chart — look   */
-/* them up by role so the engine stays independent of the Kontenrahmen  */
-/* (SKR 04: 3272 / 1460).                                               */
-function requireAccountOfKind(
-  db: Database,
-  kind: Account["kind"],
-  role: string,
-): Account {
-  const row = db
-    .query<AccountRow, [string]>(
-      "SELECT * FROM accounts WHERE kind = ? AND active = 1 ORDER BY number LIMIT 1",
-    )
-    .get(kind);
-  if (!row) {
-    throw new ValidationError(`${role}: Es ist kein aktives Konto hinterlegt.`);
+const SYSTEM_ACCOUNTS = { anzahlung: "3272", transit: "1460" } as const;
+
+function requireSystemAccount(db: Database, role: keyof typeof SYSTEM_ACCOUNTS, label: string): Account {
+  return requireAccount(db, SYSTEM_ACCOUNTS[role], [role], label);
+}
+
+function reconcilePaymentAccount(method: PaymentMethod, account: Account): void {
+  const isCashAccount = account.number === "1600";
+  if ((method === "bar") !== isCashAccount) {
+    throw new ValidationError(method === "bar"
+      ? "Barzahlungen müssen auf das Kassenkonto 1600 gebucht werden."
+      : "Unbare Zahlungen dürfen nicht auf das Kassenkonto 1600 gebucht werden.");
   }
-  return toAccount(row);
 }
 
 /* --------------------------- validation --------------------------- */
@@ -208,8 +204,9 @@ export function createTransaction(
   switch (input.type) {
     case "zahlung_guthaben": {
       const geldkonto = requireAccount(db, input.geldkonto, ["geldkonto"], "Geldkonto");
-      const anzahlung = requireAccountOfKind(db, "anzahlung", "Guthabenkonto");
+      const anzahlung = requireSystemAccount(db, "anzahlung", "Guthabenkonto");
       paymentMethod = requirePaymentMethod(input.paymentMethod);
+      reconcilePaymentAccount(paymentMethod, geldkonto);
       student = requireStudent(input.student);
       if (!description) {
         description = `FS ${student.name}${student.classes ? ` - ${student.classes}` : ""}`;
@@ -234,6 +231,7 @@ export function createTransaction(
         "Erlöskonto",
       );
       paymentMethod = requirePaymentMethod(input.paymentMethod);
+      reconcilePaymentAccount(paymentMethod, geldkonto);
       student = requireStudent(input.student);
       if (!description.trim()) {
         throw new ValidationError("Beschreibung der Leistung ist erforderlich.");
@@ -250,7 +248,7 @@ export function createTransaction(
       break;
     }
     case "guthaben_uebertragung": {
-      const anzahlung = requireAccountOfKind(db, "anzahlung", "Guthabenkonto");
+      const anzahlung = requireSystemAccount(db, "anzahlung", "Guthabenkonto");
       const haben = requireAccount(
         db,
         input.habenKonto,
@@ -279,7 +277,7 @@ export function createTransaction(
       if (from.number === to.number) {
         throw new ValidationError("Transfer benötigt zwei verschiedene Geldkonten.");
       }
-      const transit = requireAccountOfKind(db, "transit", "Geldtransit");
+      const transit = requireSystemAccount(db, "transit", "Geldtransit");
       bookings = [
         {
           soll: transit,
@@ -302,6 +300,7 @@ export function createTransaction(
       );
       if (input.paymentMethod != null) {
         paymentMethod = requirePaymentMethod(input.paymentMethod);
+        reconcilePaymentAccount(paymentMethod, geldkonto);
       }
       if (!description.trim()) {
         throw new ValidationError("Beschreibung der Ausgabe ist erforderlich.");
@@ -783,11 +782,10 @@ export type StudentBalance = {
  *         − SUM(bookings.soll_account  = anzahlung-account, same student)
  *
  * Positive → credit; negative → owes.  Students with no anzahlung
- * bookings are absent from the result.  Uses requireAccountOfKind so it
- * stays independent of the concrete Kontonummer (SKR 04: 3272).
+ * bookings are absent from the result. The system role resolves explicitly.
  */
 export function listStudentBalances(db: Database): StudentBalance[] {
-  const anzahlungAccount = requireAccountOfKind(db, "anzahlung", "Guthabenkonto");
+  const anzahlungAccount = requireSystemAccount(db, "anzahlung", "Guthabenkonto");
   const acctNo = anzahlungAccount.number;
 
   type BalanceRow = {

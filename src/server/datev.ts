@@ -167,7 +167,7 @@ function headerRow(options: {
   //                                    18 Diktatkürzel — leer
   fields[18] = "1"; //                  19 Buchungstyp 1 = Finanzbuchhaltung
   fields[19] = "0"; //                  20 Rechnungslegungszweck unabhängig
-  fields[20] = "1"; //                  21 Festschreibung (GoBD)
+  fields[20] = "0"; //                  21 Nicht festgeschrieben; kein Abschlussworkflow
   fields[21] = '"EUR"'; //              22 Währungskennzeichen
   fields[26] = '"04"'; //               27 SKR
   return fields.join(";");

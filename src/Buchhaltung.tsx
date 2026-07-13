@@ -58,7 +58,7 @@ import { PaymentDialog } from "./components/buchhaltung/PaymentDialog";
 import { QuittungDialog } from "./components/buchhaltung/QuittungDialog";
 import { StornoDialog, type StornoTarget } from "./components/buchhaltung/StornoDialog";
 
-type TabKey = "ledger" | "journal" | "accounts" | "cash-bank" | "invoices";
+type TabKey = "ledger" | "journal" | "accounts" | "cash-bank";
 
 type Column<Row> = {
   key: string;
@@ -69,11 +69,10 @@ type Column<Row> = {
 };
 
 const tabs: { value: TabKey; label: string }[] = [
-  { value: "ledger", label: "Bankenbuch / Kassenbuch" },
+  { value: "ledger", label: "Kassen- und Bankenübersicht" },
   { value: "journal", label: "Buchungsjournal" },
   { value: "accounts", label: "Kontenrahmen" },
   { value: "cash-bank", label: "Kasse/Bank" },
-  { value: "invoices", label: "Rechnungen" },
 ];
 
 const KIND_LABELS: Record<AccountKind, string> = {
@@ -230,7 +229,6 @@ function TableState({
 
 /* ------------------------------ filters ---------------------------- */
 
-const FILTER_YEAR = 2026;
 const monthLabels = [
   "Jan",
   "Feb",
@@ -279,6 +277,8 @@ function DateRangeFilter({
   onChange: (range: DateRange | undefined) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const today = new Date();
+  const filterYear = range?.from?.getFullYear() ?? today.getFullYear();
 
   const label = range?.from
     ? range.to && !sameDay(range.from, range.to)
@@ -290,30 +290,30 @@ function DateRangeFilter({
   const activeMonth = (() => {
     if (!range?.from || !range.to) return -1;
     for (let i = 0; i < 12; i++) {
-      const m = monthRange(FILTER_YEAR, i);
+      const m = monthRange(filterYear, i);
       if (sameDay(range.from, m.from) && sameDay(range.to, m.to)) return i;
     }
     return -1;
   })();
 
   const presets: { label: string; get: () => DateRange }[] = [
-    { label: "Dieser Monat", get: () => monthRange(FILTER_YEAR, new Date().getMonth()) },
+    { label: "Dieser Monat", get: () => monthRange(today.getFullYear(), today.getMonth()) },
     {
       label: "Letzter Monat",
-      get: () => monthRange(FILTER_YEAR, new Date().getMonth() - 1),
+      get: () => monthRange(today.getFullYear(), today.getMonth() - 1),
     },
     {
       label: "Dieses Quartal",
       get: () => {
-        const q = Math.floor(new Date().getMonth() / 3) * 3;
-        return { from: new Date(FILTER_YEAR, q, 1), to: new Date(FILTER_YEAR, q + 3, 0) };
+        const q = Math.floor(today.getMonth() / 3) * 3;
+        return { from: new Date(today.getFullYear(), q, 1), to: new Date(today.getFullYear(), q + 3, 0) };
       },
     },
     {
       label: "Dieses Jahr",
       get: () => ({
-        from: new Date(FILTER_YEAR, 0, 1),
-        to: new Date(FILTER_YEAR, 11, 31),
+        from: new Date(today.getFullYear(), 0, 1),
+        to: new Date(today.getFullYear(), 11, 31),
       }),
     },
   ];
@@ -354,7 +354,7 @@ function DateRangeFilter({
             <Separator className="my-2" />
 
             <span className="px-1 pb-1 text-xs font-medium text-muted-foreground">
-              Monat {FILTER_YEAR}
+              Monat {filterYear}
             </span>
             <div className="grid grid-cols-3 gap-1">
               {monthLabels.map((month, index) => (
@@ -364,7 +364,7 @@ function DateRangeFilter({
                   variant={activeMonth === index ? "default" : "outline"}
                   size="sm"
                   className="px-0"
-                  onClick={() => apply(monthRange(FILTER_YEAR, index))}
+                  onClick={() => apply(monthRange(filterYear, index))}
                 >
                   {month}
                 </Button>
@@ -376,7 +376,7 @@ function DateRangeFilter({
             <Calendar
               mode="range"
               numberOfMonths={1}
-              defaultMonth={range?.from ?? new Date(FILTER_YEAR, 4, 1)}
+              defaultMonth={range?.from ?? today}
               selected={range}
               onSelect={onChange}
               weekStartsOn={1}
@@ -442,9 +442,7 @@ function Toolbar({
       ? "Kategorie"
       : tab === "cash-bank"
         ? "Konto"
-        : tab === "invoices"
-          ? "Rechnung Erstellen"
-          : "Zahlung";
+        : "Zahlung";
   const isBookkeeping = tab === "ledger" || tab === "journal";
 
   return (
@@ -468,7 +466,7 @@ function Toolbar({
               </SelectGroup>
             </SelectContent>
           </Select>
-          {(isBookkeeping || tab === "invoices") && (
+          {isBookkeeping && (
             <DateRangeFilter range={range} onChange={onRangeChange} />
           )}
         </div>
@@ -519,13 +517,6 @@ function Toolbar({
           </span>
         </p>
       )}
-      {tab === "invoices" && (
-        <p className="text-xs text-muted-foreground">
-          Offenbetrag: <span className="font-medium text-foreground">0,00 EUR</span>
-          {" · "}
-          Gesamtsumme: <span className="font-medium text-foreground">0,00 EUR</span>
-        </p>
-      )}
     </div>
   );
 }
@@ -535,7 +526,7 @@ function Toolbar({
 export function Buchhaltung() {
   const [tab, setTab] = useState<TabKey>("ledger");
   const [range, setRange] = useState<DateRange | undefined>(() =>
-    monthRange(FILTER_YEAR, new Date().getMonth()),
+    monthRange(new Date().getFullYear(), new Date().getMonth()),
   );
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -1037,7 +1028,7 @@ export function Buchhaltung() {
                 onNew={() => {
                   if (tab === "accounts") {
                     toast("Der Kontenrahmen SKR 03 ist fest hinterlegt.");
-                  } else if (tab === "cash-bank" || tab === "invoices") {
+                  } else if (tab === "cash-bank") {
                     toast("Folgt demnächst.");
                   } else {
                     setPaymentOpen(true);

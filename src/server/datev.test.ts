@@ -72,7 +72,7 @@ describe("file structure", () => {
     expect(fields[14]).toBe("20260601");
     expect(fields[15]).toBe("20260630");
     expect(fields[18]).toBe("1"); //      Buchungstyp Finanzbuchhaltung
-    expect(fields[20]).toBe("1"); //      Festschreibung (GoBD)
+    expect(fields[20]).toBe("0"); //      Nicht festgeschrieben
     expect(fields[21]).toBe('"EUR"');
     expect(fields[26]).toBe('"04"'); //   SKR
   });

@@ -6,25 +6,12 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  BarChart3,
-  CalendarDays,
-  Car,
-  ChartPie,
-  Euro,
-  GraduationCap,
-  TrendingUp,
-  UserRound,
-  Users,
-} from "lucide-react";
+import { BarChart3 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardAction,
@@ -35,8 +22,6 @@ import {
 } from "@/components/ui/card";
 import {
   ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -56,22 +41,17 @@ import {
   type Statistics,
 } from "@/hooks/use-statistics";
 
-type IconCmp = React.ComponentType<{ className?: string }>;
+const panelClass = "h-full rounded-lg border border-border/80 shadow-none";
+const panelHeaderClass = "border-b border-border/70";
+const chartClass = "h-[230px] w-full aspect-auto 2xl:h-[270px]";
 
-/* Same framed-card styling as the Dashboard widgets. */
-const statCardClass = "rounded-lg border border-border/80 ring-0 shadow-none";
-const statCardHeaderClass = "border-b border-border/70";
-
-/* ------------------------------ formatting ------------------------- */
-
-const formatEuro = (cents: number) =>
+const formatEuro = (cents: number, maximumFractionDigits = 0) =>
   (cents / 100).toLocaleString("de-DE", {
     style: "currency",
     currency: "EUR",
-    maximumFractionDigits: 0,
+    maximumFractionDigits,
   });
 
-/** "2026-06" → "Jun 26" */
 const formatMonth = (month: string) => {
   const [year, monthIndex] = month.split("-").map(Number);
   if (!year || !monthIndex) return month;
@@ -84,137 +64,141 @@ const formatMonth = (month: string) => {
 const formatHours = (minutes: number) =>
   `${(minutes / 60).toLocaleString("de-DE", { maximumFractionDigits: 1 })} Std.`;
 
-/* ------------------------------ KPI cards -------------------------- */
+function goTo(url: string) {
+  window.history.pushState({}, "", url);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
 
-type Kpi = {
-  label: string;
-  value: string;
-  hint: string;
-  Icon: IconCmp;
-  iconClass: string;
-};
-
-function KpiGrid({ stats }: { stats: Statistics }) {
-  const kpis: Kpi[] = [
+function HeaderStats({ stats }: { stats: Statistics }) {
+  const items = [
     {
       label: "Aktive Fahrschüler",
       value: String(stats.students.aktiv),
-      hint: `von ${stats.students.total}`,
-      Icon: Users,
-      iconClass: "bg-indigo-500/10 text-indigo-600",
+      hint: `/ ${stats.students.total}`,
+      href: "/fahrschueler",
     },
     {
-      label: "Termine gesamt",
+      label: "Termine",
       value: String(stats.lessons.total),
-      hint: `${stats.lessons.byType.find((t) => t.type === "Praktisch")?.count ?? 0} praktisch`,
-      Icon: CalendarDays,
-      iconClass: "bg-amber-500/10 text-amber-600",
+      hint: "gesamt",
+      href: "/kalendar",
     },
     {
-      label: "Umsatz gesamt",
+      label: "Umsatz",
       value: formatEuro(stats.revenue.totalCents),
-      hint: `${stats.revenue.perMonth.length} ${stats.revenue.perMonth.length === 1 ? "Monat" : "Monate"}`,
-      Icon: Euro,
-      iconClass: "bg-emerald-500/10 text-emerald-600",
+      href: "/buchhaltung",
     },
     {
       label: "Aktive Fahrlehrer",
       value: String(stats.instructors.aktiv),
-      hint: `von ${stats.instructors.total}`,
-      Icon: UserRound,
-      iconClass: "bg-violet-500/10 text-violet-600",
-    },
-    {
-      label: "Fahrzeuge im Einsatz",
-      value: String(stats.vehicles.aktiv),
-      hint: `${stats.vehicles.wartung} in Wartung`,
-      Icon: Car,
-      iconClass: "bg-sky-500/10 text-sky-600",
+      hint: `/ ${stats.instructors.total}`,
+      href: "/fahrlehrer",
     },
   ];
 
   return (
-    <section className="stagger-in grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      {kpis.map(({ label, value, hint, Icon, iconClass }) => (
-        <Card key={label} size="sm" className={cn(statCardClass, "h-full")}>
-          <CardHeader>
-            <div
-              className={cn(
-                "flex size-9 items-center justify-center rounded-lg",
-                iconClass,
-              )}
-            >
-              <Icon className="size-[18px]" />
-            </div>
-            <CardAction>
-              <Badge variant="secondary">{hint}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <div className="font-heading text-2xl font-medium tracking-tight">
+    <div className="hidden items-center divide-x divide-border/70 xl:flex">
+      {items.map(({ label, value, hint, href }) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => goTo(href)}
+          className="group relative flex flex-col items-start gap-1 rounded-none px-4 text-left whitespace-nowrap outline-hidden transition-transform duration-150 before:absolute before:inset-x-0 before:-inset-y-2 active:scale-[0.97] first:pl-2 last:pr-2 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none motion-reduce:active:scale-100"
+        >
+          <span className="text-[11px] font-medium leading-none text-muted-foreground">
+            {label}
+          </span>
+          <span className="flex items-baseline gap-1.5 leading-none">
+            <span className="text-sm font-semibold leading-none tabular-nums transition-colors duration-150 group-hover:text-primary group-hover:duration-0">
               {value}
-            </div>
-            <div className="text-sm text-muted-foreground">{label}</div>
-          </CardContent>
-        </Card>
+            </span>
+            {hint ? (
+              <span className="text-[11px] leading-none tabular-nums text-muted-foreground">
+                {hint}
+              </span>
+            ) : null}
+          </span>
+        </button>
       ))}
-    </section>
+    </div>
   );
 }
 
-/* --------------------------- chart card shell ---------------------- */
+function CompactSummary({ stats }: { stats: Statistics }) {
+  const items = [
+    {
+      label: "Aktive Fahrschüler",
+      value: String(stats.students.aktiv),
+      detail: `von ${stats.students.total}`,
+    },
+    {
+      label: "Termine",
+      value: String(stats.lessons.total),
+      detail: "gesamt",
+    },
+    {
+      label: "Umsatz",
+      value: formatEuro(stats.revenue.totalCents),
+      detail: "erfasst",
+    },
+    {
+      label: "Fahrlehrer",
+      value: String(stats.instructors.aktiv),
+      detail: `von ${stats.instructors.total}`,
+    },
+  ];
 
-function ChartCard({
+  return (
+    <dl className="grid grid-cols-2 gap-2 rounded-lg border border-border/80 bg-card p-2 shadow-none sm:grid-cols-4 xl:hidden">
+      {items.map((item) => (
+        <div key={item.label} className="min-w-0 rounded-md bg-muted/40 px-3 py-3">
+          <dt className="truncate text-[11px] font-medium text-muted-foreground">
+            {item.label}
+          </dt>
+          <dd className="mt-1 flex min-w-0 items-baseline gap-1.5">
+            <span className="truncate text-[15px] font-semibold tracking-[-0.01em] tabular-nums">
+              {item.value}
+            </span>
+            <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+              {item.detail}
+            </span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ChartPanel({
   title,
   description,
-  Icon,
-  iconClass,
+  action,
   children,
 }: {
   title: string;
-  description: string;
-  Icon: IconCmp;
-  iconClass: string;
+  description: React.ReactNode;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <Card className={statCardClass}>
-      <CardHeader className={statCardHeaderClass}>
-        <CardTitle className="flex items-center gap-2">
-          <span
-            className={cn(
-              "flex size-6 items-center justify-center rounded-md",
-              iconClass,
-            )}
-          >
-            <Icon className="size-3.5" />
-          </span>
-          {title}
-        </CardTitle>
+    <Card className={panelClass}>
+      <CardHeader className={panelHeaderClass}>
+        <CardTitle className="truncate text-sm font-medium">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
+        {action ? <CardAction>{action}</CardAction> : null}
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
   );
 }
 
-function ChartEmpty({ Icon, description }: { Icon: IconCmp; description: string }) {
+function ChartEmpty({ children }: { children: React.ReactNode }) {
   return (
-    <Empty className="h-[240px] border 2xl:h-[300px]">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <Icon />
-        </EmptyMedia>
-        <EmptyTitle>Keine Daten</EmptyTitle>
-        <EmptyDescription>{description}</EmptyDescription>
-      </EmptyHeader>
-    </Empty>
+    <div className="flex h-[230px] items-center justify-center text-center 2xl:h-[270px]">
+      <p className="max-w-64 text-xs text-pretty text-muted-foreground">{children}</p>
+    </div>
   );
 }
-
-const chartHeightClass = "h-[240px] w-full 2xl:h-[300px]";
-
-/* --------------------- Anmeldungen pro Monat (Bar) ----------------- */
 
 const registrationsConfig = {
   count: { label: "Anmeldungen", color: "var(--chart-1)" },
@@ -227,39 +211,63 @@ function RegistrationsChart({ stats }: { stats: Statistics }) {
         month: formatMonth(row.month),
         count: row.count,
       })),
-    [stats],
+    [stats.students.registrationsPerMonth],
   );
+  const peak = Math.max(0, ...data.map((row) => row.count));
+  const average =
+    data.length === 0 ? 0 : data.reduce((sum, row) => sum + row.count, 0) / data.length;
 
   return (
-    <ChartCard
-      title="Anmeldungen pro Monat"
-      description={`${stats.students.total} Fahrschüler insgesamt`}
-      Icon={GraduationCap}
-      iconClass="bg-indigo-500/10 text-indigo-600"
+    <ChartPanel
+      title="Neue Fahrschüler"
+      description="Anmeldungen pro Monat"
+      action={
+        <div className="text-right">
+          <div className="text-sm font-semibold tabular-nums">
+            {average.toLocaleString("de-DE", { maximumFractionDigits: 1 })}
+          </div>
+          <div className="text-[11px] text-muted-foreground">Ø pro Monat</div>
+        </div>
+      }
     >
       {data.length === 0 ? (
-        <ChartEmpty
-          Icon={GraduationCap}
-          description="Noch keine Anmeldungen mit Datum erfasst."
-        />
+        <ChartEmpty>Noch keine Anmeldungen mit Datum erfasst.</ChartEmpty>
       ) : (
-        <ChartContainer config={registrationsConfig} className={chartHeightClass}>
-          <BarChart data={data} margin={{ top: 8, left: 0, right: 0, bottom: 0 }}>
+        <ChartContainer config={registrationsConfig} className={chartClass}>
+          <BarChart
+            accessibilityLayer
+            data={data}
+            margin={{ top: 8, left: 0, right: 0, bottom: 0 }}
+          >
             <CartesianGrid vertical={false} />
             <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
             <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-            <Bar dataKey="count" fill="var(--color-count)" radius={6} />
+            <Bar
+              dataKey="count"
+              radius={[5, 5, 0, 0]}
+              maxBarSize={36}
+              isAnimationActive={false}
+            >
+              {data.map((row) => (
+                <Cell
+                  key={row.month}
+                  fill={
+                    row.count > 0 && row.count === peak
+                      ? "var(--chart-1)"
+                      : "var(--chart-2)"
+                  }
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ChartContainer>
       )}
-    </ChartCard>
+    </ChartPanel>
   );
 }
 
-/* ------------------------ Umsatz pro Monat (Area) ------------------ */
-
 const revenueConfig = {
-  euro: { label: "Umsatz", color: "var(--chart-2)" },
+  euro: { label: "Umsatz", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
 function RevenueChart({ stats }: { stats: Statistics }) {
@@ -269,21 +277,58 @@ function RevenueChart({ stats }: { stats: Statistics }) {
         month: formatMonth(row.month),
         euro: Math.round(row.cents) / 100,
       })),
-    [stats],
+    [stats.revenue.perMonth],
   );
+  const current = data.at(-1)?.euro ?? 0;
+  const previous = data.at(-2)?.euro ?? 0;
+  const change = previous > 0 ? ((current - previous) / previous) * 100 : null;
 
   return (
-    <ChartCard
-      title="Umsatz pro Monat"
-      description={`${formatEuro(stats.revenue.totalCents)} insgesamt`}
-      Icon={TrendingUp}
-      iconClass="bg-emerald-500/10 text-emerald-600"
+    <ChartPanel
+      title="Umsatzentwicklung"
+      description="Monatlich verbuchte Erlöse"
+      action={
+        <div className="text-right">
+          <div className="text-[15px] font-semibold tracking-[-0.01em] tabular-nums">
+            {formatEuro(stats.revenue.totalCents)}
+          </div>
+          <div
+            className={cn(
+              "mt-0.5 flex items-center justify-end gap-1.5 text-[11px] tabular-nums",
+              change === null
+                ? "text-muted-foreground"
+                : change >= 0
+                  ? "text-green-700 dark:text-green-400"
+                  : "text-red-700 dark:text-red-400",
+            )}
+          >
+            {change !== null ? (
+              <span
+                aria-hidden
+                className={cn(
+                  "size-1.5 rounded-full",
+                  change >= 0
+                    ? "bg-green-600 dark:bg-green-400"
+                    : "bg-red-600 dark:bg-red-400",
+                )}
+              />
+            ) : null}
+            {change === null
+              ? "Noch kein Vergleich"
+              : `${change >= 0 ? "+" : ""}${change.toLocaleString("de-DE", { maximumFractionDigits: 1 })} % zum Vormonat`}
+          </div>
+        </div>
+      }
     >
       {data.length === 0 ? (
-        <ChartEmpty Icon={Euro} description="Noch keine Erlösbuchungen vorhanden." />
+        <ChartEmpty>Noch keine Erlösbuchungen vorhanden.</ChartEmpty>
       ) : (
-        <ChartContainer config={revenueConfig} className={chartHeightClass}>
-          <AreaChart data={data} margin={{ top: 8, left: 0, right: 0, bottom: 0 }}>
+        <ChartContainer config={revenueConfig} className={chartClass}>
+          <AreaChart
+            accessibilityLayer
+            data={data}
+            margin={{ top: 12, left: 0, right: 0, bottom: 0 }}
+          >
             <CartesianGrid vertical={false} />
             <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
             <ChartTooltip
@@ -292,15 +337,10 @@ function RevenueChart({ stats }: { stats: Statistics }) {
                 <ChartTooltipContent
                   hideLabel
                   formatter={(value) => (
-                    <div className="flex w-full items-center justify-between gap-3">
+                    <div className="flex w-full items-center justify-between gap-4">
                       <span className="text-muted-foreground">Umsatz</span>
-                      <span className="font-mono font-medium tabular-nums">
-                        {typeof value === "number"
-                          ? value.toLocaleString("de-DE", {
-                              style: "currency",
-                              currency: "EUR",
-                            })
-                          : String(value)}
+                      <span className="font-medium tabular-nums">
+                        {typeof value === "number" ? formatEuro(value * 100, 2) : value}
                       </span>
                     </div>
                   )}
@@ -310,123 +350,124 @@ function RevenueChart({ stats }: { stats: Statistics }) {
             <Area
               dataKey="euro"
               type="monotone"
-              fill="var(--color-euro)"
-              fillOpacity={0.15}
-              stroke="var(--color-euro)"
+              fill="var(--chart-2)"
+              fillOpacity={0.35}
+              stroke="var(--chart-1)"
               strokeWidth={2}
+              dot={false}
+              activeDot={{
+                r: 4,
+                fill: "var(--chart-1)",
+                stroke: "var(--card)",
+                strokeWidth: 2,
+              }}
+              isAnimationActive={false}
             />
           </AreaChart>
         </ChartContainer>
       )}
-    </ChartCard>
+    </ChartPanel>
   );
 }
-
-/* ---------------------- Fahrstunden nach Typ (Pie) ----------------- */
-
-const TYPE_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-];
 
 function LessonTypesChart({ stats }: { stats: Statistics }) {
   const data = useMemo(
     () =>
-      stats.lessons.byType.map((row, index) => ({
-        type: row.type,
-        count: row.count,
-        fill: TYPE_COLORS[index % TYPE_COLORS.length],
-      })),
-    [stats],
+      stats.lessons.byType
+        .toSorted((a, b) => b.count - a.count)
+        .map((row) => ({ type: row.type, count: row.count })),
+    [stats.lessons.byType],
   );
-
-  const config = useMemo(() => {
-    const entries: ChartConfig = {
-      count: { label: "Termine" },
-    };
-    for (const row of data) {
-      entries[row.type] = { label: row.type, color: row.fill };
-    }
-    return entries;
-  }, [data]);
+  const peak = Math.max(0, ...data.map((row) => row.count));
 
   return (
-    <ChartCard
-      title="Fahrstunden nach Typ"
-      description={`${stats.lessons.total} Termine insgesamt`}
-      Icon={ChartPie}
-      iconClass="bg-amber-500/10 text-amber-600"
+    <ChartPanel
+      title="Termine nach Art"
+      description="Verteilung aller Kalendereinträge"
+      action={
+        <div className="text-right">
+          <div className="text-sm font-semibold tabular-nums">{stats.lessons.total}</div>
+          <div className="text-[11px] text-muted-foreground">Termine gesamt</div>
+        </div>
+      }
     >
       {data.length === 0 ? (
-        <ChartEmpty Icon={CalendarDays} description="Noch keine Termine im Kalender." />
+        <ChartEmpty>Noch keine Termine im Kalender.</ChartEmpty>
       ) : (
-        <ChartContainer config={config} className={cn(chartHeightClass, "aspect-auto")}>
-          <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel nameKey="type" />}
-            />
-            <Pie
-              data={data}
-              dataKey="count"
-              nameKey="type"
-              innerRadius={50}
-              strokeWidth={4}
-            >
-              {data.map((entry) => (
-                <Cell key={entry.type} fill={entry.fill} />
-              ))}
-            </Pie>
-            <ChartLegend
-              content={<ChartLegendContent nameKey="type" />}
-              className="flex-wrap gap-x-4 gap-y-1"
-            />
-          </PieChart>
-        </ChartContainer>
+        <div className="flex h-[230px] flex-col justify-center gap-5 2xl:h-[270px]">
+          {data.map((row) => {
+            const percentage = peak === 0 ? 0 : (row.count / peak) * 100;
+            return (
+              <div key={row.type}>
+                <div className="mb-2 flex items-baseline justify-between gap-4">
+                  <span className="truncate text-sm font-medium">{row.type}</span>
+                  <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
+                    {row.count}
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      "h-full rounded-full",
+                      row.count > 0 && row.count === peak
+                        ? "bg-primary"
+                        : "bg-[var(--chart-2)]",
+                    )}
+                    style={{ width: `${Math.min(100, percentage)}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
-    </ChartCard>
+    </ChartPanel>
   );
 }
 
-/* --------------------- Auslastung Fahrlehrer (Bar) ----------------- */
-
 const utilizationConfig = {
-  hours: { label: "Stunden", color: "var(--chart-4)" },
+  hours: { label: "Stunden", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
 function UtilizationChart({ stats }: { stats: Statistics }) {
   const data = useMemo(
     () =>
-      stats.instructors.utilization.map((row) => ({
-        instructor: row.instructor,
-        hours: Math.round((row.minutes / 60) * 10) / 10,
-        events: row.events,
-      })),
-    [stats],
+      stats.instructors.utilization
+        .toSorted((a, b) => b.minutes - a.minutes)
+        .map((row) => ({
+          instructor: row.instructor,
+          hours: Math.round((row.minutes / 60) * 10) / 10,
+          events: row.events,
+        })),
+    [stats.instructors.utilization],
+  );
+  const peak = Math.max(0, ...data.map((row) => row.hours));
+  const totalMinutes = stats.instructors.utilization.reduce(
+    (sum, row) => sum + row.minutes,
+    0,
   );
 
   return (
-    <ChartCard
+    <ChartPanel
       title="Auslastung Fahrlehrer"
-      description={
-        data.length === 0
-          ? "Termine pro Fahrlehrer/in"
-          : `${formatHours(stats.instructors.utilization.reduce((sum, row) => sum + row.minutes, 0))} geplant insgesamt`
+      description="Geplante Stunden nach Fahrlehrer"
+      action={
+        data.length > 0 ? (
+          <div className="text-right">
+            <div className="text-sm font-semibold tabular-nums">
+              {formatHours(totalMinutes)}
+            </div>
+            <div className="text-[11px] text-muted-foreground">geplant gesamt</div>
+          </div>
+        ) : undefined
       }
-      Icon={BarChart3}
-      iconClass="bg-violet-500/10 text-violet-600"
     >
       {data.length === 0 ? (
-        <ChartEmpty Icon={UserRound} description="Noch keine Termine zugeteilt." />
+        <ChartEmpty>Noch keine Termine zugeteilt.</ChartEmpty>
       ) : (
-        <ChartContainer
-          config={utilizationConfig}
-          className={cn(chartHeightClass, "aspect-auto")}
-        >
+        <ChartContainer config={utilizationConfig} className={chartClass}>
           <BarChart
+            accessibilityLayer
             data={data}
             layout="vertical"
             margin={{ top: 8, left: 0, right: 16, bottom: 0 }}
@@ -439,136 +480,231 @@ function UtilizationChart({ stats }: { stats: Statistics }) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              width={120}
+              width={112}
             />
             <ChartTooltip
               cursor={false}
               content={
                 <ChartTooltipContent
                   formatter={(value, _name, _item, _index, payload) => (
-                    <div className="flex w-full items-center justify-between gap-3">
+                    <div className="flex w-full items-center justify-between gap-4">
                       <span className="text-muted-foreground">
-                        {(payload as { events?: number })?.events ?? 0} Termine
+                        <span className="tabular-nums">
+                          {(payload as { events?: number })?.events ?? 0}
+                        </span>{" "}
+                        Termine
                       </span>
-                      <span className="font-mono font-medium tabular-nums">
+                      <span className="font-medium tabular-nums">
                         {typeof value === "number"
                           ? `${value.toLocaleString("de-DE")} Std.`
-                          : String(value)}
+                          : value}
                       </span>
                     </div>
                   )}
                 />
               }
             />
-            <Bar dataKey="hours" fill="var(--color-hours)" radius={6} />
+            <Bar
+              dataKey="hours"
+              radius={[0, 5, 5, 0]}
+              maxBarSize={24}
+              isAnimationActive={false}
+            >
+              {data.map((row) => (
+                <Cell
+                  key={row.instructor}
+                  fill={
+                    row.hours > 0 && row.hours === peak
+                      ? "var(--chart-1)"
+                      : "var(--chart-2)"
+                  }
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ChartContainer>
       )}
-    </ChartCard>
+    </ChartPanel>
   );
 }
 
-/* ------------------------------- exams ----------------------------- */
+type ExamMetricProps = {
+  label: string;
+  value: number;
+  tone: "positive" | "negative" | "pending";
+};
 
-function ExamTypeRow({ row }: { row: ExamTypeStatistics }) {
-  const rateLabel =
+function ExamMetric({ label, value, tone }: ExamMetricProps) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span
+        aria-hidden
+        className={cn(
+          "size-1.5 rounded-full",
+          tone === "positive" && "bg-green-600 dark:bg-green-400",
+          tone === "negative" && "bg-red-600 dark:bg-red-400",
+          tone === "pending" && "bg-amber-600 dark:bg-amber-400",
+        )}
+      />
+      <span className="font-medium tabular-nums text-foreground">{value}</span>
+      {label}
+    </div>
+  );
+}
+
+function ExamRow({ row }: { row: ExamTypeStatistics }) {
+  const label = row.type === "Theorieprüfung" ? "Theorieprüfung" : "Praktische Prüfung";
+  const rate =
     row.firstAttemptPassRate === null
       ? "–"
       : `${Math.round(row.firstAttemptPassRate * 100)} %`;
 
-  const label = row.type === "Theorieprüfung" ? "Theorieprüfung" : "Praktische Prüfung";
-
   return (
-    <div className="grid grid-cols-[1fr_repeat(4,auto)] items-center gap-x-6 gap-y-0 py-2">
-      <span className="text-sm font-medium">{label}</span>
-      <span className="text-right text-sm tabular-nums text-muted-foreground">
-        <span className="text-foreground tabular-nums">{row.bestanden}</span> Bestanden
-      </span>
-      <span className="text-right text-sm tabular-nums text-muted-foreground">
-        <span className="text-foreground tabular-nums">{row.nicht_bestanden}</span> Nicht
-        bestanden
-      </span>
-      <span className="text-right text-sm tabular-nums text-muted-foreground">
-        <span className="text-foreground tabular-nums">{row.offen}</span> Offen
-      </span>
-      <span className="text-right text-sm tabular-nums text-muted-foreground">
-        Erfolgsquote (1. Versuch){" "}
-        <span className="font-medium tabular-nums text-foreground">{rateLabel}</span>
-      </span>
+    <div className="grid gap-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{label}</p>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+          <ExamMetric label="bestanden" value={row.bestanden} tone="positive" />
+          <ExamMetric
+            label="nicht bestanden"
+            value={row.nicht_bestanden}
+            tone="negative"
+          />
+          <ExamMetric label="offen" value={row.offen} tone="pending" />
+        </div>
+      </div>
+      <div className="flex items-baseline justify-between gap-4 sm:flex-col sm:items-end sm:gap-1">
+        <span className="text-[11px] font-medium text-muted-foreground">
+          Erfolgsquote · 1. Versuch
+        </span>
+        <span className="text-[15px] font-semibold tracking-[-0.01em] tabular-nums">
+          {rate}
+        </span>
+      </div>
     </div>
   );
 }
 
 function ExamsPanel({ stats }: { stats: Statistics }) {
-  const total = stats.exams.byType.reduce((sum, r) => sum + r.total, 0);
+  const total = stats.exams.byType.reduce((sum, row) => sum + row.total, 0);
 
   return (
-    <Card className={statCardClass}>
-      <CardHeader className={statCardHeaderClass}>
-        <div className="flex size-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
-          <GraduationCap className="size-[18px]" />
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <CardTitle>Prüfungsergebnisse</CardTitle>
-          <CardDescription>
-            {total === 0
-              ? "Noch keine Ergebnisse erfasst"
-              : `${total} Prüfungen insgesamt`}
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-2">
-        {total === 0 ? (
-          <p className="py-4 text-sm text-muted-foreground">
-            Ergebnisse werden im Prüfungsplaner pro Termin eingetragen.
-          </p>
+    <ChartPanel
+      title="Prüfungsergebnisse"
+      description={
+        total === 0 ? (
+          "Noch keine Ergebnisse erfasst"
         ) : (
-          <div className="divide-y divide-border/60">
-            {stats.exams.byType.map((row) => (
-              <ExamTypeRow key={row.type} row={row} />
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          <>
+            <span className="tabular-nums">{total}</span> Prüfungen insgesamt
+          </>
+        )
+      }
+    >
+      {total === 0 ? (
+        <ChartEmpty>
+          Ergebnisse werden im Prüfungsplaner pro Termin eingetragen.
+        </ChartEmpty>
+      ) : (
+        <div className="divide-y divide-border/60">
+          {stats.exams.byType.map((row) => (
+            <ExamRow key={row.type} row={row} />
+          ))}
+        </div>
+      )}
+    </ChartPanel>
   );
 }
 
-/* ----------------------------- skeletons --------------------------- */
+function OperationsPanel({ stats }: { stats: Statistics }) {
+  const rows = [
+    {
+      label: "Fahrlehrer aktiv",
+      value: stats.instructors.aktiv,
+      total: stats.instructors.total,
+    },
+    {
+      label: "Fahrzeuge im Einsatz",
+      value: stats.vehicles.aktiv,
+      total: stats.vehicles.total,
+    },
+  ];
+
+  return (
+    <ChartPanel
+      title="Betrieb"
+      description="Aktuelle verfügbare Kapazität"
+      action={
+        stats.vehicles.wartung > 0 ? (
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span
+              aria-hidden
+              className="size-1.5 rounded-full bg-amber-600 dark:bg-amber-400"
+            />
+            <span className="tabular-nums">{stats.vehicles.wartung}</span> in Wartung
+          </span>
+        ) : undefined
+      }
+    >
+      <div className="divide-y divide-border/60">
+        {rows.map((row) => {
+          const percentage = row.total === 0 ? 0 : (row.value / row.total) * 100;
+          return (
+            <div key={row.label} className="py-4">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-sm font-medium">{row.label}</span>
+                <span className="text-sm font-semibold tabular-nums">
+                  {row.value}
+                  <span className="font-normal text-muted-foreground">
+                    {" "}
+                    / {row.total}
+                  </span>
+                </span>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary motion-reduce:transition-none"
+                  style={{ width: `${Math.min(100, percentage)}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ChartPanel>
+  );
+}
 
 function LoadingSkeleton() {
   return (
-    <div className="flex flex-col gap-4 2xl:gap-5">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {Array.from({ length: 5 }, (_, i) => (
-          <Skeleton key={i} className="h-32 rounded-xl" />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:gap-5">
-        {Array.from({ length: 4 }, (_, i) => (
-          <Skeleton key={i} className="h-80 rounded-xl" />
-        ))}
-      </div>
+    <div className="mx-auto grid w-full max-w-[1800px] grid-cols-1 gap-4 xl:grid-cols-12 2xl:gap-5">
+      <Skeleton className="h-[330px] rounded-lg xl:col-span-7" />
+      <Skeleton className="h-[330px] rounded-lg xl:col-span-5" />
+      <Skeleton className="h-[330px] rounded-lg xl:col-span-5" />
+      <Skeleton className="h-[330px] rounded-lg xl:col-span-7" />
+      <Skeleton className="h-52 rounded-lg xl:col-span-8" />
+      <Skeleton className="h-52 rounded-lg xl:col-span-4" />
     </div>
   );
 }
-
-/* ------------------------------- page ------------------------------ */
 
 export function Statistik() {
   const { statistics, loading } = useStatistics();
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
-      <PageHeader>
-        <span className="text-sm font-medium">Statistik</span>
+      <PageHeader
+        center={statistics ? <HeaderStats stats={statistics} /> : undefined}
+        end={<span className="text-sm font-medium sm:hidden">Statistik</span>}
+      >
+        <span className="hidden text-sm font-medium sm:inline">Statistik</span>
       </PageHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
         {loading ? (
           <LoadingSkeleton />
         ) : !statistics ? (
-          <Empty className="h-full border">
+          <Empty className="h-full border-0">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <BarChart3 />
@@ -580,15 +716,28 @@ export function Statistik() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="flex flex-col gap-4 2xl:gap-5">
-            <KpiGrid stats={statistics} />
-            <div className="stagger-in grid grid-cols-1 items-start gap-4 lg:grid-cols-2 2xl:gap-5">
-              <RegistrationsChart stats={statistics} />
+          <div className="stagger-in mx-auto grid w-full max-w-[1680px] grid-cols-1 items-start gap-4 xl:grid-cols-12 2xl:gap-5">
+            <div className="xl:hidden">
+              <CompactSummary stats={statistics} />
+            </div>
+            <div className="xl:col-span-7">
               <RevenueChart stats={statistics} />
+            </div>
+            <div className="xl:col-span-5">
+              <RegistrationsChart stats={statistics} />
+            </div>
+            <div className="xl:col-span-5">
               <LessonTypesChart stats={statistics} />
+            </div>
+            <div className="xl:col-span-7">
               <UtilizationChart stats={statistics} />
             </div>
-            <ExamsPanel stats={statistics} />
+            <div className="xl:col-span-8">
+              <ExamsPanel stats={statistics} />
+            </div>
+            <div className="xl:col-span-4">
+              <OperationsPanel stats={statistics} />
+            </div>
           </div>
         )}
       </div>

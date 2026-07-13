@@ -365,7 +365,16 @@ function ReviewRow({
               {review.source} · {formatDate(review.date)}
             </div>
           </div>
-          <Stars rating={review.rating} compact className="mt-0.5 shrink-0" />
+          <div className="flex shrink-0 items-center gap-2">
+            <ReviewActions
+              review={review}
+              saving={saving}
+              onReply={onReply}
+              onToggleHidden={onToggleHidden}
+              onDelete={onDelete}
+            />
+            <Stars rating={review.rating} compact />
+          </div>
         </div>
 
         <p className="mt-2 text-sm text-pretty">{review.text}</p>
@@ -379,16 +388,6 @@ function ReviewRow({
             <p className="mt-1 text-sm text-pretty text-foreground/90">{review.reply}</p>
           </div>
         ) : null}
-      </div>
-
-      <div className="shrink-0">
-        <ReviewActions
-          review={review}
-          saving={saving}
-          onReply={onReply}
-          onToggleHidden={onToggleHidden}
-          onDelete={onDelete}
-        />
       </div>
     </article>
   );

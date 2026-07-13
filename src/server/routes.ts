@@ -397,13 +397,12 @@ export function accountingRoutes(db: Database) {
           if (!Number.isInteger(id)) {
             throw new ValidationError("Ungültige Buchungs-ID.");
           }
-          const body = (await req.json()) as { reason?: unknown };
-          const today = new Date().toISOString().slice(0, 10);
+          const body = (await req.json()) as { reason?: unknown; date?: unknown };
           const created = stornoTransaction(
             db,
             id,
             typeof body.reason === "string" ? body.reason : "",
-            today,
+            typeof body.date === "string" ? body.date : "",
           );
           return json(created, 201);
         })(),

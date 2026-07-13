@@ -788,7 +788,7 @@ describe("POST /api/calendar-events/:id/bill", () => {
     const stornoRes = await fetch(url(`/api/accounting/transactions/${txId}/storno`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: "Test-Storno" }),
+      body: JSON.stringify({ reason: "Test-Storno", date: "2026-06-10" }),
     });
     expect(stornoRes.status).toBe(201);
 
