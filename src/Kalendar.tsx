@@ -1,21 +1,16 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CSSProperties,
-  Dispatch,
   PointerEvent as ReactPointerEvent,
-  RefObject,
-  SetStateAction,
   WheelEvent as ReactWheelEvent,
 } from "react";
 import {
+  CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   GripVertical,
-  Moon,
-  Printer,
   Plus,
-  Search,
 } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
@@ -23,6 +18,7 @@ import {
   CalendarEventCard,
   type CalendarEventCardTheme,
 } from "./components/CalendarEventCard.tsx";
+import { CalendarEventInspector } from "./components/CalendarEventInspector.tsx";
 import { EventEditDialog } from "./components/EventEditDialog.tsx";
 import { useInstructors } from "@/hooks/use-instructors";
 import { useStudents } from "@/hooks/use-students";
@@ -32,7 +28,6 @@ import {
   type EventPreset,
   type EventType,
   eventPresets,
-  eventTypeOptions,
   groupEventsByDay,
   isSameDay,
   layoutDay,
@@ -48,16 +43,8 @@ import {
   useCalendarEvents,
 } from "@/hooks/use-calendar-events";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useVehicleOptions } from "@/hooks/use-vehicle-options";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,7 +53,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
@@ -75,12 +68,11 @@ import { cn } from "@/lib/utils";
 
 const START_HOUR = 0;
 const END_HOUR = 24;
-const HOUR_HEIGHT = 72; // px per hour
+const HOUR_HEIGHT = 76; // px per hour
 const SNAP_MINUTES = 15;
 const DAY_COUNT = 7;
 const DAY_MINUTES = (END_HOUR - START_HOUR) * 60;
 const GRID_HEIGHT = (END_HOUR - START_HOUR) * HOUR_HEIGHT;
-const NIGHT_START_MINUTES = 21 * 60 + 15;
 const HOUR_INTERVALS = Array.from(
   { length: END_HOUR - START_HOUR },
   (_, i) => START_HOUR + i,
@@ -90,8 +82,6 @@ const HOUR_MARKS = Array.from(
   (_, i) => START_HOUR + i,
 );
 
-const NOW = new Date();
-const NOW_MINUTES = NOW.getHours() * 60 + NOW.getMinutes();
 const NEW_EVENT_ID = "__new_calendar_event__";
 
 const clamp = (value: number, min: number, max: number) =>
@@ -122,75 +112,46 @@ const nextEditableStartTime = () => {
 const topForMinutes = (minutes: number) =>
   ((minutes - START_HOUR * 60) / 60) * HOUR_HEIGHT;
 
-/* ------------------------------------------------------------------ */
-/* Event type themes                                                  */
-/* ------------------------------------------------------------------ */
+const deferUntilFloatingLayerCloses = (callback: () => void) => {
+  window.setTimeout(callback, 0);
+};
 
-/* Color-block cards: each event type owns a full tint — surface, rail,
-   ink — so the week grid reads as a mosaic of color, not white boxes. */
-const calendarEventThemes: Record<EventType, CalendarEventCardTheme> = {
-  Praktisch: {
-    surface:
-      "border-sky-200/80 bg-sky-50 hover:border-sky-300 hover:bg-sky-100/80 dark:border-sky-800/60 dark:bg-sky-950/50 dark:hover:border-sky-700 dark:hover:bg-sky-950/70",
-    rail: "bg-sky-500",
-    text: "text-sky-950 dark:text-sky-100",
-    meta: "text-sky-900/65 dark:text-sky-200/65",
-    icon: "text-sky-600/80 dark:text-sky-400/80",
-    chip: "text-sky-600 dark:text-sky-400",
-    focus: "focus-visible:ring-sky-500/30",
-    shortLabel: "Praxis",
-  },
-  Theorie: {
-    surface:
-      "border-indigo-200/80 bg-indigo-50 hover:border-indigo-300 hover:bg-indigo-100/80 dark:border-indigo-800/60 dark:bg-indigo-950/50 dark:hover:border-indigo-700 dark:hover:bg-indigo-950/70",
-    rail: "bg-indigo-500",
-    text: "text-indigo-950 dark:text-indigo-100",
-    meta: "text-indigo-900/65 dark:text-indigo-200/65",
-    icon: "text-indigo-600/80 dark:text-indigo-400/80",
-    chip: "text-indigo-600 dark:text-indigo-400",
-    focus: "focus-visible:ring-indigo-500/30",
-    shortLabel: "Theorie",
-  },
-  "Vorstellung zur prakt. Prüfung": {
-    surface:
-      "border-amber-300/70 bg-amber-50 hover:border-amber-400/80 hover:bg-amber-100/80 dark:border-amber-800/60 dark:bg-amber-950/50 dark:hover:border-amber-700 dark:hover:bg-amber-950/70",
-    rail: "bg-amber-500",
-    text: "text-amber-950 dark:text-amber-100",
-    meta: "text-amber-900/65 dark:text-amber-200/65",
-    icon: "text-amber-600/90 dark:text-amber-400/80",
-    chip: "text-amber-600 dark:text-amber-400",
-    focus: "focus-visible:ring-amber-500/30",
-    shortLabel: "Prüfung",
-  },
-  Theorieprüfung: {
-    surface:
-      "border-rose-200/80 bg-rose-50 hover:border-rose-300 hover:bg-rose-100/80 dark:border-rose-800/60 dark:bg-rose-950/50 dark:hover:border-rose-700 dark:hover:bg-rose-950/70",
-    rail: "bg-rose-500",
-    text: "text-rose-950 dark:text-rose-100",
-    meta: "text-rose-900/65 dark:text-rose-200/65",
-    icon: "text-rose-600/80 dark:text-rose-400/80",
-    chip: "text-rose-600 dark:text-rose-400",
-    focus: "focus-visible:ring-rose-500/30",
-    shortLabel: "TÜV",
-  },
-  Andere: {
-    surface:
-      "border-emerald-200/80 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100/80 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/70",
-    rail: "bg-emerald-500",
-    text: "text-emerald-950 dark:text-emerald-100",
-    meta: "text-emerald-900/65 dark:text-emerald-200/65",
-    icon: "text-emerald-600/80 dark:text-emerald-400/80",
-    chip: "text-emerald-600 dark:text-emerald-400",
-    focus: "focus-visible:ring-emerald-500/30",
-    shortLabel: "Extra",
-  },
+const handleCalendarWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+  const horizontalDelta =
+    Math.abs(event.deltaX) > Math.abs(event.deltaY)
+      ? event.deltaX
+      : event.shiftKey
+        ? event.deltaY
+        : 0;
+
+  if (!horizontalDelta) return;
+
+  const grid = event.currentTarget;
+  const nextScrollLeft = clamp(
+    grid.scrollLeft + horizontalDelta,
+    0,
+    Math.max(grid.scrollWidth - grid.clientWidth, 0),
+  );
+
+  if (nextScrollLeft === grid.scrollLeft) return;
+
+  grid.scrollLeft = nextScrollLeft;
+  event.preventDefault();
 };
 
 /* ------------------------------------------------------------------ */
-/* Filter configuration                                               */
+/* Event card theme                                                   */
 /* ------------------------------------------------------------------ */
 
-const niederlassungOptions = ["Fahrschule Demo"];
+/* The reference uses a different pastel for every calendar. OpenFS keeps
+   its one-accent system instead: event type is written on the card and the
+   selected state carries the stronger blue emphasis. */
+const calendarEventTheme: CalendarEventCardTheme = {
+  surface: "border-primary/20 bg-primary/[0.07] hover:bg-primary/[0.1]",
+  text: "text-foreground",
+  meta: "text-muted-foreground",
+  focus: "focus-visible:ring-primary/30",
+};
 /* ------------------------------------------------------------------ */
 /* Date formatters                                                    */
 /* ------------------------------------------------------------------ */
@@ -198,78 +159,19 @@ const niederlassungOptions = ["Fahrschule Demo"];
 const monthLong = (date: Date) => date.toLocaleDateString("de-DE", { month: "long" });
 const monthShort = (date: Date) => date.toLocaleDateString("de-DE", { month: "short" });
 
-/* ------------------------------------------------------------------ */
-/* Side filter group                                                  */
-/* ------------------------------------------------------------------ */
+const getISOWeek = (date: Date) => {
+  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const weekday = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() + 4 - weekday);
+  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+  return Math.ceil(((utc.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
+};
 
-function FilterGroup({
-  title,
-  options,
-  selected,
-  onToggle,
-}: {
-  title: string;
-  options: string[];
-  selected: Set<string>;
-  onToggle: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(true);
-  const [query, setQuery] = useState("");
-
-  const filtered = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return options;
-    return options.filter((option) => option.toLowerCase().includes(normalized));
-  }, [options, query]);
-
-  return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="border-b border-border/70 px-3 py-3"
-    >
-      <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md text-sm font-medium outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
-        {title}
-        <ChevronDown
-          className={cn(
-            "size-4 text-muted-foreground transition-transform duration-200",
-            open && "rotate-180",
-          )}
-        />
-      </CollapsibleTrigger>
-      <CollapsibleContent className="flex flex-col gap-2 pt-2.5">
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Suchen…"
-            className="h-8 pl-8 text-sm"
-          />
-        </div>
-        <div className="flex flex-col">
-          {filtered.map((option) => (
-            <label
-              key={option}
-              className="flex cursor-pointer items-center gap-2.5 rounded-md px-1 py-1.5 text-sm transition-colors hover:bg-muted"
-            >
-              <Checkbox
-                checked={selected.has(option)}
-                onCheckedChange={() => onToggle(option)}
-              />
-              <span className="truncate">{option}</span>
-            </label>
-          ))}
-          {filtered.length === 0 && (
-            <span className="px-1 py-1.5 text-xs text-muted-foreground">
-              Keine Treffer
-            </span>
-          )}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
+const getTimezoneLabel = (date: Date) => {
+  const offset = -date.getTimezoneOffset() / 60;
+  const sign = offset >= 0 ? "+" : "−";
+  return `UTC${sign}${Math.abs(offset)}`;
+};
 
 /* ------------------------------------------------------------------ */
 /* Event block                                                        */
@@ -362,8 +264,10 @@ function EventBlock({
   column,
   columns,
   isDragging,
+  isSelected,
   onDragStart,
   onResizeStart,
+  onSelect,
   onEdit,
   onDelete,
 }: {
@@ -371,6 +275,7 @@ function EventBlock({
   column: number;
   columns: number;
   isDragging: boolean;
+  isSelected: boolean;
   onDragStart: (
     event: CalEvent,
     pointerEvent: ReactPointerEvent<HTMLButtonElement>,
@@ -380,6 +285,7 @@ function EventBlock({
     edge: "start" | "end",
     pointerEvent: ReactPointerEvent<HTMLElement>,
   ) => void;
+  onSelect: (event: CalEvent) => void;
   onEdit: (event: CalEvent) => void;
   onDelete: (event: CalEvent) => void;
 }) {
@@ -387,13 +293,13 @@ function EventBlock({
   const endMin = toMinutes(event.end);
   const duration = endMin - startMin;
   const top = topForMinutes(startMin);
-  const slotHeight = Math.max((duration / 60) * HOUR_HEIGHT - 1, 44);
+  const slotHeight = Math.max((duration / 60) * HOUR_HEIGHT - 2, 38);
   const widthPct = 100 / columns;
-  const theme = calendarEventThemes[event.type];
-  const compact = slotHeight < 58;
+  const theme = calendarEventTheme;
+  const compact = slotHeight < 52;
   // Cards up to ~1h are too short for a wrapped meta row — it would squeeze
   // the title. Title and meta stay single-line and truncate instead.
-  const dense = !compact && slotHeight < 80;
+  const dense = !compact && slotHeight < 76;
 
   return (
     <CalendarEventCard
@@ -401,6 +307,7 @@ function EventBlock({
       compact={compact}
       dense={dense}
       isDragging={isDragging}
+      isSelected={isSelected}
       theme={theme}
       onPointerDown={(pointerEvent) => {
         if (pointerEvent.button !== 0) return;
@@ -408,135 +315,19 @@ function EventBlock({
         pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
         onDragStart(event, pointerEvent);
       }}
+      onSelect={() => onSelect(event)}
       onResizeStart={(edge, pointerEvent) => onResizeStart(event, edge, pointerEvent)}
       onEdit={() => onEdit(event)}
       onDelete={() => onDelete(event)}
       style={
         {
           top,
-          left: `calc(${column * widthPct}% + 2px)`,
-          width: `calc(${widthPct}% - 4px)`,
+          left: `calc(${column * widthPct}% + 3px)`,
+          width: `calc(${widthPct}% - 6px)`,
           "--card-h": `${slotHeight}px`,
         } as CSSProperties
       }
     />
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Custom horizontal week scrollbar                                   */
-/*                                                                    */
-/* Self-contained on purpose: it subscribes to the grid's scroll      */
-/* itself, so scrolling rerenders only this tiny component — not the  */
-/* whole calendar page (sidebar, filters, every event card).          */
-/* ------------------------------------------------------------------ */
-
-function WeekScrollbar({
-  scrollerRef,
-}: {
-  scrollerRef: RefObject<HTMLDivElement | null>;
-}) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [scroll, setScroll] = useState({
-    clientWidth: 1,
-    scrollLeft: 0,
-    scrollWidth: 1,
-  });
-
-  useEffect(() => {
-    const grid = scrollerRef.current;
-    if (!grid) return;
-
-    const updateHorizontalScroll = () => {
-      setScroll((previous) =>
-        // Bail out when the horizontal metrics are unchanged — vertical
-        // scrolling fires the same event but must not rerender anything.
-        previous.clientWidth === grid.clientWidth &&
-        previous.scrollLeft === grid.scrollLeft &&
-        previous.scrollWidth === grid.scrollWidth
-          ? previous
-          : {
-              clientWidth: grid.clientWidth,
-              scrollLeft: grid.scrollLeft,
-              scrollWidth: grid.scrollWidth,
-            },
-      );
-    };
-
-    updateHorizontalScroll();
-    grid.addEventListener("scroll", updateHorizontalScroll, { passive: true });
-    window.addEventListener("resize", updateHorizontalScroll);
-
-    const resizeObserver = new ResizeObserver(updateHorizontalScroll);
-    resizeObserver.observe(grid);
-
-    return () => {
-      grid.removeEventListener("scroll", updateHorizontalScroll);
-      window.removeEventListener("resize", updateHorizontalScroll);
-      resizeObserver.disconnect();
-    };
-  }, [scrollerRef]);
-
-  const maxScroll = Math.max(scroll.scrollWidth - scroll.clientWidth, 0);
-  const thumbWidth =
-    scroll.scrollWidth > scroll.clientWidth
-      ? Math.max((scroll.clientWidth / scroll.scrollWidth) * 100, 12)
-      : 100;
-  const thumbLeft =
-    maxScroll > 0 ? (scroll.scrollLeft / maxScroll) * (100 - thumbWidth) : 0;
-
-  const scrollToTrackPosition = (clientX: number) => {
-    const grid = scrollerRef.current;
-    const track = trackRef.current;
-    if (!grid || !track || maxScroll <= 0) return;
-
-    const rect = track.getBoundingClientRect();
-    const thumbWidthPx = (thumbWidth / 100) * rect.width;
-    const availableWidth = Math.max(rect.width - thumbWidthPx, 1);
-    grid.scrollLeft =
-      (clamp(clientX - rect.left - thumbWidthPx / 2, 0, availableWidth) /
-        availableWidth) *
-      maxScroll;
-  };
-
-  const handleThumbPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    scrollToTrackPosition(event.clientX);
-
-    const handlePointerMove = (pointerEvent: PointerEvent) => {
-      pointerEvent.preventDefault();
-      scrollToTrackPosition(pointerEvent.clientX);
-    };
-    const stopDragging = () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", stopDragging);
-      window.removeEventListener("pointercancel", stopDragging);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove, {
-      passive: false,
-    });
-    window.addEventListener("pointerup", stopDragging, { once: true });
-    window.addEventListener("pointercancel", stopDragging, { once: true });
-  };
-
-  return (
-    <div className="border-t border-border/70 bg-background px-3 py-2">
-      <div
-        ref={trackRef}
-        className="h-2 rounded-full bg-muted"
-        onPointerDown={handleThumbPointerDown}
-      >
-        <div
-          className="h-full rounded-full bg-muted-foreground/45 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] transition-colors hover:bg-muted-foreground/60"
-          style={{
-            marginLeft: `${thumbLeft}%`,
-            width: `${thumbWidth}%`,
-          }}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -562,8 +353,10 @@ const DayColumn = memo(
     isToday,
     events,
     draggingId,
+    selectedEventId,
     onDragStart,
     onResizeStart,
+    onSelect,
     onEdit,
     onDelete,
   }: {
@@ -571,6 +364,7 @@ const DayColumn = memo(
     isToday: boolean;
     events: CalEvent[];
     draggingId: string | null;
+    selectedEventId: string | null;
     onDragStart: (
       event: CalEvent,
       pointerEvent: ReactPointerEvent<HTMLButtonElement>,
@@ -580,6 +374,7 @@ const DayColumn = memo(
       edge: "start" | "end",
       pointerEvent: ReactPointerEvent<HTMLElement>,
     ) => void;
+    onSelect: (event: CalEvent) => void;
     onEdit: (event: CalEvent) => void;
     onDelete: (event: CalEvent) => void;
   }) {
@@ -587,19 +382,17 @@ const DayColumn = memo(
     return (
       <div
         className={cn(
-          "relative h-full border-l border-border/70",
-          isToday && "bg-primary/[0.02]",
+          "relative h-full border-l border-border/60",
+          isToday && "bg-primary/[0.015]",
         )}
       >
         {/* Hour lines */}
         {HOUR_INTERVALS.map((hour) => (
           <div
             key={hour}
-            className="border-b border-border/60"
+            className="border-b border-border/55"
             style={{ height: HOUR_HEIGHT }}
-          >
-            <div className="h-1/2 border-b border-dashed border-border/35" />
-          </div>
+          />
         ))}
 
         {/* Events */}
@@ -610,27 +403,14 @@ const DayColumn = memo(
             column={column}
             columns={columns}
             isDragging={draggingId === event.id}
+            isSelected={selectedEventId === event.id}
             onDragStart={onDragStart}
             onResizeStart={onResizeStart}
+            onSelect={onSelect}
             onEdit={onEdit}
             onDelete={onDelete}
           />
         ))}
-
-        {/* Now indicator */}
-        {isToday && (
-          <div
-            className="pointer-events-none absolute right-0 left-0 z-10 flex items-center"
-            style={{
-              top: topForMinutes(NOW_MINUTES),
-            }}
-          >
-            <span className="relative z-10 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white tabular-nums">
-              {formatMinutes(NOW_MINUTES)}
-            </span>
-            <span className="h-px flex-1 bg-red-500" />
-          </div>
-        )}
       </div>
     );
   },
@@ -638,8 +418,10 @@ const DayColumn = memo(
     prev.iso === next.iso &&
     prev.isToday === next.isToday &&
     prev.draggingId === next.draggingId &&
+    prev.selectedEventId === next.selectedEventId &&
     prev.onDragStart === next.onDragStart &&
     prev.onResizeStart === next.onResizeStart &&
+    prev.onSelect === next.onSelect &&
     prev.onEdit === next.onEdit &&
     prev.onDelete === next.onDelete &&
     prev.events.length === next.events.length &&
@@ -657,6 +439,7 @@ export function Kalendar({
 } = {}) {
   const [anchor, setAnchor] = useState<Date>(TODAY);
   const [selected, setSelected] = useState<Date | undefined>(TODAY);
+  const [now, setNow] = useState(() => new Date());
   // The DB is the system of record; local state mirrors it for the
   // synchronous drag/resize updates and is reconciled on failure.
   const { events: storedEvents, refresh: refreshEvents } = useCalendarEvents();
@@ -677,9 +460,10 @@ export function Kalendar({
     () =>
       Array.from(
         new Set(
-          students
-            .map((student) => `${student.firstName} ${student.lastName}`.trim())
-            .filter(Boolean),
+          students.flatMap((student) => {
+            const name = `${student.firstName} ${student.lastName}`.trim();
+            return name ? [name] : [];
+          }),
         ),
       ).toSorted((left, right) => left.localeCompare(right, "de")),
     [students],
@@ -696,12 +480,11 @@ export function Kalendar({
     }
     return byName;
   }, [students]);
-  const [instructors, setInstructors] = useState<Set<string>>(new Set());
-  const [niederlassungen, setNiederlassungen] = useState<Set<string>>(new Set());
-  const [vehicles, setVehicles] = useState<Set<string>>(new Set());
-  const [types, setTypes] = useState<Set<string>>(() => new Set(initialTypeFilter ?? []));
+  const [types] = useState<Set<string>>(() => new Set(initialTypeFilter ?? []));
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalEvent | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   // Live placement while a preset from the "Ereignis" menu is dragged over
   // the grid. day/startMinutes are null while the pointer is off the grid.
@@ -713,6 +496,11 @@ export function Kalendar({
   const gridRef = useRef<HTMLDivElement>(null);
   const dayGridRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   // Open the grid scrolled to the morning, like a real calendar — and with
   // today's column in view when the week overflows horizontally.
   useEffect(() => {
@@ -720,7 +508,7 @@ export function Kalendar({
     const dayGrid = dayGridRef.current;
     if (!grid) return;
 
-    grid.scrollTop = (7 - START_HOUR) * HOUR_HEIGHT;
+    grid.scrollTop = (8 - START_HOUR) * HOUR_HEIGHT;
 
     if (!dayGrid) return;
     // The initial anchor is TODAY, so the mounted week always contains it.
@@ -819,33 +607,31 @@ export function Kalendar({
     [weekStart],
   );
 
-  const toggle = (setter: Dispatch<SetStateAction<Set<string>>>) => (value: string) =>
-    setter((current) => {
-      const next = new Set(current);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return next;
-    });
-
   const visibleEvents = useMemo(() => {
-    return calendarEvents.filter((event) => {
-      if (instructors.size && !instructors.has(event.instructor)) return false;
-      if (
-        niederlassungen.size &&
-        !(event.location && niederlassungen.has(event.location))
-      )
-        return false;
-      if (vehicles.size && !(event.vehicle && vehicles.has(event.vehicle))) return false;
-      if (types.size && !types.has(event.type)) return false;
-      return true;
-    });
-  }, [calendarEvents, instructors, niederlassungen, vehicles, types]);
+    if (!types.size) return calendarEvents;
+    return calendarEvents.filter((event) => types.has(event.type));
+  }, [calendarEvents, types]);
 
   // One pass over visible events instead of one filter per day column +
   // one per day header (14 passes total at 7 columns). During a drag the
   // per-day arrays that don't contain the dragged event keep the same
   // object identity, which lets DayColumn's memo bail out cheaply.
   const eventsByDay = useMemo(() => groupEventsByDay(visibleEvents), [visibleEvents]);
+  const selectedEvent = useMemo(
+    () =>
+      selectedEventId === null
+        ? null
+        : (calendarEvents.find((event) => event.id === selectedEventId) ?? null),
+    [calendarEvents, selectedEventId],
+  );
+
+  const handleEventSelect = useCallback((event: CalEvent) => {
+    setSelectedEventId(event.id);
+    setSelected(new Date(`${event.date}T12:00:00`));
+    if (window.matchMedia("(max-width: 1279px)").matches) {
+      setMobileInspectorOpen(true);
+    }
+  }, []);
 
   const handleEventDragStart = useCallback(
     (event: CalEvent, pointerEvent: ReactPointerEvent<HTMLButtonElement>) => {
@@ -893,6 +679,8 @@ export function Kalendar({
   const handleEventDelete = useCallback(
     (event: CalEvent) => {
       setCalendarEvents((current) => current.filter((item) => item.id !== event.id));
+      setSelectedEventId((current) => (current === event.id ? null : current));
+      setMobileInspectorOpen(false);
       void deleteCalendarEvent(Number(event.id)).catch(() => {
         toast.error("Termin konnte nicht gelöscht werden.");
         void refreshEvents();
@@ -905,14 +693,14 @@ export function Kalendar({
     // Defer so the context menu finishes closing (and clears its
     // body `pointer-events: none`) before the dialog mounts — otherwise
     // the dialog can open non-interactive.
-    setTimeout(() => setEditingEvent(event), 0);
+    deferUntilFloatingLayerCloses(() => setEditingEvent(event));
   }, []);
 
   // Opens the edit dialog for a not-yet-persisted event. Deferred so the
   // dropdown finishes closing (and clears its body `pointer-events: none`)
   // before the dialog mounts — same trick as handleEventEdit.
   const openNewEventDialog = (draft: Omit<CalEvent, "id">) => {
-    setTimeout(() => setEditingEvent({ id: NEW_EVENT_ID, ...draft }), 0);
+    deferUntilFloatingLayerCloses(() => setEditingEvent({ id: NEW_EVENT_ID, ...draft }));
   };
 
   const openPresetEditor = (preset: EventPreset, date: string, start: string) => {
@@ -928,6 +716,7 @@ export function Kalendar({
   };
 
   const handleEventCreate = () => {
+    setMobileInspectorOpen(false);
     const start = nextEditableStartTime();
     openNewEventDialog({
       date: toISODate(selected ?? TODAY),
@@ -1039,6 +828,7 @@ export function Kalendar({
       void createCalendarEvent(payload)
         .then((created) => {
           setCalendarEvents((current) => [...current, created]);
+          setSelectedEventId(created.id);
           void refreshEvents();
         })
         .catch(() => {
@@ -1047,9 +837,9 @@ export function Kalendar({
       return;
     }
 
-    setCalendarEvents((current) =>
-      current.map((event) => (event.id === id ? updates : event)),
-    );
+    setCalendarEvents((current) => {
+      return current.map((event) => (event.id === id ? updates : event));
+    });
     void updateCalendarEvent(Number(id), payload).catch(() => {
       toast.error("Termin konnte nicht gespeichert werden.");
       void refreshEvents();
@@ -1057,6 +847,13 @@ export function Kalendar({
   };
 
   const isCurrentWeek = isSameDay(weekStart, startOfWeek(TODAY));
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const weekNumber = getISOWeek(weekStart);
+  const monthYearLabel = anchor.toLocaleDateString("de-DE", {
+    month: "long",
+    year: "numeric",
+  });
+  const timezoneLabel = getTimezoneLabel(anchor);
 
   const rangeLabel =
     weekStart.getMonth() === weekEnd.getMonth()
@@ -1066,91 +863,62 @@ export function Kalendar({
   const goToToday = () => {
     setAnchor(TODAY);
     setSelected(TODAY);
+    setSelectedEventId(null);
+    setMobileInspectorOpen(false);
   };
 
-  const handleCalendarWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    const horizontalDelta =
-      Math.abs(event.deltaX) > Math.abs(event.deltaY)
-        ? event.deltaX
-        : event.shiftKey
-          ? event.deltaY
-          : 0;
-
-    if (!horizontalDelta) return;
-
-    const grid = event.currentTarget;
-    const nextScrollLeft = clamp(
-      grid.scrollLeft + horizontalDelta,
-      0,
-      Math.max(grid.scrollWidth - grid.clientWidth, 0),
-    );
-
-    if (nextScrollLeft === grid.scrollLeft) return;
-
-    grid.scrollLeft = nextScrollLeft;
-    event.preventDefault();
+  const moveWeek = (amount: number) => {
+    const next = addDays(weekStart, amount);
+    setAnchor(next);
+    setSelected(next);
+    setSelectedEventId(null);
+    setMobileInspectorOpen(false);
   };
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
-      <PageHeader>
-        {/* No extra padding: PageHeader's animated spacer already makes
-            room for the fixed shell controls when the sidebar collapses,
-            so the view controls hug the left edge while it's expanded. */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Vorherige Woche"
-              onClick={() => setAnchor((current) => addDays(startOfWeek(current), -7))}
-            >
-              <ChevronLeft />
-            </Button>
-            <span className="min-w-[7.5rem] text-center text-sm font-medium tabular-nums">
-              {rangeLabel}
+      <PageHeader
+        end={
+          <>
+            <div className="flex items-center gap-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Vorherige Woche"
+                onClick={() => moveWeek(-7)}
+              >
+                <ChevronLeft />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Nächste Woche"
+                onClick={() => moveWeek(7)}
+              >
+                <ChevronRight />
+              </Button>
+            </div>
+            <span className="hidden h-8 items-center rounded-md border border-border bg-background px-3 text-sm font-medium sm:inline-flex">
+              Woche
             </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Nächste Woche"
-              onClick={() => setAnchor((current) => addDays(startOfWeek(current), 7))}
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-          {!isCurrentWeek && (
             <Button type="button" variant="outline" size="sm" onClick={goToToday}>
               Heute
             </Button>
-          )}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <div className="relative hidden md:block">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Fahrschüler" className="h-8 w-48 pl-8" />
-          </div>
-          <Button type="button" variant="outline" size="icon-sm" aria-label="Drucken">
-            <Printer />
-          </Button>
-          <DropdownMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" size="sm">
-                <Plus data-icon="inline-start" />
-                Ereignis
-                <ChevronDown data-icon="inline-end" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                Klicken oder in den Kalender ziehen
-              </DropdownMenuLabel>
-              {eventPresets.map((preset) => {
-                const theme = calendarEventThemes[preset.type];
-                return (
+            <DropdownMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="sm" aria-label="Termin erstellen">
+                  <Plus data-icon="inline-start" />
+                  <span className="hidden sm:inline">Termin</span>
+                  <ChevronDown className="hidden sm:block" data-icon="inline-end" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                  Klicken oder in den Kalender ziehen
+                </DropdownMenuLabel>
+                {eventPresets.map((preset) => (
                   <DropdownMenuItem
                     key={preset.label}
                     className="cursor-grab gap-2.5 active:cursor-grabbing"
@@ -1158,145 +926,101 @@ export function Kalendar({
                       handlePresetPointerDown(preset, pointerEvent)
                     }
                   >
-                    <span className={cn("size-2 shrink-0 rounded-full", theme.rail)} />
+                    <span className="size-2 shrink-0 rounded-full bg-primary" />
                     <span className="flex-1 truncate">{preset.title}</span>
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {preset.duration} Min.
                     </span>
                     <GripVertical className="size-3.5 text-muted-foreground/60" />
                   </DropdownMenuItem>
-                );
-              })}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={handleEventCreate}>
-                <Plus className="size-3.5 text-muted-foreground" />
-                Eigenes Ereignis
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={handleEventCreate}>
+                  <Plus className="size-3.5 text-muted-foreground" />
+                  Eigenen Termin erstellen
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
+          <h1 className="truncate text-[15px] font-semibold tracking-[-0.01em] capitalize tabular-nums">
+            {monthYearLabel}
+          </h1>
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            KW {weekNumber}
+          </span>
+          <span className="hidden shrink-0 text-xs text-muted-foreground tabular-nums lg:inline">
+            {rangeLabel}
+          </span>
         </div>
       </PageHeader>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden rounded-t-sm rounded-b-lg border border-border/70 bg-background">
-        {/* Sidebar: date picker + filters */}
-        <aside className="subtle-scrollbar hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-border/70 bg-card lg:flex">
-          <div className="border-b border-border/70 p-3">
-            <Calendar
-              mode="single"
-              required
-              selected={selected}
-              month={weekStart}
-              onMonthChange={(date) => setAnchor(date)}
-              onSelect={(date) => {
-                setSelected(date);
-                setAnchor(date);
-              }}
-              weekStartsOn={1}
-              showOutsideDays
-              className="mx-auto w-full bg-transparent px-1 py-0 [--cell-size:--spacing(8)]"
-              formatters={{
-                formatCaption: (date) =>
-                  date.toLocaleDateString("de-DE", {
-                    month: "long",
-                    year: "numeric",
-                  }),
-                formatWeekdayName: (date) =>
-                  date.toLocaleDateString("de-DE", { weekday: "short" }).slice(0, 2),
-              }}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-3 w-full"
-              onClick={goToToday}
-            >
-              Heute, {TODAY.getDate()}. {monthLong(TODAY)}
-            </Button>
-          </div>
-
-          <FilterGroup
-            title="Fahrlehrer"
-            options={instructorOptions}
-            selected={instructors}
-            onToggle={toggle(setInstructors)}
-          />
-          <FilterGroup
-            title="Niederlassung"
-            options={niederlassungOptions}
-            selected={niederlassungen}
-            onToggle={toggle(setNiederlassungen)}
-          />
-          <FilterGroup
-            title="Fahrzeug"
-            options={vehicleOptions}
-            selected={vehicles}
-            onToggle={toggle(setVehicles)}
-          />
-          <FilterGroup
-            title="Ereignistyp"
-            options={eventTypeOptions}
-            selected={types}
-            onToggle={toggle(setTypes)}
-          />
-        </aside>
-
-        {/* Main: week grid */}
-        <main className="flex min-w-0 flex-1 flex-col bg-background">
+      <div className="flex min-h-0 flex-1 gap-[3px] overflow-hidden bg-sidebar">
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-t-sm rounded-b-lg border border-border/70 bg-background">
           <div
             ref={gridRef}
-            className="calendar-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+            className="subtle-scrollbar min-h-0 flex-1 overflow-auto"
             onWheel={handleCalendarWheel}
             style={{ scrollbarGutter: "stable" }}
           >
-            {/* Sticky day headers — inside the scroller so they share its
-                scrollbar inset and stay aligned with the columns below. */}
-            {/* Day columns keep a consistent comfortable width (~180px each,
-                + 64px time gutter) instead of squishing: the week overflows
-                to the right and the horizontal scrollbar signals more days.
-                min-w must match the time grid below to stay aligned. */}
-            <div className="sticky top-0 z-30 flex min-w-[1324px] border-b border-border/70 bg-background">
-              <div className="w-16 shrink-0" />
-              <div className="grid flex-1 grid-cols-7">
-                {days.map((day) => {
-                  const today = isSameDay(day, TODAY);
-                  const count = (eventsByDay.get(toISODate(day)) ?? NO_EVENTS).length;
-                  return (
-                    <div
-                      key={day.toISOString()}
-                      className={cn(
-                        "flex items-center justify-center gap-1.5 border-l border-border/70 py-2 text-xs font-medium",
-                        today ? "text-foreground" : "text-muted-foreground",
-                      )}
-                    >
-                      <span className="capitalize">
-                        {day
-                          .toLocaleDateString("de-DE", { weekday: "short" })
-                          .replace(".", "")}{" "}
-                        {String(day.getDate()).padStart(2, "0")}.
-                        {String(day.getMonth() + 1).padStart(2, "0")}.
-                      </span>
-                      {count > 0 && (
-                        <Badge
-                          variant={today ? "default" : "secondary"}
-                          className="h-4 min-w-4 justify-center rounded-full px-1 text-[10px] tabular-nums"
-                        >
-                          {count}
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                })}
+            <div className="sticky top-0 z-30 min-w-[740px] bg-background/95 backdrop-blur-sm">
+              <div className="flex h-11 border-b border-border/70">
+                <div className="flex w-16 shrink-0 items-center justify-end pr-2.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                  {timezoneLabel}
+                </div>
+                <div className="grid flex-1 grid-cols-7">
+                  {days.map((day) => {
+                    const today = isSameDay(day, TODAY);
+                    const daySelected = selected ? isSameDay(day, selected) : false;
+                    return (
+                      <button
+                        key={day.toISOString()}
+                        type="button"
+                        className={cn(
+                          "flex items-center justify-center gap-1.5 border-l border-border/60 px-1 text-xs font-medium text-muted-foreground outline-hidden transition-colors duration-150 hover:bg-muted hover:duration-0 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring",
+                          daySelected && "bg-muted/70 text-foreground",
+                          today && "text-primary",
+                        )}
+                        aria-label={day.toLocaleDateString("de-DE", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                        })}
+                        aria-pressed={daySelected}
+                        onClick={() => setSelected(day)}
+                      >
+                        <span className="capitalize">
+                          {day
+                            .toLocaleDateString("de-DE", { weekday: "short" })
+                            .replace(".", "")}
+                        </span>
+                        <span className="tabular-nums">{day.getDate()}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex h-8 border-b border-border/70 bg-muted/[0.18]">
+                <div className="flex w-16 shrink-0 items-center justify-end pr-2.5 text-[10px] text-muted-foreground">
+                  Ganztägig
+                </div>
+                <div className="grid flex-1 grid-cols-7">
+                  {days.map((day) => (
+                    <div key={day.toISOString()} className="border-l border-border/60" />
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Time grid */}
-            <div className="flex min-w-[1324px]">
-              {/* Time gutter */}
+            <div className="flex min-w-[740px]">
               <div className="relative w-16 shrink-0" style={{ height: GRID_HEIGHT }}>
                 {HOUR_MARKS.map((hour) => (
                   <span
                     key={hour}
-                    className="absolute right-3 -translate-y-1/2 text-xs font-medium text-muted-foreground tabular-nums"
+                    className="absolute right-2.5 -translate-y-1/2 text-[10px] text-muted-foreground tabular-nums"
                     style={{
                       top:
                         hour === START_HOUR
@@ -1306,58 +1030,54 @@ export function Kalendar({
                             : topForMinutes(hour * 60),
                     }}
                   >
-                    {String(hour).padStart(2, "0")}
+                    {String(hour).padStart(2, "0")}:00
                   </span>
                 ))}
-                <div
-                  className="absolute right-1 flex -translate-y-1/2 items-center gap-1 rounded-full bg-background px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 ring-1 ring-indigo-500/20"
-                  style={{ top: topForMinutes(NIGHT_START_MINUTES) }}
-                >
-                  <Moon className="size-3" />
-                  <span className="tabular-nums">21:15</span>
-                </div>
+                {isCurrentWeek && (
+                  <span
+                    className="absolute right-1.5 z-20 -translate-y-1/2 bg-background px-1 text-[10px] font-medium text-primary tabular-nums"
+                    style={{ top: topForMinutes(nowMinutes) }}
+                  >
+                    {formatMinutes(nowMinutes)}
+                  </span>
+                )}
               </div>
 
-              {/* Day columns */}
               <div
                 ref={dayGridRef}
                 className="relative grid flex-1 grid-cols-7"
                 style={{ height: GRID_HEIGHT }}
               >
-                <div
-                  className="pointer-events-none absolute right-0 left-0 z-10 flex items-center"
-                  style={{ top: topForMinutes(NIGHT_START_MINUTES) }}
-                >
-                  <span className="h-px flex-1 bg-indigo-500/55" />
-                </div>
+                {isCurrentWeek && (
+                  <div
+                    className="pointer-events-none absolute right-0 left-0 z-30 flex items-center"
+                    style={{ top: topForMinutes(nowMinutes) }}
+                  >
+                    <span className="size-1.5 -translate-x-0.5 rounded-full bg-primary" />
+                    <span className="h-px flex-1 bg-primary/70" />
+                  </div>
+                )}
 
-                {/* Ghost block while a preset is dragged from the menu */}
                 {presetDrag &&
                   presetDrag.day !== null &&
                   presetDrag.startMinutes !== null && (
                     <div
-                      className="pointer-events-none absolute z-20 overflow-hidden rounded-md border border-dashed border-foreground/30 bg-background/95 shadow-md"
+                      className="pointer-events-none absolute z-40 overflow-hidden rounded-md border border-dashed border-primary/50 bg-primary/[0.08]"
                       style={{
                         top: topForMinutes(presetDrag.startMinutes),
-                        left: `calc(${(presetDrag.day * 100) / DAY_COUNT}% + 2px)`,
-                        width: `calc(${100 / DAY_COUNT}% - 4px)`,
+                        left: `calc(${(presetDrag.day * 100) / DAY_COUNT}% + 3px)`,
+                        width: `calc(${100 / DAY_COUNT}% - 6px)`,
                         height: Math.max(
-                          (presetDrag.preset.duration / 60) * HOUR_HEIGHT - 1,
-                          44,
+                          (presetDrag.preset.duration / 60) * HOUR_HEIGHT - 2,
+                          38,
                         ),
                       }}
                     >
-                      <span
-                        className={cn(
-                          "absolute inset-y-0 left-0 w-1",
-                          calendarEventThemes[presetDrag.preset.type].rail,
-                        )}
-                      />
-                      <div className="flex h-full flex-col justify-center gap-0.5 py-1 pr-2 pl-3">
+                      <div className="flex h-full flex-col justify-center gap-0.5 px-2 py-1">
                         <span className="truncate text-xs font-medium">
                           {presetDrag.preset.title}
                         </span>
-                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
                           {formatMinutes(presetDrag.startMinutes)}–
                           {formatMinutes(
                             presetDrag.startMinutes + presetDrag.preset.duration,
@@ -1376,8 +1096,10 @@ export function Kalendar({
                       isToday={isSameDay(day, TODAY)}
                       events={eventsByDay.get(iso) ?? NO_EVENTS}
                       draggingId={dragging?.id ?? null}
+                      selectedEventId={selectedEventId}
                       onDragStart={handleEventDragStart}
                       onResizeStart={handleEventResizeStart}
+                      onSelect={handleEventSelect}
                       onEdit={handleEventEdit}
                       onDelete={handleEventDelete}
                     />
@@ -1386,9 +1108,40 @@ export function Kalendar({
               </div>
             </div>
           </div>
-          <WeekScrollbar scrollerRef={gridRef} />
         </main>
+
+        <section className="hidden w-64 shrink-0 overflow-hidden rounded-t-sm rounded-b-lg border border-border/70 bg-background xl:block 2xl:w-72">
+          <CalendarEventInspector
+            event={selectedEvent}
+            onEdit={handleEventEdit}
+            onDelete={handleEventDelete}
+            onCreate={handleEventCreate}
+            onClear={() => setSelectedEventId(null)}
+          />
+        </section>
       </div>
+
+      <Sheet
+        open={mobileInspectorOpen && selectedEvent !== null && editingEvent === null}
+        onOpenChange={setMobileInspectorOpen}
+      >
+        <SheetContent className="gap-0 p-0 xl:hidden" showCloseButton={false}>
+          <SheetHeader className="sr-only">
+            <SheetTitle>Termindetails</SheetTitle>
+            <SheetDescription>Details zum ausgewählten Termin</SheetDescription>
+          </SheetHeader>
+          <CalendarEventInspector
+            event={selectedEvent}
+            onEdit={handleEventEdit}
+            onDelete={handleEventDelete}
+            onCreate={handleEventCreate}
+            onClear={() => {
+              setMobileInspectorOpen(false);
+              setSelectedEventId(null);
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       <EventEditDialog
         event={editingEvent}
