@@ -33,6 +33,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Claude Code agent worktrees (disposable checkouts, never commit)
 .claude/worktrees/
 
+# Local AI editor configuration
+.agents/skills/react-doctor/
+.claude/skills/react-doctor/
+.cursor/rules/
+
 # IntelliJ based IDEs
 .idea
 
