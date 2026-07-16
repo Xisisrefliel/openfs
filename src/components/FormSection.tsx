@@ -1,4 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -277,12 +284,30 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{
     pointerId: number;
+    captureTarget: HTMLElement;
+    startX: number;
     startY: number;
     moved: boolean;
     lastId: string | null;
   } | null>(null);
   const suppressClickRef = useRef(false);
   const scrollAnimationFrameRef = useRef<number | null>(null);
+  const finishDrag = useCallback((pointerId?: number) => {
+    const drag = dragRef.current;
+    if (!drag || (pointerId !== undefined && pointerId !== drag.pointerId)) return;
+
+    dragRef.current = null;
+    setIsDragging(false);
+    resetHighlightStretch(highlightSurfaceRef.current);
+    if (drag.captureTarget.hasPointerCapture(drag.pointerId)) {
+      drag.captureTarget.releasePointerCapture(drag.pointerId);
+    }
+    if (drag.moved) {
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    }
+  }, []);
   const visibleSet = useMemo(() => new Set(visible), [visible]);
   const visibleRange = useMemo(() => {
     let first = -1;
@@ -296,14 +321,22 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
   }, [sections, visibleSet]);
   const visibleKey = visible.join("\u0000");
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const handleBlur = () => finishDrag();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") finishDrag();
+    };
+
+    window.addEventListener("blur", handleBlur);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("blur", handleBlur);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (scrollAnimationFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollAnimationFrameRef.current);
       }
-    },
-    [],
-  );
+    };
+  }, [finishDrag]);
 
   useLayoutEffect(() => {
     const nav = navRef.current;
@@ -381,8 +414,15 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
   // highlight tracks the pointer so the rail behaves like a scrollbar thumb.
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    finishDrag();
+    const button = e.target instanceof Element ? e.target.closest("button") : null;
+    const captureTarget = button instanceof HTMLElement ? button : e.currentTarget;
+    captureTarget.setPointerCapture(e.pointerId);
     dragRef.current = {
       pointerId: e.pointerId,
+      captureTarget,
+      startX: e.clientX,
       startY: e.clientY,
       moved: false,
       lastId: null,
@@ -413,11 +453,10 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     const drag = dragRef.current;
     if (!drag || e.pointerId !== drag.pointerId) return;
     if (!drag.moved) {
-      if (Math.abs(e.clientY - drag.startY) < 4) return;
+      if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 4) return;
       drag.moved = true;
       suppressClickRef.current = true;
       setIsDragging(true);
-      navRef.current?.setPointerCapture(drag.pointerId);
     }
     e.preventDefault();
     const id = sectionIdAt(e.clientY);
@@ -428,10 +467,7 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
   };
 
   const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
-    const drag = dragRef.current;
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    if (drag.moved) setIsDragging(false);
-    dragRef.current = null;
+    finishDrag(e.pointerId);
   };
 
   return (
@@ -443,6 +479,7 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
       onPointerLeave={() => resetHighlightStretch(highlightSurfaceRef.current)}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
+      onLostPointerCapture={handlePointerEnd}
       className={cn(
         "sticky top-2 hidden h-fit w-44 shrink-0 touch-none flex-col gap-px self-start pt-1 select-none lg:flex",
         isDragging && "cursor-grabbing",
