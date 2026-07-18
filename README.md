@@ -14,7 +14,7 @@ Currently a single-tenant Bun web app; being rebuilt as a multi-tenant SaaS (one
 
 - **Runtime/server:** Bun.serve with bundler-mode HTML imports, bun test
 - **Database:** SQLite (WAL) via `bun:sqlite` (`src/server/sqlite.ts`)
-- **Frontend:** React 19 SPA, Tailwind CSS v4, shadcn/ui
+- **Frontend:** React 19 SPA, TanStack Router + Query, Tailwind CSS v4, shadcn/ui
 - **Language:** TypeScript (strict mode)
 
 ## Getting started
@@ -49,6 +49,7 @@ This application currently has **no authentication**. It is designed for single-
 
 ```
 src/index.ts              Bun.serve entry point; serves the SPA and mounts /api/*
+src/router.tsx            Typed TanStack route tree and route-level data preloading
 src/server/app-routes.ts  All API route factories merged into one routes object
 src/server/sqlite.ts      SQLite layer (bun:sqlite); single seam for opening databases
 src/server/routes.ts      HTTP route definitions, delegates to domain modules
@@ -58,6 +59,7 @@ src/server/db.ts          Schema, migrations, and GoBD constraints (immutable bo
                           Storno-only corrections, gapless number sequences)
 src/*.tsx                 React page components (calendar, students, vehicles, …)
 src/lib/                  Shared utilities and data-shape definitions
-src/hooks/               React query hooks (one source of truth per resource)
+src/hooks/               Resource queries and mutations; migrating onto TanStack Query
+src/lib/query-client.ts  Shared TanStack Query client and cache policy
 plans/                    Plans, incl. the SaaS decision record (saas-plan.md)
 ```
