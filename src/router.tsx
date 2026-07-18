@@ -35,6 +35,7 @@ import { TheorieGruppen } from "./TheorieGruppen";
 import { Vertraege } from "./Vertraege";
 import { nonFahrstundeTypes } from "@/lib/calendar-data";
 import { queryClient } from "@/lib/query-client";
+import { vehiclesQueryOptions } from "@/hooks/use-vehicles";
 
 type RouterContext = {
   queryClient: QueryClient;
@@ -149,6 +150,7 @@ const calendarRoute = createRoute({
 const vehiclesRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/fahrzeuge",
+  loader: ({ context }) => context.queryClient.ensureQueryData(vehiclesQueryOptions),
   component: Fahrzeuge,
 });
 

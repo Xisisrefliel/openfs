@@ -6,9 +6,9 @@ import { PageHeader } from "./components/PageHeader.tsx";
 import { useInstructors } from "@/hooks/use-instructors";
 import {
   useVehicles,
-  updateVehicle,
-  createVehicle,
-  deleteVehicle,
+  useCreateVehicle,
+  useDeleteVehicle,
+  useUpdateVehicle,
   type Vehicle as VehicleRecord,
   type VehicleDetail,
 } from "@/hooks/use-vehicles";
@@ -451,7 +451,10 @@ function VehicleRow({
 
 export function Fahrzeuge() {
   const { assignableNames: instructorOptions } = useInstructors();
-  const { vehicles: storedVehicles, loading, refresh } = useVehicles();
+  const { vehicles: storedVehicles, loading } = useVehicles();
+  const createVehicleMutation = useCreateVehicle();
+  const updateVehicleMutation = useUpdateVehicle();
+  const deleteVehicleMutation = useDeleteVehicle();
   const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
   const [deletingVehicleId, setDeletingVehicleId] = useState<number | null>(null);
   const [isCreateVehicleOpen, setIsCreateVehicleOpen] = useState(false);
@@ -468,8 +471,7 @@ export function Fahrzeuge() {
   async function removeVehicle() {
     if (!deletingVehicle) return;
     try {
-      await deleteVehicle(deletingVehicle.id);
-      await refresh();
+      await deleteVehicleMutation.mutateAsync(deletingVehicle.id);
       toast.success("Fahrzeug gelöscht.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
@@ -568,13 +570,15 @@ export function Fahrzeuge() {
         }}
         onSave={async (updatedVehicle) => {
           if (editingMode === "create") {
-            await createVehicle(toApiPayload(updatedVehicle));
+            await createVehicleMutation.mutateAsync(toApiPayload(updatedVehicle));
           } else if (editingVehicleId !== null) {
-            await updateVehicle(editingVehicleId, toApiPayload(updatedVehicle));
+            await updateVehicleMutation.mutateAsync({
+              id: editingVehicleId,
+              input: toApiPayload(updatedVehicle),
+            });
           } else {
             return;
           }
-          await refresh();
           setEditingVehicleId(null);
           setIsCreateVehicleOpen(false);
         }}

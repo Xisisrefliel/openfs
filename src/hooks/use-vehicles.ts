@@ -5,7 +5,13 @@
 /* so all vehicle edits persist and survive reloads.                   */
 /* ------------------------------------------------------------------ */
 
-import { parseOrThrow, useFetchList } from "@/lib/api";
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { parseOrThrow } from "@/lib/api";
 
 export type VehicleDetail = {
   label: string;
@@ -60,11 +66,51 @@ export async function deleteVehicle(id: number): Promise<void> {
   );
 }
 
+export const vehicleQueryKeys = {
+  all: ["vehicles"] as const,
+};
+
+export const vehiclesQueryOptions = queryOptions({
+  queryKey: vehicleQueryKeys.all,
+  queryFn: fetchVehicles,
+});
+
 export function useVehicles() {
-  const {
-    items: vehicles,
-    loading,
-    refresh,
-  } = useFetchList(fetchVehicles, "Fahrzeuge konnten nicht geladen werden");
-  return { vehicles, loading, refresh };
+  const query = useQuery(vehiclesQueryOptions);
+  return {
+    vehicles: query.data ?? [],
+    loading: query.isPending,
+    error: query.error,
+    refresh: query.refetch,
+  };
+}
+
+function useInvalidateVehicles() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: vehicleQueryKeys.all });
+}
+
+export function useCreateVehicle() {
+  const invalidateVehicles = useInvalidateVehicles();
+  return useMutation({
+    mutationFn: createVehicle,
+    onSuccess: invalidateVehicles,
+  });
+}
+
+export function useUpdateVehicle() {
+  const invalidateVehicles = useInvalidateVehicles();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: number; input: Partial<VehicleInput> }) =>
+      updateVehicle(id, input),
+    onSuccess: invalidateVehicles,
+  });
+}
+
+export function useDeleteVehicle() {
+  const invalidateVehicles = useInvalidateVehicles();
+  return useMutation({
+    mutationFn: deleteVehicle,
+    onSuccess: invalidateVehicles,
+  });
 }
