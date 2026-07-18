@@ -1,5 +1,6 @@
 import "./index.css";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import {
   Archive,
@@ -27,31 +28,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { Archiv } from "./Archiv";
-import { Bewertungen } from "./Bewertungen";
-import { Dashboard } from "./Dashboard";
-import { Buchhaltung } from "./Buchhaltung";
-import { Kalendar } from "./Kalendar";
-import { Marketing } from "./Marketing";
-import { Pruefungsplaner } from "./Pruefungsplaner";
-import { TheorieGruppen } from "./TheorieGruppen";
-import { nonFahrstundeTypes } from "@/lib/calendar-data";
 import { cn } from "@/lib/utils";
-import { Fahrlehrer } from "./Fahrlehrer";
-import { Fahrschule } from "./Fahrschule";
-import { Fahrschueler } from "./Fahrschueler";
-import { FahrschuelerDetail } from "./FahrschuelerDetail";
-import { Fahrzeuge } from "./Fahrzeuge";
-import { NeueSchueler } from "./NeueSchueler";
-import { Plaudern } from "./Plaudern";
-import { Preisangebot } from "./Preisangebot";
-import { Profil } from "./Profil";
-import { Schulprofil } from "./Schulprofil";
-import { Statistik } from "./Statistik";
-import { Anfrage } from "./Anfrage";
-import { Terminanfragen } from "./Terminanfragen";
-import { Theorie } from "./Theorie";
-import { Vertraege } from "./Vertraege";
 import { Toaster } from "@/components/ui/sonner";
 import {
   Collapsible,
@@ -93,7 +70,7 @@ const navItems: { label: string; Icon: IconCmp; route?: string }[] = [
 const navGroups: {
   label: string;
   Icon: IconCmp;
-  items: { label: string; Icon: IconCmp; route?: string }[];
+  items: { label: string; Icon: IconCmp; route: string }[];
 }[] = [
   {
     label: "Marketing",
@@ -124,32 +101,6 @@ const navGroups: {
     ],
   },
 ];
-
-function readLocation() {
-  if (typeof window === "undefined") return { path: "/", search: "" };
-  return { path: window.location.pathname, search: window.location.search };
-}
-
-function usePath() {
-  const [loc, setLoc] = useState(readLocation);
-  useEffect(() => {
-    const onPop = () => setLoc(readLocation());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-  const navigate = (to: string) => {
-    const url = new URL(to, window.location.origin);
-    if (
-      url.pathname === window.location.pathname &&
-      url.search === window.location.search
-    ) {
-      return;
-    }
-    window.history.pushState({}, "", to);
-    setLoc({ path: url.pathname, search: url.search });
-  };
-  return { path: loc.path, search: loc.search, navigate };
-}
 
 function DevAgentation() {
   useEffect(() => {
@@ -298,13 +249,7 @@ function scrollSidebarNavigationDown() {
   });
 }
 
-function AppSidebar({
-  path,
-  navigate,
-}: {
-  path: string;
-  navigate: (to: string) => void;
-}) {
+function AppSidebar({ path }: { path: string }) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const highlightSurfaceRef = useRef<HTMLDivElement | null>(null);
   const hoverSurfaceRef = useRef<HTMLDivElement | null>(null);
@@ -532,18 +477,24 @@ function AppSidebar({
           <SidebarMenu>
             {navItems.map(({ label, Icon, route }) => (
               <SidebarMenuItem key={label}>
-                <SidebarMenuButton
-                  tooltip={label}
-                  isActive={route ? path === route : false}
-                  className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
-                  disabled={!route}
-                  aria-current={route && path === route ? "page" : undefined}
-                  aria-disabled={!route}
-                  onClick={() => route && navigate(route)}
-                >
-                  <Icon />
-                  <span>{label}</span>
-                </SidebarMenuButton>
+                {route ? (
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={label}
+                    isActive={path === route}
+                    className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
+                  >
+                    <Link to={route} aria-current={path === route ? "page" : undefined}>
+                      <Icon />
+                      <span>{label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                ) : (
+                  <SidebarMenuButton tooltip={label} disabled aria-disabled>
+                    <Icon />
+                    <span>{label}</span>
+                  </SidebarMenuButton>
+                )}
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
@@ -573,22 +524,16 @@ function AppSidebar({
                         <SidebarMenuSubItem key={subLabel}>
                           <SidebarMenuSubButton
                             asChild
-                            isActive={route ? path === route : false}
+                            isActive={path === route}
                             className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
                           >
-                            <a
-                              href={route ?? "#"}
-                              aria-current={route && path === route ? "page" : undefined}
-                              aria-disabled={!route}
-                              tabIndex={route ? undefined : -1}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                if (route) navigate(route);
-                              }}
+                            <Link
+                              to={route}
+                              aria-current={path === route ? "page" : undefined}
                             >
                               <SubIcon />
                               <span>{subLabel}</span>
-                            </a>
+                            </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
@@ -605,14 +550,15 @@ function AppSidebar({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
+                asChild
                 tooltip="Archiv"
                 isActive={path === "/archiv"}
                 className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
-                aria-current={path === "/archiv" ? "page" : undefined}
-                onClick={() => navigate("/archiv")}
               >
-                <Archive />
-                <span>Archiv</span>
+                <Link to="/archiv" aria-current={path === "/archiv" ? "page" : undefined}>
+                  <Archive />
+                  <span>Archiv</span>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -679,74 +625,14 @@ function AppSidebar({
 }
 
 export function App() {
-  const { path, search, navigate } = usePath();
-  const calendarTypeFilter =
-    new URLSearchParams(search).get("filter") === "non-fahrstunde"
-      ? nonFahrstundeTypes
-      : undefined;
-  const studentDetailMatch = path.match(/^\/fahrschueler\/(\d+)$/);
-  const page =
-    path === "/profil" ? (
-      <Profil />
-    ) : path === "/theorie" ? (
-      <Theorie />
-    ) : studentDetailMatch ? (
-      <FahrschuelerDetail
-        key={studentDetailMatch[1]}
-        studentId={Number(studentDetailMatch[1])}
-        navigate={navigate}
-      />
-    ) : path === "/fahrschueler" ? (
-      <Fahrschueler navigate={navigate} />
-    ) : path === "/buchhaltung" ? (
-      <Buchhaltung />
-    ) : path === "/kalendar" ? (
-      <Kalendar
-        key={calendarTypeFilter ? "kalendar-non-fahrstunde" : "kalendar"}
-        initialTypeFilter={calendarTypeFilter}
-      />
-    ) : path === "/fahrzeuge" ? (
-      <Fahrzeuge />
-    ) : path === "/fahrlehrer" ? (
-      <Fahrlehrer />
-    ) : path === "/neue-schueler" ? (
-      <NeueSchueler />
-    ) : path === "/preisangebot" ? (
-      <Preisangebot />
-    ) : path === "/plaudern" ? (
-      <Plaudern />
-    ) : path === "/marketing" ? (
-      <Marketing />
-    ) : path === "/theorie-gruppen" ? (
-      <TheorieGruppen />
-    ) : path === "/pruefungsplaner" ? (
-      <Pruefungsplaner />
-    ) : path === "/schulprofil" ? (
-      <Schulprofil />
-    ) : path === "/terminanfragen" ? (
-      <Terminanfragen />
-    ) : path === "/fahrschule" ? (
-      <Fahrschule />
-    ) : path === "/statistik" ? (
-      <Statistik />
-    ) : path === "/bewertungen" ? (
-      <Bewertungen />
-    ) : path === "/vertraege" ? (
-      <Vertraege navigate={navigate} />
-    ) : path === "/archiv" ? (
-      <Archiv />
-    ) : (
-      <Dashboard />
-    );
-
-  if (path === "/anfrage") return <Anfrage />;
+  const path = useRouterState({ select: (state) => state.location.pathname });
 
   return (
     <TooltipProvider delayDuration={300}>
       <SidebarProvider className="bg-sidebar">
-        <AppSidebar path={path} navigate={navigate} />
+        <AppSidebar path={path} />
         <SidebarInset className="h-[calc(100svh-1rem)] min-h-0 !bg-transparent !shadow-none md:!m-2 md:!rounded-lg">
-          {page}
+          <Outlet />
         </SidebarInset>
       </SidebarProvider>
       <Toaster />

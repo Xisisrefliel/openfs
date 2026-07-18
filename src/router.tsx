@@ -1,0 +1,283 @@
+import { useCallback } from "react";
+import type { QueryClient } from "@tanstack/react-query";
+import {
+  Outlet,
+  createRootRouteWithContext,
+  createRoute,
+  createRouter,
+  notFound,
+  useRouter,
+} from "@tanstack/react-router";
+
+import { Anfrage } from "./Anfrage";
+import { App } from "./App";
+import { Archiv } from "./Archiv";
+import { Bewertungen } from "./Bewertungen";
+import { Buchhaltung } from "./Buchhaltung";
+import { Dashboard } from "./Dashboard";
+import { Fahrlehrer } from "./Fahrlehrer";
+import { Fahrschule } from "./Fahrschule";
+import { Fahrschueler } from "./Fahrschueler";
+import { FahrschuelerDetail } from "./FahrschuelerDetail";
+import { Fahrzeuge } from "./Fahrzeuge";
+import { Kalendar } from "./Kalendar";
+import { Marketing } from "./Marketing";
+import { NeueSchueler } from "./NeueSchueler";
+import { Plaudern } from "./Plaudern";
+import { Preisangebot } from "./Preisangebot";
+import { Profil } from "./Profil";
+import { Pruefungsplaner } from "./Pruefungsplaner";
+import { Schulprofil } from "./Schulprofil";
+import { Statistik } from "./Statistik";
+import { Terminanfragen } from "./Terminanfragen";
+import { Theorie } from "./Theorie";
+import { TheorieGruppen } from "./TheorieGruppen";
+import { Vertraege } from "./Vertraege";
+import { nonFahrstundeTypes } from "@/lib/calendar-data";
+import { queryClient } from "@/lib/query-client";
+
+type RouterContext = {
+  queryClient: QueryClient;
+};
+
+const rootRoute = createRootRouteWithContext<RouterContext>()({
+  component: Outlet,
+  notFoundComponent: () => (
+    <main className="grid min-h-svh place-items-center bg-background p-6 text-center">
+      <div>
+        <h1 className="font-heading text-xl font-semibold">Seite nicht gefunden</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Die angeforderte Seite existiert nicht.
+        </p>
+      </div>
+    </main>
+  ),
+});
+
+const portalRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: "_portal",
+  component: App,
+});
+
+function useLegacyNavigate() {
+  const router = useRouter();
+  return useCallback((to: string) => router.history.push(to), [router]);
+}
+
+function StudentsRouteComponent() {
+  const navigate = useLegacyNavigate();
+  return <Fahrschueler navigate={navigate} />;
+}
+
+function StudentDetailRouteComponent() {
+  const { studentId } = studentDetailRoute.useParams();
+  const parsedStudentId = Number(studentId);
+  const navigate = useLegacyNavigate();
+
+  if (!Number.isInteger(parsedStudentId) || parsedStudentId < 1) {
+    throw notFound();
+  }
+
+  return (
+    <FahrschuelerDetail key={studentId} studentId={parsedStudentId} navigate={navigate} />
+  );
+}
+
+function CalendarRouteComponent() {
+  const { filter } = calendarRoute.useSearch();
+  const initialTypeFilter = filter === "non-fahrstunde" ? nonFahrstundeTypes : undefined;
+
+  return (
+    <Kalendar
+      key={initialTypeFilter ? "kalendar-non-fahrstunde" : "kalendar"}
+      initialTypeFilter={initialTypeFilter}
+    />
+  );
+}
+
+function ContractsRouteComponent() {
+  const navigate = useLegacyNavigate();
+  return <Vertraege navigate={navigate} />;
+}
+
+const dashboardRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/",
+  component: Dashboard,
+});
+
+const profileRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/profil",
+  component: Profil,
+});
+
+const theoryRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/theorie",
+  component: Theorie,
+});
+
+const studentsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/fahrschueler",
+  component: StudentsRouteComponent,
+});
+
+const studentDetailRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/fahrschueler/$studentId",
+  component: StudentDetailRouteComponent,
+});
+
+const accountingRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/buchhaltung",
+  component: Buchhaltung,
+});
+
+const calendarRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/kalendar",
+  validateSearch: (search): { filter?: "non-fahrstunde" } => ({
+    filter: search.filter === "non-fahrstunde" ? search.filter : undefined,
+  }),
+  component: CalendarRouteComponent,
+});
+
+const vehiclesRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/fahrzeuge",
+  component: Fahrzeuge,
+});
+
+const instructorsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/fahrlehrer",
+  component: Fahrlehrer,
+});
+
+const newStudentRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/neue-schueler",
+  component: NeueSchueler,
+});
+
+const offerRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/preisangebot",
+  component: Preisangebot,
+});
+
+const chatRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/plaudern",
+  component: Plaudern,
+});
+
+const marketingRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/marketing",
+  component: Marketing,
+});
+
+const theoryGroupsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/theorie-gruppen",
+  component: TheorieGruppen,
+});
+
+const examPlannerRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/pruefungsplaner",
+  component: Pruefungsplaner,
+});
+
+const schoolProfileRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/schulprofil",
+  component: Schulprofil,
+});
+
+const appointmentRequestsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/terminanfragen",
+  component: Terminanfragen,
+});
+
+const schoolRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/fahrschule",
+  component: Fahrschule,
+});
+
+const statisticsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/statistik",
+  component: Statistik,
+});
+
+const reviewsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/bewertungen",
+  component: Bewertungen,
+});
+
+const contractsRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/vertraege",
+  component: ContractsRouteComponent,
+});
+
+const archiveRoute = createRoute({
+  getParentRoute: () => portalRoute,
+  path: "/archiv",
+  component: Archiv,
+});
+
+const appointmentRequestRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/anfrage",
+  component: Anfrage,
+});
+
+const portalRouteTree = portalRoute.addChildren([
+  dashboardRoute,
+  profileRoute,
+  theoryRoute,
+  studentsRoute,
+  studentDetailRoute,
+  accountingRoute,
+  calendarRoute,
+  vehiclesRoute,
+  instructorsRoute,
+  newStudentRoute,
+  offerRoute,
+  chatRoute,
+  marketingRoute,
+  theoryGroupsRoute,
+  examPlannerRoute,
+  schoolProfileRoute,
+  appointmentRequestsRoute,
+  schoolRoute,
+  statisticsRoute,
+  reviewsRoute,
+  contractsRoute,
+  archiveRoute,
+]);
+
+const routeTree = rootRoute.addChildren([portalRouteTree, appointmentRequestRoute]);
+
+export const router = createRouter({
+  routeTree,
+  context: { queryClient },
+  defaultPreload: "intent",
+  scrollRestoration: true,
+});
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
+}
