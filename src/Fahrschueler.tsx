@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp, ArrowUpDown, Printer, UserPlus } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
@@ -113,7 +114,8 @@ function SortableHead({
   );
 }
 
-export function Fahrschueler({ navigate }: { navigate: (to: string) => void }) {
+export function Fahrschueler() {
+  const navigate = useNavigate();
   // DB-backed: the roster comes from /api/students, edits go back via PATCH.
   const { students: studentRows } = useStudents();
   const [query, setQuery] = useState("");
@@ -174,13 +176,21 @@ export function Fahrschueler({ navigate }: { navigate: (to: string) => void }) {
     setStatusFilter("aktiv");
   };
 
-  const openStudent = (student: StudentRecord) => navigate(`/fahrschueler/${student.id}`);
+  const openStudent = (student: StudentRecord) =>
+    void navigate({
+      to: "/fahrschueler/$studentId",
+      params: { studentId: String(student.id) },
+    });
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader
         end={
-          <Button type="button" size="sm" onClick={() => navigate("/neue-schueler")}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => void navigate({ to: "/neue-schueler" })}
+          >
             <UserPlus data-icon="inline-start" />
             Schüler Anmeldung
           </Button>

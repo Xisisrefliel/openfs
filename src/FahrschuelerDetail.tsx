@@ -6,6 +6,7 @@
 /* ------------------------------------------------------------------ */
 
 import { useState } from "react";
+import { notFound, useNavigate, useParams, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,13 +47,13 @@ const tabs: { value: TabKey; label: string }[] = [
   { value: "preise", label: "Preise" },
 ];
 
-export function FahrschuelerDetail({
-  studentId,
-  navigate,
-}: {
-  studentId: number;
-  navigate: (to: string) => void;
-}) {
+export function FahrschuelerDetail() {
+  const { studentId: studentIdParam } = useParams({
+    from: "/_portal/fahrschueler/$studentId",
+  });
+  const studentId = Number(studentIdParam);
+  const navigate = useNavigate();
+  const router = useRouter();
   const { students, loading, refresh } = useStudents();
   const { assignableNames: instructorOptions } = useInstructors();
   const { vehicleOptions } = useVehicleOptions();
@@ -61,14 +62,18 @@ export function FahrschuelerDetail({
   const student = students.find((entry) => entry.id === studentId) ?? null;
   const hasDebt = student?.balance.startsWith("-") ?? false;
 
+  if (!Number.isInteger(studentId) || studentId < 1) {
+    throw notFound();
+  }
+
   // The detail page is reached from several lists (/fahrschueler,
   // /theorie, …) — go back to wherever the user came from. The list
   // is only a fallback for direct-URL visits with no app history.
   const goBack = () => {
     if (window.history.length > 1) {
-      window.history.back();
+      router.history.back();
     } else {
-      navigate("/fahrschueler");
+      void navigate({ to: "/fahrschueler" });
     }
   };
 
@@ -82,7 +87,7 @@ export function FahrschuelerDetail({
       await deleteStudent(studentId);
       toast.success("Fahrschüler/in gelöscht.");
       await refresh();
-      navigate("/fahrschueler");
+      void navigate({ to: "/fahrschueler" });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Löschen fehlgeschlagen.");
     }
@@ -107,7 +112,13 @@ export function FahrschuelerDetail({
       case "zahlung":
         return <ZahlungTab student={student} />;
       case "preise":
-        return <PreiseTab student={student} onSave={save} navigate={navigate} />;
+        return (
+          <PreiseTab
+            student={student}
+            onSave={save}
+            navigate={() => void navigate({ to: "/preisangebot" })}
+          />
+        );
     }
   };
 
@@ -225,7 +236,7 @@ export function FahrschuelerDetail({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => navigate("/fahrschueler")}
+              onClick={() => void navigate({ to: "/fahrschueler" })}
             >
               <ArrowLeft data-icon="inline-start" />
               Zur Übersicht

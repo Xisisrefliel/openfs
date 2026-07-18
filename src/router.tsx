@@ -1,12 +1,9 @@
-import { useCallback } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   Outlet,
   createRootRouteWithContext,
   createRoute,
   createRouter,
-  notFound,
-  useRouter,
 } from "@tanstack/react-router";
 
 import { Anfrage } from "./Anfrage";
@@ -33,7 +30,6 @@ import { Terminanfragen } from "./Terminanfragen";
 import { Theorie } from "./Theorie";
 import { TheorieGruppen } from "./TheorieGruppen";
 import { Vertraege } from "./Vertraege";
-import { nonFahrstundeTypes } from "@/lib/calendar-data";
 import { queryClient } from "@/lib/query-client";
 import { vehiclesQueryOptions } from "@/hooks/use-vehicles";
 
@@ -61,47 +57,6 @@ const portalRoute = createRoute({
   component: App,
 });
 
-function useLegacyNavigate() {
-  const router = useRouter();
-  return useCallback((to: string) => router.history.push(to), [router]);
-}
-
-function StudentsRouteComponent() {
-  const navigate = useLegacyNavigate();
-  return <Fahrschueler navigate={navigate} />;
-}
-
-function StudentDetailRouteComponent() {
-  const { studentId } = studentDetailRoute.useParams();
-  const parsedStudentId = Number(studentId);
-  const navigate = useLegacyNavigate();
-
-  if (!Number.isInteger(parsedStudentId) || parsedStudentId < 1) {
-    throw notFound();
-  }
-
-  return (
-    <FahrschuelerDetail key={studentId} studentId={parsedStudentId} navigate={navigate} />
-  );
-}
-
-function CalendarRouteComponent() {
-  const { filter } = calendarRoute.useSearch();
-  const initialTypeFilter = filter === "non-fahrstunde" ? nonFahrstundeTypes : undefined;
-
-  return (
-    <Kalendar
-      key={initialTypeFilter ? "kalendar-non-fahrstunde" : "kalendar"}
-      initialTypeFilter={initialTypeFilter}
-    />
-  );
-}
-
-function ContractsRouteComponent() {
-  const navigate = useLegacyNavigate();
-  return <Vertraege navigate={navigate} />;
-}
-
 const dashboardRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/",
@@ -123,13 +78,13 @@ const theoryRoute = createRoute({
 const studentsRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/fahrschueler",
-  component: StudentsRouteComponent,
+  component: Fahrschueler,
 });
 
 const studentDetailRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/fahrschueler/$studentId",
-  component: StudentDetailRouteComponent,
+  component: FahrschuelerDetail,
 });
 
 const accountingRoute = createRoute({
@@ -144,7 +99,7 @@ const calendarRoute = createRoute({
   validateSearch: (search): { filter?: "non-fahrstunde" } => ({
     filter: search.filter === "non-fahrstunde" ? search.filter : undefined,
   }),
-  component: CalendarRouteComponent,
+  component: Kalendar,
 });
 
 const vehiclesRoute = createRoute({
@@ -229,7 +184,7 @@ const reviewsRoute = createRoute({
 const contractsRoute = createRoute({
   getParentRoute: () => portalRoute,
   path: "/vertraege",
-  component: ContractsRouteComponent,
+  component: Vertraege,
 });
 
 const archiveRoute = createRoute({

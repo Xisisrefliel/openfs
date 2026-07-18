@@ -10,6 +10,7 @@
 /* ------------------------------------------------------------------ */
 
 import { useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { FileSearch, FileText } from "lucide-react";
 
 import { PageHeader } from "./components/PageHeader.tsx";
@@ -108,7 +109,8 @@ function TableRowSkeleton() {
   );
 }
 
-export function Vertraege({ navigate }: { navigate: (to: string) => void }) {
+export function Vertraege() {
+  const navigate = useNavigate();
   // DB-backed: contracts are a view over /api/students + /api/price-plans.
   const { students, loading: studentsLoading } = useStudents();
   const { plans, loading: plansLoading } = usePricePlans();
@@ -155,7 +157,11 @@ export function Vertraege({ navigate }: { navigate: (to: string) => void }) {
     setStatusFilter("alle");
   };
 
-  const openStudent = (row: ContractRow) => navigate(`/fahrschueler/${row.studentId}`);
+  const openStudent = (row: ContractRow) =>
+    void navigate({
+      to: "/fahrschueler/$studentId",
+      params: { studentId: String(row.studentId) },
+    });
 
   const openVertrag = (row: ContractRow) => {
     const student = studentsById.get(row.studentId);

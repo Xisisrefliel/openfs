@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearch } from "@tanstack/react-router";
 import type {
   CSSProperties,
   PointerEvent as ReactPointerEvent,
@@ -26,11 +27,11 @@ import {
   addDays,
   type CalEvent,
   type EventPreset,
-  type EventType,
   eventPresets,
   groupEventsByDay,
   isSameDay,
   layoutDay,
+  nonFahrstundeTypes,
   startOfWeek,
   toISODate,
   toMinutes,
@@ -462,11 +463,9 @@ const DayColumn = memo(
 /* Kalendar page                                                      */
 /* ------------------------------------------------------------------ */
 
-export function Kalendar({
-  initialTypeFilter,
-}: {
-  initialTypeFilter?: EventType[];
-} = {}) {
+export function Kalendar() {
+  const { filter } = useSearch({ from: "/_portal/kalendar" });
+  const initialTypeFilter = filter === "non-fahrstunde" ? nonFahrstundeTypes : undefined;
   const [anchor, setAnchor] = useState<Date>(TODAY);
   const [selected, setSelected] = useState<Date | undefined>(TODAY);
   const [now, setNow] = useState(() => new Date());
@@ -1033,9 +1032,13 @@ export function Kalendar({
               variant="ghost"
               size="icon-sm"
               className="hidden xl:inline-flex"
-              aria-label={inspectorOpen ? "Detailleiste ausblenden" : "Detailleiste einblenden"}
+              aria-label={
+                inspectorOpen ? "Detailleiste ausblenden" : "Detailleiste einblenden"
+              }
               aria-pressed={inspectorOpen}
-              title={inspectorOpen ? "Detailleiste ausblenden" : "Detailleiste einblenden"}
+              title={
+                inspectorOpen ? "Detailleiste ausblenden" : "Detailleiste einblenden"
+              }
               onClick={() => setInspectorOpen((open) => !open)}
             >
               <PanelRight />
@@ -1236,9 +1239,7 @@ export function Kalendar({
         <section
           className={cn(
             "hidden shrink-0 overflow-hidden rounded-t-sm rounded-b-lg bg-background transition-[width,border-width] duration-300 ease-drawer motion-reduce:transition-none xl:block",
-            inspectorOpen
-              ? "w-64 border border-border/70 2xl:w-72"
-              : "w-0 border-0",
+            inspectorOpen ? "w-64 border border-border/70 2xl:w-72" : "w-0 border-0",
           )}
         >
           <div className="h-full w-64 2xl:w-72">
