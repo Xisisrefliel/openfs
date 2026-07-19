@@ -94,16 +94,22 @@ function requireAccount(
 
 const SYSTEM_ACCOUNTS = { anzahlung: "3272", transit: "1460" } as const;
 
-function requireSystemAccount(db: Database, role: keyof typeof SYSTEM_ACCOUNTS, label: string): Account {
+function requireSystemAccount(
+  db: Database,
+  role: keyof typeof SYSTEM_ACCOUNTS,
+  label: string,
+): Account {
   return requireAccount(db, SYSTEM_ACCOUNTS[role], [role], label);
 }
 
 function reconcilePaymentAccount(method: PaymentMethod, account: Account): void {
   const isCashAccount = account.number === "1600";
   if ((method === "bar") !== isCashAccount) {
-    throw new ValidationError(method === "bar"
-      ? "Barzahlungen müssen auf das Kassenkonto 1600 gebucht werden."
-      : "Unbare Zahlungen dürfen nicht auf das Kassenkonto 1600 gebucht werden.");
+    throw new ValidationError(
+      method === "bar"
+        ? "Barzahlungen müssen auf das Kassenkonto 1600 gebucht werden."
+        : "Unbare Zahlungen dürfen nicht auf das Kassenkonto 1600 gebucht werden.",
+    );
   }
 }
 

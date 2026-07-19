@@ -297,7 +297,10 @@ function DateRangeFilter({
   })();
 
   const presets: { label: string; get: () => DateRange }[] = [
-    { label: "Dieser Monat", get: () => monthRange(today.getFullYear(), today.getMonth()) },
+    {
+      label: "Dieser Monat",
+      get: () => monthRange(today.getFullYear(), today.getMonth()),
+    },
     {
       label: "Letzter Monat",
       get: () => monthRange(today.getFullYear(), today.getMonth() - 1),
@@ -306,7 +309,10 @@ function DateRangeFilter({
       label: "Dieses Quartal",
       get: () => {
         const q = Math.floor(today.getMonth() / 3) * 3;
-        return { from: new Date(today.getFullYear(), q, 1), to: new Date(today.getFullYear(), q + 3, 0) };
+        return {
+          from: new Date(today.getFullYear(), q, 1),
+          to: new Date(today.getFullYear(), q + 3, 0),
+        };
       },
     },
     {
@@ -438,11 +444,7 @@ function Toolbar({
   balances: { openingCents: number; closingCents: number } | null;
 }) {
   const action =
-    tab === "accounts"
-      ? "Kategorie"
-      : tab === "cash-bank"
-        ? "Konto"
-        : "Zahlung";
+    tab === "accounts" ? "Kategorie" : tab === "cash-bank" ? "Konto" : "Zahlung";
   const isBookkeeping = tab === "ledger" || tab === "journal";
 
   return (
@@ -466,9 +468,7 @@ function Toolbar({
               </SelectGroup>
             </SelectContent>
           </Select>
-          {isBookkeeping && (
-            <DateRangeFilter range={range} onChange={onRangeChange} />
-          )}
+          {isBookkeeping && <DateRangeFilter range={range} onChange={onRangeChange} />}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

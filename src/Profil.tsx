@@ -269,7 +269,9 @@ function HoursEditor({
   const [localRows, setLocalRows] = useState(initial);
   const rows = value ?? localRows;
   const update = (i: number, patch: Partial<Hours>) =>
-    (onChange ?? setLocalRows)(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+    (onChange ?? setLocalRows)(
+      rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+    );
 
   return (
     <div className="flex flex-col divide-y">
@@ -342,8 +344,11 @@ export function Profil() {
   const [formVersion, setFormVersion] = useState(0);
   // Company block is persisted server-side — it feeds the Quittungen.
   const [company, setCompany] = useState<CompanyProfile>(EMPTY_COMPANY);
-  const { profile: schoolProfile, setProfile: setSchoolProfile, refresh: refreshSchoolProfile } =
-    useSchoolProfile(() => toast.error("Schulprofil konnte nicht geladen werden."));
+  const {
+    profile: schoolProfile,
+    setProfile: setSchoolProfile,
+    refresh: refreshSchoolProfile,
+  } = useSchoolProfile(() => toast.error("Schulprofil konnte nicht geladen werden."));
 
   useEffect(() => {
     fetch("/api/profile")
