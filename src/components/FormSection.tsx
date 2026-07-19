@@ -20,6 +20,7 @@ export type FormSectionDef = { id: string; label: string };
 
 const MIN_VISIBLE_SECTION_HEIGHT = 24;
 const QUICK_SCROLL_DURATION_MS = 140;
+const HIGHLIGHT_PULL_REACH_PX = 220;
 
 export function FormSection({
   id,
@@ -109,19 +110,35 @@ function stretchHighlightTowardPointer(
     return;
   }
 
-  const rect = element.getBoundingClientRect();
+  // Measure the unscaled wrapper so the pointer calculation does not feed back
+  // into itself as the surface stretches.
+  const rect =
+    element.parentElement?.getBoundingClientRect() ?? element.getBoundingClientRect();
+  const outsideX = Math.max(rect.left - clientX, 0, clientX - rect.right);
+  const outsideY = Math.max(rect.top - clientY, 0, clientY - rect.bottom);
+  const distance = Math.hypot(outsideX, outsideY);
+  const pull = Math.max(0, 1 - distance / HIGHLIGHT_PULL_REACH_PX) ** 2;
+
+  if (pull === 0) {
+    resetHighlightStretch(element);
+    return;
+  }
+
   const signedX = Math.max(
     -1,
-    Math.min(1, (clientX - (rect.left + rect.width / 2)) / Math.max(rect.width / 2, 1)),
+    Math.min(1, (clientX - (rect.left + rect.width / 2)) / Math.max(rect.width * 0.6, 1)),
   );
   const signedY = Math.max(
     -1,
-    Math.min(1, (clientY - (rect.top + rect.height / 2)) / Math.max(rect.height / 2, 1)),
+    Math.min(
+      1,
+      (clientY - (rect.top + rect.height / 2)) / Math.max(rect.height * 1.25, 1),
+    ),
   );
   const strengthX = Math.abs(signedX);
   const strengthY = Math.abs(signedY);
-  const scaleX = 1 + strengthX * 0.014 - strengthY * 0.004;
-  const scaleY = 1 + strengthY * 0.022 - strengthX * 0.003;
+  const scaleX = 1 + strengthX * 0.045 * pull;
+  const scaleY = 1 + strengthY * 0.16 * pull;
   const originX = signedX < -0.08 ? "right" : signedX > 0.08 ? "left" : "center";
   const originY = signedY < -0.08 ? "bottom" : signedY > 0.08 ? "top" : "center";
 
@@ -430,26 +447,26 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     suppressClickRef.current = false;
   };
 
-  const handlePointerHover = (e: React.PointerEvent<HTMLElement>) => {
-    if (e.pointerType !== "mouse") return;
-    const nav = navRef.current;
-    if (!nav) return;
-    const rect = nav.getBoundingClientRect();
-    const isHovering =
-      e.clientX >= rect.left &&
-      e.clientX <= rect.right &&
-      e.clientY >= rect.top &&
-      e.clientY <= rect.bottom;
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse") return;
+      stretchHighlightTowardPointer(
+        highlightSurfaceRef.current,
+        event.clientX,
+        event.clientY,
+      );
+    };
+    const handlePointerLeave = () => resetHighlightStretch(highlightSurfaceRef.current);
 
-    if (isHovering) {
-      stretchHighlightTowardPointer(highlightSurfaceRef.current, e.clientX, e.clientY);
-    } else {
-      resetHighlightStretch(highlightSurfaceRef.current);
-    }
-  };
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", handlePointerLeave);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      document.documentElement.removeEventListener("pointerleave", handlePointerLeave);
+    };
+  }, []);
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
-    handlePointerHover(e);
     const drag = dragRef.current;
     if (!drag || e.pointerId !== drag.pointerId) return;
     if (!drag.moved) {
@@ -474,9 +491,7 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     <nav
       ref={navRef}
       onPointerDown={handlePointerDown}
-      onPointerEnter={handlePointerHover}
       onPointerMove={handlePointerMove}
-      onPointerLeave={() => resetHighlightStretch(highlightSurfaceRef.current)}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       onLostPointerCapture={handlePointerEnd}

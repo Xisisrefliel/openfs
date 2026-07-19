@@ -102,6 +102,86 @@ const navGroups: {
   },
 ];
 
+type NavGroup = (typeof navGroups)[number];
+
+function SidebarNavGroup({
+  group,
+  path,
+  onActiveCollapse,
+}: {
+  group: NavGroup;
+  path: string;
+  onActiveCollapse: () => void;
+}) {
+  const { label, Icon, items } = group;
+  const activeItem = items.find((item) => item.route === path);
+
+  return (
+    <SidebarGroup className="z-10 px-1 py-2 group-data-[collapsible=icon]:p-2">
+      <SidebarMenu>
+        <Collapsible
+          defaultOpen
+          className="group/collapsible"
+          onOpenChange={(open) => {
+            if (!open && activeItem) onActiveCollapse();
+          }}
+        >
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton
+                tooltip={label}
+                className="hover:bg-transparent active:bg-transparent data-open:hover:bg-transparent"
+              >
+                <Icon />
+                <span>{label}</span>
+                <ChevronRight className="ml-auto transition-transform duration-200 ease-drawer motion-reduce:transition-none group-data-[state=open]/collapsible:rotate-90" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-200 ease-drawer data-[state=open]:grid-rows-[1fr] data-[state=open]:opacity-100 motion-reduce:transition-none">
+              <SidebarMenuSub className="min-h-0 overflow-hidden">
+                {items.map(({ label: subLabel, Icon: SubIcon, route }) => (
+                  <SidebarMenuSubItem key={subLabel}>
+                    <SidebarMenuSubButton
+                      asChild
+                      isActive={path === route}
+                      className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
+                    >
+                      <Link
+                        to={route}
+                        draggable={false}
+                        aria-current={path === route ? "page" : undefined}
+                      >
+                        <SubIcon />
+                        <span>{subLabel}</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                ))}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+            {activeItem && (
+              <SidebarMenuSub className="group-data-[state=open]/collapsible:hidden">
+                <SidebarMenuSubItem>
+                  <SidebarMenuSubButton
+                    asChild
+                    isActive
+                    className="hover:bg-sidebar-accent active:bg-sidebar-accent"
+                  >
+                    <Link to={activeItem.route} draggable={false} aria-current="page">
+                      <activeItem.Icon />
+                      <span>{activeItem.label}</span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              </SidebarMenuSub>
+            )}
+          </SidebarMenuItem>
+        </Collapsible>
+      </SidebarMenu>
+    </SidebarGroup>
+  );
+}
+
 function DevAgentation() {
   useEffect(() => {
     const ignoreCrossOriginScriptError = (event: ErrorEvent) => {
@@ -153,6 +233,12 @@ function sameSidebarHighlightMetrics(
   );
 }
 
+function getVisibleActiveSidebarButton(content: HTMLElement) {
+  return Array.from(content.querySelectorAll<HTMLElement>('[data-active="true"]')).find(
+    (button) => button.getClientRects().length > 0,
+  );
+}
+
 function isEnabledSidebarTarget(target: HTMLElement) {
   return !(
     target.getAttribute("aria-disabled") === "true" ||
@@ -201,42 +287,6 @@ function getSidebarPointerTarget(
   return nearest;
 }
 
-function stretchSidebarHighlightTowardPointer(
-  element: HTMLDivElement | null,
-  clientX: number,
-  clientY: number,
-  targetRect?: DOMRect,
-) {
-  if (!element) return;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    element.style.transform = "scaleX(1) scaleY(1)";
-    return;
-  }
-
-  const rect = targetRect ?? element.getBoundingClientRect();
-  const signedX = Math.max(
-    -1,
-    Math.min(1, (clientX - (rect.left + rect.width / 2)) / Math.max(rect.width / 2, 1)),
-  );
-  const signedY = Math.max(
-    -1,
-    Math.min(1, (clientY - (rect.top + rect.height / 2)) / Math.max(rect.height / 2, 1)),
-  );
-  const strengthX = Math.abs(signedX);
-  const strengthY = Math.abs(signedY);
-  const originX = signedX < -0.08 ? "right" : signedX > 0.08 ? "left" : "center";
-  const originY = signedY < -0.08 ? "bottom" : signedY > 0.08 ? "top" : "center";
-
-  element.style.transformOrigin = `${originX} ${originY}`;
-  element.style.transform = `scaleX(${1 + strengthX * 0.014 - strengthY * 0.004}) scaleY(${1 + strengthY * 0.022 - strengthX * 0.003})`;
-}
-
-function resetSidebarHighlightStretch(element: HTMLDivElement | null) {
-  if (!element) return;
-  element.style.transformOrigin = "center";
-  element.style.transform = "scaleX(1) scaleY(1)";
-}
-
 // The footer cue is a real affordance: clicking it pages the nav down so the
 // items hidden under the fold scroll into view (smooth, reduced-motion aware).
 function scrollSidebarNavigationDown() {
@@ -251,17 +301,12 @@ function scrollSidebarNavigationDown() {
 
 function AppSidebar({ path }: { path: string }) {
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const highlightSurfaceRef = useRef<HTMLDivElement | null>(null);
-  const hoverSurfaceRef = useRef<HTMLDivElement | null>(null);
-  const hoverAnimationFrameRef = useRef<number | null>(null);
-  const hoverHideTimeoutRef = useRef<number | null>(null);
-  const hoverVisibleRef = useRef(false);
   const [sidebarCanScrollDown, setSidebarCanScrollDown] = useState(false);
   const [highlight, setHighlight] = useState<SidebarHighlightMetrics | null>(null);
+  const [isSnappingHighlight, setIsSnappingHighlight] = useState(false);
   const [hoverHighlight, setHoverHighlight] = useState<SidebarHighlightMetrics | null>(
     null,
   );
-  const [isHoverHighlightVisible, setIsHoverHighlightVisible] = useState(false);
   const updateHighlight = useCallback(() => {
     const content = contentRef.current;
     if (!content) {
@@ -269,7 +314,7 @@ function AppSidebar({ path }: { path: string }) {
       return;
     }
 
-    const activeButton = content.querySelector<HTMLElement>('[data-active="true"]');
+    const activeButton = getVisibleActiveSidebarButton(content);
     if (!activeButton) {
       setHighlight(null);
       return;
@@ -280,6 +325,13 @@ function AppSidebar({ path }: { path: string }) {
       sameSidebarHighlightMetrics(current, next) ? current : next,
     );
   }, []);
+  const snapHighlightToActiveItem = useCallback(() => {
+    setIsSnappingHighlight(true);
+    window.requestAnimationFrame(() => {
+      updateHighlight();
+      window.requestAnimationFrame(() => setIsSnappingHighlight(false));
+    });
+  }, [updateHighlight]);
 
   useLayoutEffect(() => {
     const content = contentRef.current;
@@ -291,21 +343,13 @@ function AppSidebar({ path }: { path: string }) {
     const observer =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateHighlight);
     observer?.observe(content);
-    const activeButton = content.querySelector<HTMLElement>('[data-active="true"]');
+    const activeButton = getVisibleActiveSidebarButton(content);
     if (activeButton) observer?.observe(activeButton);
 
     return () => {
       window.removeEventListener("resize", updateHighlight);
       content.removeEventListener("transitionend", updateHighlight);
       observer?.disconnect();
-      if (hoverAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(hoverAnimationFrameRef.current);
-        hoverAnimationFrameRef.current = null;
-      }
-      if (hoverHideTimeoutRef.current !== null) {
-        window.clearTimeout(hoverHideTimeoutRef.current);
-        hoverHideTimeoutRef.current = null;
-      }
     };
   }, [path, updateHighlight]);
 
@@ -333,6 +377,8 @@ function AppSidebar({ path }: { path: string }) {
     };
   }, []);
 
+  const displayedHighlight = hoverHighlight ?? highlight;
+
   return (
     <Sidebar variant="inset">
       <SidebarContent
@@ -348,129 +394,36 @@ function AppSidebar({ path }: { path: string }) {
             event.clientY,
           );
 
-          if (target?.dataset.active === "true") {
-            if (hoverAnimationFrameRef.current !== null) {
-              window.cancelAnimationFrame(hoverAnimationFrameRef.current);
-              hoverAnimationFrameRef.current = null;
-            }
-            if (hoverHideTimeoutRef.current !== null) {
-              window.clearTimeout(hoverHideTimeoutRef.current);
-              hoverHideTimeoutRef.current = null;
-            }
-            hoverVisibleRef.current = false;
-            stretchSidebarHighlightTowardPointer(
-              highlightSurfaceRef.current,
-              event.clientX,
-              event.clientY,
-            );
-            setIsHoverHighlightVisible(false);
-            resetSidebarHighlightStretch(hoverSurfaceRef.current);
+          if (!target || target.dataset.active === "true") {
+            setHoverHighlight(null);
             return;
           }
 
-          resetSidebarHighlightStretch(highlightSurfaceRef.current);
-          if (!target) {
-            if (hoverHideTimeoutRef.current === null) {
-              hoverHideTimeoutRef.current = window.setTimeout(() => {
-                hoverVisibleRef.current = false;
-                setIsHoverHighlightVisible(false);
-                resetSidebarHighlightStretch(hoverSurfaceRef.current);
-                hoverHideTimeoutRef.current = null;
-              }, 60);
-            }
-            return;
-          }
-
-          if (hoverHideTimeoutRef.current !== null) {
-            window.clearTimeout(hoverHideTimeoutRef.current);
-            hoverHideTimeoutRef.current = null;
-          }
           const next = getSidebarHighlightMetrics(event.currentTarget, target);
           setHoverHighlight((current) =>
             sameSidebarHighlightMetrics(current, next) ? current : next,
           );
-          if (!hoverVisibleRef.current) {
-            stretchSidebarHighlightTowardPointer(
-              hoverSurfaceRef.current,
-              event.clientX,
-              event.clientY,
-              target.getBoundingClientRect(),
-            );
-            if (hoverAnimationFrameRef.current === null) {
-              hoverAnimationFrameRef.current = window.requestAnimationFrame(() => {
-                hoverVisibleRef.current = true;
-                setIsHoverHighlightVisible(true);
-                hoverAnimationFrameRef.current = null;
-              });
-            }
-          } else {
-            setIsHoverHighlightVisible(true);
-            stretchSidebarHighlightTowardPointer(
-              hoverSurfaceRef.current,
-              event.clientX,
-              event.clientY,
-            );
-          }
         }}
         onPointerLeave={() => {
-          if (hoverAnimationFrameRef.current !== null) {
-            window.cancelAnimationFrame(hoverAnimationFrameRef.current);
-            hoverAnimationFrameRef.current = null;
-          }
-          if (hoverHideTimeoutRef.current !== null) {
-            window.clearTimeout(hoverHideTimeoutRef.current);
-            hoverHideTimeoutRef.current = null;
-          }
-          hoverVisibleRef.current = false;
-          setIsHoverHighlightVisible(false);
-          resetSidebarHighlightStretch(highlightSurfaceRef.current);
-          resetSidebarHighlightStretch(hoverSurfaceRef.current);
+          setHoverHighlight(null);
         }}
       >
-        {highlight && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute top-0 left-0 z-0 transition-[transform,width,height] duration-200 ease-out motion-reduce:transition-none"
-            style={{
-              width: highlight.width,
-              height: highlight.height,
-              transform: `translate3d(${highlight.left}px, ${highlight.top}px, 0)`,
-            }}
-          >
-            <div
-              ref={highlightSurfaceRef}
-              className="size-full rounded-md bg-sidebar-accent transition-transform duration-75 ease-out motion-reduce:transition-none"
-            />
-          </div>
-        )}
-        {hoverHighlight && (
+        {displayedHighlight && (
           <div
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute top-0 left-0 z-1",
-              isHoverHighlightVisible
-                ? "transition-[transform,width,height] duration-180 ease-snappy motion-reduce:transition-none"
-                : "transition-none",
+              "pointer-events-none absolute top-0 left-0 z-0",
+              isSnappingHighlight
+                ? "opacity-0 transition-none"
+                : "transition-[transform,width,height] duration-150 ease motion-reduce:transition-none",
             )}
             style={{
-              width: hoverHighlight.width,
-              height: hoverHighlight.height,
-              transform: `translate3d(${hoverHighlight.left}px, ${hoverHighlight.top}px, 0)`,
+              width: displayedHighlight.width,
+              height: displayedHighlight.height,
+              transform: `translate3d(${displayedHighlight.left}px, ${displayedHighlight.top}px, 0)`,
             }}
           >
-            <div
-              className={cn(
-                "size-full origin-center transition-[opacity,transform] ease-out motion-reduce:transition-none motion-reduce:transform-none",
-                isHoverHighlightVisible
-                  ? "scale-100 opacity-100 duration-120"
-                  : "scale-[0.985] opacity-0 duration-100",
-              )}
-            >
-              <div
-                ref={hoverSurfaceRef}
-                className="size-full rounded-md bg-sidebar-accent transition-transform duration-75 ease-out motion-reduce:transition-none"
-              />
-            </div>
+            <div className="size-full rounded-md bg-sidebar-accent" />
           </div>
         )}
         <SidebarGroup className="z-10 px-1 py-2 group-data-[collapsible=icon]:p-2">
@@ -484,7 +437,11 @@ function AppSidebar({ path }: { path: string }) {
                     isActive={path === route}
                     className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
                   >
-                    <Link to={route} aria-current={path === route ? "page" : undefined}>
+                    <Link
+                      to={route}
+                      draggable={false}
+                      aria-current={path === route ? "page" : undefined}
+                    >
                       <Icon />
                       <span>{label}</span>
                     </Link>
@@ -500,49 +457,13 @@ function AppSidebar({ path }: { path: string }) {
           </SidebarMenu>
         </SidebarGroup>
 
-        {navGroups.map(({ label, Icon, items }) => (
-          <SidebarGroup
-            key={label}
-            className="z-10 px-1 py-2 group-data-[collapsible=icon]:p-2"
-          >
-            <SidebarMenu>
-              <Collapsible defaultOpen className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      tooltip={label}
-                      className="hover:bg-transparent active:bg-transparent"
-                    >
-                      <Icon />
-                      <span>{label}</span>
-                      <ChevronRight className="ml-auto transition-transform duration-200 ease-drawer motion-reduce:transition-none group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="grid grid-rows-[0fr] opacity-0 transition-[grid-template-rows,opacity] duration-200 ease-drawer data-[state=open]:grid-rows-[1fr] data-[state=open]:opacity-100 motion-reduce:transition-none">
-                    <SidebarMenuSub className="min-h-0 overflow-hidden">
-                      {items.map(({ label: subLabel, Icon: SubIcon, route }) => (
-                        <SidebarMenuSubItem key={subLabel}>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={path === route}
-                            className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
-                          >
-                            <Link
-                              to={route}
-                              aria-current={path === route ? "page" : undefined}
-                            >
-                              <SubIcon />
-                              <span>{subLabel}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-            </SidebarMenu>
-          </SidebarGroup>
+        {navGroups.map((group) => (
+          <SidebarNavGroup
+            key={group.label}
+            group={group}
+            path={path}
+            onActiveCollapse={snapHighlightToActiveItem}
+          />
         ))}
 
         {/* Archiv — Papierkorb für versehentlich gelöschte Einträge */}
@@ -555,7 +476,11 @@ function AppSidebar({ path }: { path: string }) {
                 isActive={path === "/archiv"}
                 className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
               >
-                <Link to="/archiv" aria-current={path === "/archiv" ? "page" : undefined}>
+                <Link
+                  to="/archiv"
+                  draggable={false}
+                  aria-current={path === "/archiv" ? "page" : undefined}
+                >
                   <Archive />
                   <span>Archiv</span>
                 </Link>
