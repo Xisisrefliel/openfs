@@ -332,7 +332,7 @@ function AppSidebar({ path }: { path: string }) {
             event.clientY,
           );
 
-          if (!target || target.dataset.active === "true") {
+          if (!target) {
             setHoverHighlight(null);
             return;
           }
