@@ -105,7 +105,7 @@ const navGroups: {
 type NavGroup = (typeof navGroups)[number];
 
 const activeSidebarItemClass =
-  "hover:bg-transparent active:bg-transparent data-active:bg-sidebar-accent transition-[background-color] duration-100 ease-out motion-reduce:transition-none";
+  "hover:bg-transparent active:bg-transparent data-active:bg-sidebar-accent transition-[background-color] duration-100 ease-out data-active:duration-0 motion-reduce:transition-none";
 
 function SidebarNavGroup({ group, path }: { group: NavGroup; path: string }) {
   const { label, Icon, items } = group;
