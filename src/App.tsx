@@ -63,7 +63,7 @@ const navItems: { label: string; Icon: IconCmp; route?: string }[] = [
   { label: "Home", Icon: LayoutGrid, route: "/" },
   { label: "Profil", Icon: User, route: "/profil" },
   { label: "Theorie", Icon: BookOpen, route: "/theorie" },
-  { label: "Unterricht", Icon: Users },
+  // { label: "Unterricht", Icon: Users },
   { label: "Schüler Anmeldung", Icon: UserPlus, route: "/neue-schueler" },
 ];
 
@@ -206,6 +206,10 @@ type SidebarHighlightMetrics = {
   height: number;
 };
 
+type SidebarHoverHighlight = SidebarHighlightMetrics & {
+  path: string;
+};
+
 function getSidebarHighlightMetrics(
   content: HTMLElement,
   target: HTMLElement,
@@ -304,7 +308,7 @@ function AppSidebar({ path }: { path: string }) {
   const [sidebarCanScrollDown, setSidebarCanScrollDown] = useState(false);
   const [highlight, setHighlight] = useState<SidebarHighlightMetrics | null>(null);
   const [isSnappingHighlight, setIsSnappingHighlight] = useState(false);
-  const [hoverHighlight, setHoverHighlight] = useState<SidebarHighlightMetrics | null>(
+  const [hoverHighlight, setHoverHighlight] = useState<SidebarHoverHighlight | null>(
     null,
   );
   const updateHighlight = useCallback(() => {
@@ -377,8 +381,6 @@ function AppSidebar({ path }: { path: string }) {
     };
   }, []);
 
-  const displayedHighlight = hoverHighlight ?? highlight;
-
   return (
     <Sidebar variant="inset">
       <SidebarContent
@@ -401,14 +403,16 @@ function AppSidebar({ path }: { path: string }) {
 
           const next = getSidebarHighlightMetrics(event.currentTarget, target);
           setHoverHighlight((current) =>
-            sameSidebarHighlightMetrics(current, next) ? current : next,
+            current?.path === path && sameSidebarHighlightMetrics(current, next)
+              ? current
+              : { ...next, path },
           );
         }}
         onPointerLeave={() => {
           setHoverHighlight(null);
         }}
       >
-        {displayedHighlight && (
+        {highlight && (
           <div
             aria-hidden="true"
             className={cn(
@@ -418,9 +422,22 @@ function AppSidebar({ path }: { path: string }) {
                 : "transition-[transform,width,height] duration-150 ease motion-reduce:transition-none",
             )}
             style={{
-              width: displayedHighlight.width,
-              height: displayedHighlight.height,
-              transform: `translate3d(${displayedHighlight.left}px, ${displayedHighlight.top}px, 0)`,
+              width: highlight.width,
+              height: highlight.height,
+              transform: `translate3d(${highlight.left}px, ${highlight.top}px, 0)`,
+            }}
+          >
+            <div className="size-full rounded-md bg-sidebar-accent" />
+          </div>
+        )}
+        {hoverHighlight?.path === path && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute top-0 left-0 z-0 transition-[transform,width,height] duration-150 ease motion-reduce:transition-none"
+            style={{
+              width: hoverHighlight.width,
+              height: hoverHighlight.height,
+              transform: `translate3d(${hoverHighlight.left}px, ${hoverHighlight.top}px, 0)`,
             }}
           >
             <div className="size-full rounded-md bg-sidebar-accent" />
