@@ -1,5 +1,5 @@
 import "./index.css";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import {
@@ -104,28 +104,17 @@ const navGroups: {
 
 type NavGroup = (typeof navGroups)[number];
 
-function SidebarNavGroup({
-  group,
-  path,
-  onActiveCollapse,
-}: {
-  group: NavGroup;
-  path: string;
-  onActiveCollapse: () => void;
-}) {
+const activeSidebarItemClass =
+  "hover:bg-transparent active:bg-transparent data-active:bg-sidebar-accent transition-[background-color] duration-100 ease-out motion-reduce:transition-none";
+
+function SidebarNavGroup({ group, path }: { group: NavGroup; path: string }) {
   const { label, Icon, items } = group;
   const activeItem = items.find((item) => item.route === path);
 
   return (
     <SidebarGroup className="z-10 px-1 py-2 group-data-[collapsible=icon]:p-2">
       <SidebarMenu>
-        <Collapsible
-          defaultOpen
-          className="group/collapsible"
-          onOpenChange={(open) => {
-            if (!open && activeItem) onActiveCollapse();
-          }}
-        >
+        <Collapsible defaultOpen className="group/collapsible">
           <SidebarMenuItem>
             <CollapsibleTrigger asChild>
               <SidebarMenuButton
@@ -144,7 +133,7 @@ function SidebarNavGroup({
                     <SidebarMenuSubButton
                       asChild
                       isActive={path === route}
-                      className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
+                      className={activeSidebarItemClass}
                     >
                       <Link
                         to={route}
@@ -165,7 +154,7 @@ function SidebarNavGroup({
                   <SidebarMenuSubButton
                     asChild
                     isActive
-                    className="hover:bg-sidebar-accent active:bg-sidebar-accent"
+                    className={activeSidebarItemClass}
                   >
                     <Link to={activeItem.route} draggable={false} aria-current="page">
                       <activeItem.Icon />
@@ -237,12 +226,6 @@ function sameSidebarHighlightMetrics(
   );
 }
 
-function getVisibleActiveSidebarButton(content: HTMLElement) {
-  return Array.from(content.querySelectorAll<HTMLElement>('[data-active="true"]')).find(
-    (button) => button.getClientRects().length > 0,
-  );
-}
-
 function isEnabledSidebarTarget(target: HTMLElement) {
   return !(
     target.getAttribute("aria-disabled") === "true" ||
@@ -306,56 +289,9 @@ function scrollSidebarNavigationDown() {
 function AppSidebar({ path }: { path: string }) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [sidebarCanScrollDown, setSidebarCanScrollDown] = useState(false);
-  const [highlight, setHighlight] = useState<SidebarHighlightMetrics | null>(null);
-  const [isSnappingHighlight, setIsSnappingHighlight] = useState(false);
   const [hoverHighlight, setHoverHighlight] = useState<SidebarHoverHighlight | null>(
     null,
   );
-  const updateHighlight = useCallback(() => {
-    const content = contentRef.current;
-    if (!content) {
-      setHighlight(null);
-      return;
-    }
-
-    const activeButton = getVisibleActiveSidebarButton(content);
-    if (!activeButton) {
-      setHighlight(null);
-      return;
-    }
-
-    const next = getSidebarHighlightMetrics(content, activeButton);
-    setHighlight((current) =>
-      sameSidebarHighlightMetrics(current, next) ? current : next,
-    );
-  }, []);
-  const snapHighlightToActiveItem = useCallback(() => {
-    setIsSnappingHighlight(true);
-    window.requestAnimationFrame(() => {
-      updateHighlight();
-      window.requestAnimationFrame(() => setIsSnappingHighlight(false));
-    });
-  }, [updateHighlight]);
-
-  useLayoutEffect(() => {
-    const content = contentRef.current;
-    if (!content) return;
-
-    updateHighlight();
-    window.addEventListener("resize", updateHighlight);
-    content.addEventListener("transitionend", updateHighlight);
-    const observer =
-      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateHighlight);
-    observer?.observe(content);
-    const activeButton = getVisibleActiveSidebarButton(content);
-    if (activeButton) observer?.observe(activeButton);
-
-    return () => {
-      window.removeEventListener("resize", updateHighlight);
-      content.removeEventListener("transitionend", updateHighlight);
-      observer?.disconnect();
-    };
-  }, [path, updateHighlight]);
 
   useEffect(() => {
     const content = contentRef.current;
@@ -412,24 +348,6 @@ function AppSidebar({ path }: { path: string }) {
           setHoverHighlight(null);
         }}
       >
-        {highlight && (
-          <div
-            aria-hidden="true"
-            className={cn(
-              "pointer-events-none absolute top-0 left-0 z-0",
-              isSnappingHighlight
-                ? "opacity-0 transition-none"
-                : "transition-[transform,width,height] duration-150 ease motion-reduce:transition-none",
-            )}
-            style={{
-              width: highlight.width,
-              height: highlight.height,
-              transform: `translate3d(${highlight.left}px, ${highlight.top}px, 0)`,
-            }}
-          >
-            <div className="size-full rounded-md bg-sidebar-accent" />
-          </div>
-        )}
         {hoverHighlight?.path === path && (
           <div
             aria-hidden="true"
@@ -452,7 +370,7 @@ function AppSidebar({ path }: { path: string }) {
                     asChild
                     tooltip={label}
                     isActive={path === route}
-                    className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
+                    className={activeSidebarItemClass}
                   >
                     <Link
                       to={route}
@@ -475,12 +393,7 @@ function AppSidebar({ path }: { path: string }) {
         </SidebarGroup>
 
         {navGroups.map((group) => (
-          <SidebarNavGroup
-            key={group.label}
-            group={group}
-            path={path}
-            onActiveCollapse={snapHighlightToActiveItem}
-          />
+          <SidebarNavGroup key={group.label} group={group} path={path} />
         ))}
 
         {/* Archiv — Papierkorb für versehentlich gelöschte Einträge */}
@@ -491,7 +404,7 @@ function AppSidebar({ path }: { path: string }) {
                 asChild
                 tooltip="Archiv"
                 isActive={path === "/archiv"}
-                className="hover:bg-transparent active:bg-transparent data-active:bg-transparent"
+                className={activeSidebarItemClass}
               >
                 <Link
                   to="/archiv"
