@@ -4,6 +4,7 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import {
   Archive,
+  ArrowUpRight,
   BarChart3,
   BookOpen,
   Building2,
@@ -105,7 +106,18 @@ const navGroups: {
 type NavGroup = (typeof navGroups)[number];
 
 const activeSidebarItemClass =
-  "hover:bg-transparent active:bg-transparent data-active:bg-sidebar-accent data-active:hover:bg-sidebar-accent data-active:active:bg-sidebar-accent transition-[background-color] duration-100 ease-out data-active:duration-0 motion-reduce:transition-none";
+  "group/sidebar-link hover:z-10 overflow-visible select-none hover:bg-transparent active:bg-transparent data-active:bg-sidebar-accent data-active:hover:bg-sidebar-accent data-active:active:bg-sidebar-accent transition-[background-color] duration-100 ease-out data-active:duration-0 motion-reduce:transition-none";
+
+function SidebarLinkHoverEffect() {
+  return (
+    <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
+      <span className="absolute inset-2 rounded-sm bg-sidebar-accent opacity-0 transition-[top,right,bottom,left,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/sidebar-link:inset-y-0 group-hover/sidebar-link:-inset-x-1 group-hover/sidebar-link:opacity-100 group-focus-visible/sidebar-link:inset-y-0 group-focus-visible/sidebar-link:-inset-x-1 group-focus-visible/sidebar-link:opacity-100 motion-reduce:transition-none" />
+      <span className="absolute top-1/2 right-0 grid size-5 -translate-y-1/2 scale-25 place-items-center opacity-0 blur-sm transition-[scale,opacity,filter] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/sidebar-link:scale-100 group-hover/sidebar-link:opacity-100 group-hover/sidebar-link:blur-none group-focus-visible/sidebar-link:scale-100 group-focus-visible/sidebar-link:opacity-100 group-focus-visible/sidebar-link:blur-none group-data-[collapsible=icon]:hidden motion-reduce:transition-none">
+        <ArrowUpRight className="size-4" />
+      </span>
+    </span>
+  );
+}
 
 function SidebarNavGroup({ group, path }: { group: NavGroup; path: string }) {
   const { label, Icon, items } = group;
@@ -140,8 +152,9 @@ function SidebarNavGroup({ group, path }: { group: NavGroup; path: string }) {
                         draggable={false}
                         aria-current={path === route ? "page" : undefined}
                       >
-                        <SubIcon />
-                        <span>{subLabel}</span>
+                        <SidebarLinkHoverEffect />
+                        <SubIcon className="relative z-10" />
+                        <span className="relative z-10">{subLabel}</span>
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
@@ -157,8 +170,9 @@ function SidebarNavGroup({ group, path }: { group: NavGroup; path: string }) {
                     className={activeSidebarItemClass}
                   >
                     <Link to={activeItem.route} draggable={false} aria-current="page">
-                      <activeItem.Icon />
-                      <span>{activeItem.label}</span>
+                      <SidebarLinkHoverEffect />
+                      <activeItem.Icon className="relative z-10" />
+                      <span className="relative z-10">{activeItem.label}</span>
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
@@ -188,92 +202,6 @@ function DevAgentation() {
   return <Agentation />;
 }
 
-type SidebarHighlightMetrics = {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-};
-
-type SidebarHoverHighlight = SidebarHighlightMetrics & {
-  path: string;
-};
-
-function getSidebarHighlightMetrics(
-  content: HTMLElement,
-  target: HTMLElement,
-): SidebarHighlightMetrics {
-  const contentRect = content.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-  return {
-    left: targetRect.left - contentRect.left + content.scrollLeft,
-    top: targetRect.top - contentRect.top + content.scrollTop,
-    width: targetRect.width,
-    height: targetRect.height,
-  };
-}
-
-function sameSidebarHighlightMetrics(
-  current: SidebarHighlightMetrics | null,
-  next: SidebarHighlightMetrics,
-) {
-  return (
-    current !== null &&
-    Math.abs(current.left - next.left) < 0.5 &&
-    Math.abs(current.top - next.top) < 0.5 &&
-    Math.abs(current.width - next.width) < 0.5 &&
-    Math.abs(current.height - next.height) < 0.5
-  );
-}
-
-function isEnabledSidebarTarget(target: HTMLElement) {
-  return !(
-    target.getAttribute("aria-disabled") === "true" ||
-    (target instanceof HTMLButtonElement && target.disabled)
-  );
-}
-
-function getSidebarPointerTarget(
-  content: HTMLElement,
-  eventTarget: EventTarget | null,
-  clientX: number,
-  clientY: number,
-) {
-  const directTarget =
-    eventTarget instanceof Element
-      ? eventTarget.closest<HTMLElement>(
-          '[data-sidebar="menu-button"], [data-sidebar="menu-sub-button"]',
-        )
-      : null;
-  if (directTarget && isEnabledSidebarTarget(directTarget)) return directTarget;
-
-  let nearest: HTMLElement | null = null;
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  for (const target of content.querySelectorAll<HTMLElement>(
-    '[data-sidebar="menu-button"], [data-sidebar="menu-sub-button"]',
-  )) {
-    if (!isEnabledSidebarTarget(target)) continue;
-    const rect = target.getBoundingClientRect();
-    const distanceX =
-      clientX < rect.left
-        ? rect.left - clientX
-        : clientX > rect.right
-          ? clientX - rect.right
-          : 0;
-    const distanceY =
-      clientY < rect.top
-        ? rect.top - clientY
-        : clientY > rect.bottom
-          ? clientY - rect.bottom
-          : 0;
-    if (distanceX <= 8 && distanceY <= 12 && distanceY < nearestDistance) {
-      nearest = target;
-      nearestDistance = distanceY;
-    }
-  }
-  return nearest;
-}
-
 // The footer cue is a real affordance: clicking it pages the nav down so the
 // items hidden under the fold scroll into view (smooth, reduced-motion aware).
 function scrollSidebarNavigationDown() {
@@ -289,9 +217,6 @@ function scrollSidebarNavigationDown() {
 function AppSidebar({ path }: { path: string }) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [sidebarCanScrollDown, setSidebarCanScrollDown] = useState(false);
-  const [hoverHighlight, setHoverHighlight] = useState<SidebarHoverHighlight | null>(
-    null,
-  );
 
   useEffect(() => {
     const content = contentRef.current;
@@ -319,48 +244,7 @@ function AppSidebar({ path }: { path: string }) {
 
   return (
     <Sidebar variant="inset">
-      <SidebarContent
-        ref={contentRef}
-        className="relative isolate"
-        onPointerMove={(event) => {
-          if (event.pointerType !== "mouse") return;
-
-          const target = getSidebarPointerTarget(
-            event.currentTarget,
-            event.target,
-            event.clientX,
-            event.clientY,
-          );
-
-          if (!target) {
-            setHoverHighlight(null);
-            return;
-          }
-
-          const next = getSidebarHighlightMetrics(event.currentTarget, target);
-          setHoverHighlight((current) =>
-            current?.path === path && sameSidebarHighlightMetrics(current, next)
-              ? current
-              : { ...next, path },
-          );
-        }}
-        onPointerLeave={() => {
-          setHoverHighlight(null);
-        }}
-      >
-        {hoverHighlight?.path === path && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute top-0 left-0 z-0 transition-[transform,width,height] duration-150 ease motion-reduce:transition-none"
-            style={{
-              width: hoverHighlight.width,
-              height: hoverHighlight.height,
-              transform: `translate3d(${hoverHighlight.left}px, ${hoverHighlight.top}px, 0)`,
-            }}
-          >
-            <div className="size-full rounded-md bg-sidebar-accent" />
-          </div>
-        )}
+      <SidebarContent ref={contentRef}>
         <SidebarGroup className="z-10 px-1 py-2 group-data-[collapsible=icon]:p-2">
           <SidebarMenu>
             {navItems.map(({ label, Icon, route }) => (
@@ -377,8 +261,9 @@ function AppSidebar({ path }: { path: string }) {
                       draggable={false}
                       aria-current={path === route ? "page" : undefined}
                     >
-                      <Icon />
-                      <span>{label}</span>
+                      <SidebarLinkHoverEffect />
+                      <Icon className="relative z-10" />
+                      <span className="relative z-10">{label}</span>
                     </Link>
                   </SidebarMenuButton>
                 ) : (
@@ -411,8 +296,9 @@ function AppSidebar({ path }: { path: string }) {
                   draggable={false}
                   aria-current={path === "/archiv" ? "page" : undefined}
                 >
-                  <Archive />
-                  <span>Archiv</span>
+                  <SidebarLinkHoverEffect />
+                  <Archive className="relative z-10" />
+                  <span className="relative z-10">Archiv</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
