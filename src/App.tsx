@@ -4,7 +4,6 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Agentation } from "agentation";
 import {
   Archive,
-  ArrowUpRight,
   BarChart3,
   BookOpen,
   Building2,
@@ -111,10 +110,7 @@ const activeSidebarItemClass =
 function SidebarLinkHoverEffect() {
   return (
     <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
-      <span className="absolute inset-2 rounded-sm bg-sidebar-accent opacity-0 transition-[top,right,bottom,left,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/sidebar-link:inset-y-0 group-hover/sidebar-link:-inset-x-1 group-hover/sidebar-link:opacity-100 group-focus-visible/sidebar-link:inset-y-0 group-focus-visible/sidebar-link:-inset-x-1 group-focus-visible/sidebar-link:opacity-100 group-data-[active=true]/sidebar-link:inset-y-0 group-data-[active=true]/sidebar-link:-inset-x-1 group-data-[active=true]/sidebar-link:opacity-100 motion-reduce:transition-none" />
-      <span className="absolute top-1/2 right-0 grid size-5 -translate-y-1/2 scale-25 place-items-center opacity-0 blur-sm transition-[scale,opacity,filter] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/sidebar-link:scale-100 group-hover/sidebar-link:opacity-100 group-hover/sidebar-link:blur-none group-focus-visible/sidebar-link:scale-100 group-focus-visible/sidebar-link:opacity-100 group-focus-visible/sidebar-link:blur-none group-data-[active=true]/sidebar-link:hidden group-data-[collapsible=icon]:hidden motion-reduce:transition-none">
-        <ArrowUpRight className="size-4" />
-      </span>
+      <span className="absolute inset-2 rounded-sm bg-sidebar-accent opacity-0 transition-[top,right,bottom,left,opacity] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/sidebar-link:inset-y-0 group-hover/sidebar-link:-inset-x-1 group-hover/sidebar-link:opacity-100 group-focus-visible/sidebar-link:inset-y-0 group-focus-visible/sidebar-link:-inset-x-1 group-focus-visible/sidebar-link:opacity-100 group-data-[active=true]/sidebar-link:inset-y-0 group-data-[active=true]/sidebar-link:-inset-x-1 group-data-[active=true]/sidebar-link:opacity-100 motion-reduce:transition-none" />
     </span>
   );
 }
