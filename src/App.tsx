@@ -106,13 +106,13 @@ const navGroups: {
 type NavGroup = (typeof navGroups)[number];
 
 const activeSidebarItemClass =
-  "group/sidebar-link hover:z-10 overflow-visible select-none hover:bg-transparent active:bg-transparent data-active:bg-sidebar-accent data-active:hover:bg-sidebar-accent data-active:active:bg-sidebar-accent transition-[background-color] duration-100 ease-out data-active:duration-0 motion-reduce:transition-none";
+  "group/sidebar-link hover:z-10 overflow-visible select-none hover:bg-transparent active:bg-transparent data-active:bg-transparent data-active:hover:bg-transparent data-active:active:bg-transparent transition-[background-color] duration-100 ease-out data-active:duration-0 motion-reduce:transition-none";
 
 function SidebarLinkHoverEffect() {
   return (
     <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
-      <span className="absolute inset-2 rounded-sm bg-sidebar-accent opacity-0 transition-[top,right,bottom,left,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/sidebar-link:inset-y-0 group-hover/sidebar-link:-inset-x-1 group-hover/sidebar-link:opacity-100 group-focus-visible/sidebar-link:inset-y-0 group-focus-visible/sidebar-link:-inset-x-1 group-focus-visible/sidebar-link:opacity-100 motion-reduce:transition-none" />
-      <span className="absolute top-1/2 right-0 grid size-5 -translate-y-1/2 scale-25 place-items-center opacity-0 blur-sm transition-[scale,opacity,filter] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/sidebar-link:scale-100 group-hover/sidebar-link:opacity-100 group-hover/sidebar-link:blur-none group-focus-visible/sidebar-link:scale-100 group-focus-visible/sidebar-link:opacity-100 group-focus-visible/sidebar-link:blur-none group-data-[collapsible=icon]:hidden motion-reduce:transition-none">
+      <span className="absolute inset-2 rounded-sm bg-sidebar-accent opacity-0 transition-[top,right,bottom,left,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/sidebar-link:inset-y-0 group-hover/sidebar-link:-inset-x-1 group-hover/sidebar-link:opacity-100 group-focus-visible/sidebar-link:inset-y-0 group-focus-visible/sidebar-link:-inset-x-1 group-focus-visible/sidebar-link:opacity-100 group-data-[active=true]/sidebar-link:inset-y-0 group-data-[active=true]/sidebar-link:-inset-x-1 group-data-[active=true]/sidebar-link:opacity-100 motion-reduce:transition-none" />
+      <span className="absolute top-1/2 right-0 grid size-5 -translate-y-1/2 scale-25 place-items-center opacity-0 blur-sm transition-[scale,opacity,filter] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/sidebar-link:scale-100 group-hover/sidebar-link:opacity-100 group-hover/sidebar-link:blur-none group-focus-visible/sidebar-link:scale-100 group-focus-visible/sidebar-link:opacity-100 group-focus-visible/sidebar-link:blur-none group-data-[active=true]/sidebar-link:hidden group-data-[collapsible=icon]:hidden motion-reduce:transition-none">
         <ArrowUpRight className="size-4" />
       </span>
     </span>
