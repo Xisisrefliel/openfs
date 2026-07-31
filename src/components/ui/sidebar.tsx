@@ -208,9 +208,7 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          // Keep the flex layout change instant. Animating this width forces the
-          // entire main pane to reflow and repaint on every animation frame.
-          "relative w-(--sidebar-width) bg-transparent",
+          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-300 ease-drawer",
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
           variant === "floating" || variant === "inset"
