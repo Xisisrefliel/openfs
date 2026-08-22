@@ -212,6 +212,7 @@ function scrollSidebarNavigationDown() {
 
 function AppSidebar({ path }: { path: string }) {
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const sidebarCanScrollDownRef = useRef(false);
   const [sidebarCanScrollDown, setSidebarCanScrollDown] = useState(false);
 
   useEffect(() => {
@@ -219,9 +220,10 @@ function AppSidebar({ path }: { path: string }) {
     if (!content) return;
 
     const updateFooterFade = () => {
-      setSidebarCanScrollDown(
-        content.scrollTop + content.clientHeight < content.scrollHeight - 1,
-      );
+      const next = content.scrollTop + content.clientHeight < content.scrollHeight - 1;
+      if (next === sidebarCanScrollDownRef.current) return;
+      sidebarCanScrollDownRef.current = next;
+      setSidebarCanScrollDown(next);
     };
 
     updateFooterFade();
