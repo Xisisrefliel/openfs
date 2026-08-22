@@ -32,6 +32,8 @@ type Props = {
   className?: string;
 };
 
+const RESIZE_DEBOUNCE_MS = 160;
+
 export const SignaturePad = forwardRef<SignaturePadHandle, Props>(function SignaturePad(
   { onChange, className },
   ref,
@@ -45,7 +47,9 @@ export const SignaturePad = forwardRef<SignaturePadHandle, Props>(function Signa
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const resizeObserver = new ResizeObserver(() => {
+    let resizeTimer: number | null = null;
+    const resizeCanvas = () => {
+      resizeTimer = null;
       const dpr = window.devicePixelRatio ?? 1;
       const rect = canvas.getBoundingClientRect();
       // Only resize if dimensions actually changed to avoid flicker
@@ -61,10 +65,18 @@ export const SignaturePad = forwardRef<SignaturePadHandle, Props>(function Signa
         setHasStrokes(false);
         onChange?.(false);
       }
+    };
+    const resizeObserver = new ResizeObserver(() => {
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(resizeCanvas, RESIZE_DEBOUNCE_MS);
     });
 
+    resizeCanvas();
     resizeObserver.observe(canvas);
-    return () => resizeObserver.disconnect();
+    return () => {
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      resizeObserver.disconnect();
+    };
   }, [onChange]);
 
   /* ── Resolve ink color from CSS variable ───────────────────── */
