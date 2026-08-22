@@ -27,6 +27,7 @@ import {
   type Branch,
   type BranchInput,
 } from "@/hooks/use-branches";
+import { useCompanyProfile } from "@/hooks/use-company-profile";
 import { useInstructors } from "@/hooks/use-instructors";
 import { useStudents } from "@/hooks/use-students";
 import { useVehicles } from "@/hooks/use-vehicles";
@@ -416,8 +417,8 @@ export function Fahrschule() {
   const { students, loading: studentsLoading } = useStudents();
   const { instructors, loading: instructorsLoading } = useInstructors();
   const { vehicles, loading: vehiclesLoading } = useVehicles();
+  const { profile, error: profileError } = useCompanyProfile();
 
-  const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<Branch | null>(null);
@@ -425,14 +426,8 @@ export function Fahrschule() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/profile")
-      .then((res) => {
-        if (!res.ok) throw new Error("Profil-Request fehlgeschlagen.");
-        return res.json();
-      })
-      .then((data: CompanyProfile) => setProfile(data))
-      .catch(() => toast.error("Profil konnte nicht geladen werden."));
-  }, []);
+    if (profileError) toast.error("Profil konnte nicht geladen werden.");
+  }, [profileError]);
 
   const startCreating = () => {
     setDraft(emptyDraft);
