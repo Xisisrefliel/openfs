@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -258,7 +258,11 @@ function getChannelPerformance(campaigns: Campaign[]): ChannelPerformance[] {
   );
 }
 
-function ChannelChart({ campaigns }: { campaigns: Campaign[] }) {
+const ChannelChart = memo(function ChannelChart({
+  campaigns,
+}: {
+  campaigns: Campaign[];
+}) {
   const chartData = useMemo(() => getChannelPerformance(campaigns), [campaigns]);
   const rankedChannels = useMemo(
     () =>
@@ -327,12 +331,14 @@ function ChannelChart({ campaigns }: { campaigns: Campaign[] }) {
                     fill="var(--color-leads)"
                     radius={[6, 6, 0, 0]}
                     maxBarSize={46}
+                    isAnimationActive={false}
                   />
                   <Bar
                     dataKey="signups"
                     fill="var(--color-signups)"
                     radius={[6, 6, 0, 0]}
                     maxBarSize={46}
+                    isAnimationActive={false}
                   />
                 </BarChart>
               </ChartContainer>
@@ -387,7 +393,7 @@ function ChannelChart({ campaigns }: { campaigns: Campaign[] }) {
       </CardContent>
     </Card>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /* Create/Edit dialog                                                   */
