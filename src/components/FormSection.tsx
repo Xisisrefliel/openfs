@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -21,6 +22,16 @@ export type FormSectionDef = { id: string; label: string };
 const MIN_VISIBLE_SECTION_HEIGHT = 24;
 const QUICK_SCROLL_DURATION_MS = 140;
 const HIGHLIGHT_PULL_REACH_PX = 220;
+const HIGHLIGHT_STRETCH_SYNC_MS = 240;
+const SCROLL_NAVIGATION_KEYS = new Set([
+  "ArrowDown",
+  "ArrowUp",
+  "End",
+  "Home",
+  "PageDown",
+  "PageUp",
+  " ",
+]);
 
 export function FormSection({
   id,
@@ -36,7 +47,7 @@ export function FormSection({
   return (
     <section
       id={id}
-      className="flex scroll-mt-4 flex-col gap-5 border-t pt-8 first:border-t-0 first:pt-0"
+      className="flex scroll-mt-4 flex-col gap-5 border-t pt-8 [contain-intrinsic-size:auto_320px] [content-visibility:auto] first:border-t-0 first:pt-0"
     >
       <div className="flex flex-col gap-1">
         <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
@@ -87,16 +98,6 @@ function distanceFromCenter(elementRect: DOMRect, center: number) {
     Math.abs(elementRect.top - center),
     Math.abs(elementRect.bottom - center),
   );
-}
-
-function scrollToSection(id: string, behavior: ScrollBehavior) {
-  const resolvedBehavior =
-    behavior === "smooth" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      ? "instant"
-      : behavior;
-  document
-    .getElementById(id)
-    ?.scrollIntoView({ behavior: resolvedBehavior, block: "center" });
 }
 
 function stretchHighlightTowardPointer(
@@ -205,7 +206,7 @@ function quickScrollToSection(id: string, animationFrameRef: { current: number |
   animationFrameRef.current = window.requestAnimationFrame(tick);
 }
 
-function useScrollSpy(ids: string[]) {
+function useScrollSpy(ids: string[], preferredActiveId: string | null) {
   const idsKey = ids.join("\u0000");
   const firstId = ids[0] ?? "";
   const [state, setState] = useState({
@@ -260,9 +261,27 @@ function useScrollSpy(ids: string[]) {
         )
         .map((metric) => metric.id);
       const nextVisible = visibleIds.length > 0 ? visibleIds : [fallbackId];
+      const scrollTop = root instanceof HTMLElement ? root.scrollTop : window.scrollY;
+      const scrollHeight =
+        root instanceof HTMLElement
+          ? root.scrollHeight
+          : document.documentElement.scrollHeight;
+      const clientHeight =
+        root instanceof HTMLElement ? root.clientHeight : window.innerHeight;
+      const isAtStart = scrollTop <= 1;
+      const isAtEnd = scrollTop + clientHeight >= scrollHeight - 1;
+      const preferredAtStart =
+        isAtStart && preferredActiveId !== null && visibleIds.includes(preferredActiveId)
+          ? preferredActiveId
+          : null;
       const nextActive =
-        metrics.toSorted((left, right) => left.distance - right.distance)[0]?.id ??
-        fallbackId;
+        preferredAtStart ??
+        (isAtStart
+          ? fallbackId
+          : isAtEnd
+            ? (metrics.at(-1)?.id ?? fallbackId)
+            : (metrics.toSorted((left, right) => left.distance - right.distance)[0]?.id ??
+              fallbackId));
 
       setState((current) =>
         current.active === nextActive && sameItems(current.visible, nextVisible)
@@ -284,14 +303,19 @@ function useScrollSpy(ids: string[]) {
       root.removeEventListener("scroll", requestUpdate);
       window.removeEventListener("resize", requestUpdate);
     };
-  }, [idsKey]);
+  }, [idsKey, preferredActiveId]);
 
   return state;
 }
 
-export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
+export const FormSectionIndex = memo(function FormSectionIndex({
+  sections,
+}: {
+  sections: FormSectionDef[];
+}) {
   const ids = useMemo(() => sections.map((s) => s.id), [sections]);
-  const { active, visible } = useScrollSpy(ids);
+  const [preferredActiveId, setPreferredActiveId] = useState<string | null>(null);
+  const { active, visible } = useScrollSpy(ids, preferredActiveId);
   const navRef = useRef<HTMLElement | null>(null);
   const highlightSurfaceRef = useRef<HTMLDivElement | null>(null);
   const buttonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -309,22 +333,75 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
   } | null>(null);
   const suppressClickRef = useRef(false);
   const scrollAnimationFrameRef = useRef<number | null>(null);
-  const finishDrag = useCallback((pointerId?: number) => {
-    const drag = dragRef.current;
-    if (!drag || (pointerId !== undefined && pointerId !== drag.pointerId)) return;
-
-    dragRef.current = null;
-    setIsDragging(false);
-    resetHighlightStretch(highlightSurfaceRef.current);
-    if (drag.captureTarget.hasPointerCapture(drag.pointerId)) {
-      drag.captureTarget.releasePointerCapture(drag.pointerId);
+  const pointerPositionRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const highlightStretchFrameRef = useRef<number | null>(null);
+  const highlightStretchSyncUntilRef = useRef(0);
+  const applyHighlightStretch = useCallback(() => {
+    const pointer = pointerPositionRef.current;
+    if (!pointer) {
+      resetHighlightStretch(highlightSurfaceRef.current);
+      return;
     }
-    if (drag.moved) {
-      window.setTimeout(() => {
-        suppressClickRef.current = false;
-      }, 0);
-    }
+    stretchHighlightTowardPointer(
+      highlightSurfaceRef.current,
+      pointer.clientX,
+      pointer.clientY,
+    );
   }, []);
+  const syncHighlightStretch = useCallback(
+    (durationMs = 0) => {
+      const resolvedDuration = window.matchMedia("(prefers-reduced-motion: reduce)")
+        .matches
+        ? 0
+        : durationMs;
+      highlightStretchSyncUntilRef.current = Math.max(
+        highlightStretchSyncUntilRef.current,
+        performance.now() + resolvedDuration,
+      );
+      if (highlightStretchFrameRef.current !== null) return;
+
+      const tick = (now: number) => {
+        applyHighlightStretch();
+        if (now < highlightStretchSyncUntilRef.current) {
+          highlightStretchFrameRef.current = window.requestAnimationFrame(tick);
+        } else {
+          highlightStretchFrameRef.current = null;
+        }
+      };
+      highlightStretchFrameRef.current = window.requestAnimationFrame(tick);
+    },
+    [applyHighlightStretch],
+  );
+  const stopHighlightStretchSync = useCallback(() => {
+    if (highlightStretchFrameRef.current !== null) {
+      window.cancelAnimationFrame(highlightStretchFrameRef.current);
+      highlightStretchFrameRef.current = null;
+    }
+    highlightStretchSyncUntilRef.current = 0;
+  }, []);
+  const finishDrag = useCallback(
+    (pointerId?: number, hoverPoint?: { clientX: number; clientY: number }) => {
+      const drag = dragRef.current;
+      if (!drag || (pointerId !== undefined && pointerId !== drag.pointerId)) return;
+
+      dragRef.current = null;
+      setIsDragging(false);
+      resetHighlightStretch(highlightSurfaceRef.current);
+      if (drag.captureTarget.hasPointerCapture(drag.pointerId)) {
+        drag.captureTarget.releasePointerCapture(drag.pointerId);
+      }
+      if (drag.moved) {
+        window.setTimeout(() => {
+          suppressClickRef.current = false;
+        }, 0);
+      } else if (hoverPoint) {
+        pointerPositionRef.current = hoverPoint;
+        applyHighlightStretch();
+        syncHighlightStretch(HIGHLIGHT_STRETCH_SYNC_MS);
+      }
+    },
+    [applyHighlightStretch, syncHighlightStretch],
+  );
   const visibleSet = useMemo(() => new Set(visible), [visible]);
   const visibleRange = useMemo(() => {
     let first = -1;
@@ -354,6 +431,30 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
       }
     };
   }, [finishDrag]);
+
+  useEffect(() => {
+    const clearPreferredActive = () => setPreferredActiveId(null);
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && navRef.current?.contains(event.target)) {
+        return;
+      }
+      clearPreferredActive();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (SCROLL_NAVIGATION_KEYS.has(event.key)) clearPreferredActive();
+    };
+
+    window.addEventListener("wheel", clearPreferredActive, { passive: true });
+    window.addEventListener("touchmove", clearPreferredActive, { passive: true });
+    window.addEventListener("pointerdown", handlePointerDown, true);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("wheel", clearPreferredActive);
+      window.removeEventListener("touchmove", clearPreferredActive);
+      window.removeEventListener("pointerdown", handlePointerDown, true);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const nav = navRef.current;
@@ -405,6 +506,10 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     };
   }, [sections, visible, visibleKey, visibleRange]);
 
+  useLayoutEffect(() => {
+    if (highlight) syncHighlightStretch(HIGHLIGHT_STRETCH_SYNC_MS);
+  }, [highlight, syncHighlightStretch]);
+
   // The section whose rail button is nearest the pointer's vertical position —
   // used while dragging so the scrub never falls into the gaps between buttons.
   const sectionIdAt = (clientY: number) => {
@@ -432,6 +537,7 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
   const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
+    setPreferredActiveId(null);
     finishDrag();
     const button = e.target instanceof Element ? e.target.closest("button") : null;
     const captureTarget = button instanceof HTMLElement ? button : e.currentTarget;
@@ -450,21 +556,26 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
       if (event.pointerType !== "mouse") return;
-      stretchHighlightTowardPointer(
-        highlightSurfaceRef.current,
-        event.clientX,
-        event.clientY,
-      );
+      pointerPositionRef.current = {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      };
+      syncHighlightStretch();
     };
-    const handlePointerLeave = () => resetHighlightStretch(highlightSurfaceRef.current);
+    const handlePointerLeave = () => {
+      pointerPositionRef.current = null;
+      stopHighlightStretchSync();
+      resetHighlightStretch(highlightSurfaceRef.current);
+    };
 
     window.addEventListener("pointermove", handlePointerMove, { passive: true });
     document.documentElement.addEventListener("pointerleave", handlePointerLeave);
     return () => {
+      stopHighlightStretchSync();
       window.removeEventListener("pointermove", handlePointerMove);
       document.documentElement.removeEventListener("pointerleave", handlePointerLeave);
     };
-  }, []);
+  }, [stopHighlightStretchSync, syncHighlightStretch]);
 
   const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
     const drag = dragRef.current;
@@ -483,8 +594,11 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
     }
   };
 
-  const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
-    finishDrag(e.pointerId);
+  const handlePointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    finishDrag(
+      e.pointerId,
+      e.pointerType === "mouse" ? { clientX: e.clientX, clientY: e.clientY } : undefined,
+    );
   };
 
   return (
@@ -492,9 +606,9 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
       ref={navRef}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerEnd}
-      onPointerCancel={handlePointerEnd}
-      onLostPointerCapture={handlePointerEnd}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={(e) => finishDrag(e.pointerId)}
+      onLostPointerCapture={(e) => finishDrag(e.pointerId)}
       className={cn(
         "sticky top-2 hidden h-fit w-44 shrink-0 touch-none flex-col gap-px self-start pt-1 select-none lg:flex",
         isDragging && "cursor-grabbing",
@@ -531,7 +645,8 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
                 suppressClickRef.current = false;
                 return;
               }
-              scrollToSection(s.id, "smooth");
+              setPreferredActiveId(s.id);
+              quickScrollToSection(s.id, scrollAnimationFrameRef);
             }}
             className={cn(
               // Active state uses a faux-bold text-shadow rather than font-weight so the
@@ -550,4 +665,4 @@ export function FormSectionIndex({ sections }: { sections: FormSectionDef[] }) {
       })}
     </nav>
   );
-}
+});
