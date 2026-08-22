@@ -73,7 +73,11 @@ export function useInstructors() {
     items: instructors,
     loading,
     refresh,
-  } = useFetchList(fetchInstructors, "Fahrlehrer konnten nicht geladen werden");
+  } = useFetchList(
+    ["instructors"],
+    fetchInstructors,
+    "Fahrlehrer konnten nicht geladen werden",
+  );
 
   /* Full names of all instructors (active first), for filter lists. */
   const names = useMemo(() => instructors.map(instructorName), [instructors]);

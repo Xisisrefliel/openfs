@@ -77,7 +77,11 @@ export function useTheoryGroups() {
     items: groups,
     loading,
     refresh,
-  } = useFetchList(fetchTheoryGroups, "Theorie-Gruppen konnten nicht geladen werden");
+  } = useFetchList(
+    ["theory-groups"],
+    fetchTheoryGroups,
+    "Theorie-Gruppen konnten nicht geladen werden",
+  );
   return { groups, loading, refresh };
 }
 

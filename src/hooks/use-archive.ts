@@ -38,6 +38,7 @@ export async function purgeArchived(id: number): Promise<void> {
 
 export function useArchive() {
   const { items, loading, refresh } = useFetchList(
+    ["archive"],
     fetchArchive,
     "Archiv konnte nicht geladen werden",
   );

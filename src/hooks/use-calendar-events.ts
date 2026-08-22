@@ -90,6 +90,10 @@ export function useCalendarEvents() {
     items: events,
     loading,
     refresh,
-  } = useFetchList(fetchCalendarEvents, "Termine konnten nicht geladen werden");
+  } = useFetchList(
+    ["calendar-events"],
+    fetchCalendarEvents,
+    "Termine konnten nicht geladen werden",
+  );
   return { events, loading, refresh };
 }

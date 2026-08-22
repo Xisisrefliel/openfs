@@ -25,6 +25,10 @@ export function useStudentBalances() {
     items: balances,
     loading,
     refresh,
-  } = useFetchList(fetchStudentBalances, "Guthaben konnten nicht geladen werden");
+  } = useFetchList(
+    ["student-balances"],
+    fetchStudentBalances,
+    "Guthaben konnten nicht geladen werden",
+  );
   return { balances, loading, refresh };
 }

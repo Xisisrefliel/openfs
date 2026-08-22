@@ -53,6 +53,10 @@ export function useStudents() {
     items: students,
     loading,
     refresh,
-  } = useFetchList(fetchStudents, "Fahrschüler konnten nicht geladen werden");
+  } = useFetchList(
+    ["students"],
+    fetchStudents,
+    "Fahrschüler konnten nicht geladen werden",
+  );
   return { students, loading, refresh };
 }

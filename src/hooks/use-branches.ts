@@ -62,6 +62,6 @@ export function useBranches() {
     items: branches,
     loading,
     refresh,
-  } = useFetchList(fetchBranches, "Standorte konnten nicht geladen werden");
+  } = useFetchList(["branches"], fetchBranches, "Standorte konnten nicht geladen werden");
   return { branches, loading, refresh };
 }

@@ -65,6 +65,6 @@ export function useReviews() {
     items: reviews,
     loading,
     refresh,
-  } = useFetchList(fetchReviews, "Bewertungen konnten nicht geladen werden");
+  } = useFetchList(["reviews"], fetchReviews, "Bewertungen konnten nicht geladen werden");
   return { reviews, loading, refresh };
 }

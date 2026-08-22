@@ -51,6 +51,10 @@ export function usePricePlans() {
     items: plans,
     loading,
     refresh,
-  } = useFetchList(fetchPricePlans, "Preispläne konnten nicht geladen werden");
+  } = useFetchList(
+    ["price-plans"],
+    fetchPricePlans,
+    "Preispläne konnten nicht geladen werden",
+  );
   return { plans, loading, refresh };
 }

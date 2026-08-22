@@ -77,6 +77,10 @@ export function useCampaigns() {
     items: campaigns,
     loading,
     refresh,
-  } = useFetchList(fetchCampaigns, "Kampagnen konnten nicht geladen werden");
+  } = useFetchList(
+    ["campaigns"],
+    fetchCampaigns,
+    "Kampagnen konnten nicht geladen werden",
+  );
   return { campaigns, loading, refresh };
 }

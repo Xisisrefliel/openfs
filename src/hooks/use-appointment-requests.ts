@@ -125,6 +125,7 @@ export function useAppointmentRequests() {
     loading,
     refresh,
   } = useFetchList(
+    ["appointment-requests"],
     fetchAppointmentRequests,
     "Terminanfragen konnten nicht geladen werden",
   );

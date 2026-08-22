@@ -4,7 +4,10 @@
 /* src/components/buchhaltung/api.ts — different error semantics.)      */
 /* ------------------------------------------------------------------ */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useQuery, type QueryKey } from "@tanstack/react-query";
+
+const EMPTY_LIST: never[] = [];
 
 export async function parseOrThrow<T>(response: Response): Promise<T> {
   const data = (await response.json().catch(() => null)) as
@@ -16,29 +19,22 @@ export async function parseOrThrow<T>(response: Response): Promise<T> {
   return data;
 }
 
-/** Fetch-on-mount list state shared by the use-students/-instructors/
- *  -vehicles/-price-plans hooks. `errorLabel` feeds the console message.
- *
- *  IMPORTANT: `fetcher` must be a stable reference (e.g. a module-level
- *  function like `fetchStudents`). Never pass an inline arrow from a
- *  component — that would cause a render loop via the useCallback dep. */
-export function useFetchList<T>(fetcher: () => Promise<T[]>, errorLabel: string) {
-  const [items, setItems] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    try {
-      setItems(await fetcher());
-    } catch (error) {
-      console.error(`${errorLabel}:`, error);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetcher, errorLabel]);
+/** Cached list state shared by the DB-backed list hooks. TanStack Query
+ *  deduplicates StrictMode mounts and shares results between components. */
+export function useFetchList<T>(
+  queryKey: QueryKey,
+  fetcher: () => Promise<T[]>,
+  errorLabel: string,
+) {
+  const query = useQuery({ queryKey, queryFn: fetcher });
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (query.error) console.error(`${errorLabel}:`, query.error);
+  }, [errorLabel, query.error]);
 
-  return { items, loading, refresh };
+  return {
+    items: query.data ?? (EMPTY_LIST as T[]),
+    loading: query.isPending,
+    refresh: query.refetch,
+  };
 }
