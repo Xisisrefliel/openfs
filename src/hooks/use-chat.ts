@@ -8,6 +8,7 @@
 /* ------------------------------------------------------------------ */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { replaceEqualDeep } from "@tanstack/react-query";
 
 import { parseOrThrow, useFetchList } from "@/lib/api";
 
@@ -96,13 +97,17 @@ export function useConversations() {
     items: fetched,
     loading,
     refresh: fetchRefresh,
-  } = useFetchList(fetchConversations, "Unterhaltungen konnten nicht geladen werden");
+  } = useFetchList(
+    ["conversations"],
+    fetchConversations,
+    "Unterhaltungen konnten nicht geladen werden",
+  );
   const [overrides, setOverrides] = useState<Record<number, number>>({});
 
   /** Full refetch — also clears any optimistic overrides. */
   const refresh = useCallback(async () => {
     await fetchRefresh();
-    setOverrides({});
+    setOverrides((current) => (Object.keys(current).length === 0 ? current : {}));
   }, [fetchRefresh]);
 
   /** Optimistically clear the unread badge for one conversation. */
@@ -130,13 +135,15 @@ export function useMessages(conversationId: number | null) {
 
   const refresh = useCallback(async () => {
     if (conversationId === null) {
-      setMessages([]);
+      setMessages((current) => (current.length === 0 ? current : []));
       return;
     }
     const version = ++requestVersion.current;
     try {
       const result = await fetchMessages(conversationId);
-      if (requestVersion.current === version) setMessages(result);
+      if (requestVersion.current === version) {
+        setMessages((current) => replaceEqualDeep(current, result));
+      }
     } catch (error) {
       console.error("Nachrichten konnten nicht geladen werden:", error);
     } finally {
@@ -145,7 +152,7 @@ export function useMessages(conversationId: number | null) {
   }, [conversationId]);
 
   useEffect(() => {
-    setMessages([]);
+    setMessages((current) => (current.length === 0 ? current : []));
     setLoading(conversationId !== null);
     void refresh();
   }, [conversationId, refresh]);
