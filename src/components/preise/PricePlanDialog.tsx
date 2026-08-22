@@ -54,7 +54,7 @@ export function PricePlanDialog({
 }) {
   const [name, setName] = useState("");
   const [months, setMonths] = useState("");
-  const [rows, setRows] = useState<ComponentDraft[]>([{ ...emptyRow }]);
+  const [rows, setRows] = useState<ComponentDraft[]>(() => [{ ...emptyRow }]);
   const [submitting, setSubmitting] = useState(false);
 
   // Re-seed the form whenever the dialog opens for a (different) plan.

@@ -282,7 +282,7 @@ export function StundenTab({ student }: { student: StudentRecord }) {
   const [viewAttestation, setViewAttestation] = useState<Attestation | null>(null);
   // Map of event id (string) → Attestation (or null = checked, none found)
   const [attestationMap, setAttestationMap] = useState<Map<string, Attestation | null>>(
-    new Map(),
+    () => new Map(),
   );
   const [loadingAttestations, setLoadingAttestations] = useState(false);
 
