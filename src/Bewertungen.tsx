@@ -190,25 +190,13 @@ function ReplyDialog({
   onOpenChange,
   onSave,
 }: {
-  review: Review | null;
+  review: Review;
   open: boolean;
   saving: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (reply: string) => void;
 }) {
-  const [reply, setReply] = useState("");
-
-  // Reset the draft to the stored reply whenever a (new) review opens.
-  const [lastReviewId, setLastReviewId] = useState<number | null>(null);
-  if (review && review.id !== lastReviewId) {
-    setLastReviewId(review.id);
-    setReply(review.reply);
-  }
-  if (!review && lastReviewId !== null) {
-    setLastReviewId(null);
-  }
-
-  if (!review) return null;
+  const [reply, setReply] = useState(review.reply);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -586,15 +574,18 @@ export function Bewertungen() {
         </div>
       </div>
 
-      <ReplyDialog
-        review={replyingReview}
-        open={replyingId !== null && replyingReview !== null}
-        saving={saving}
-        onOpenChange={(open) => {
-          if (!open) setReplyingId(null);
-        }}
-        onSave={(reply) => void saveReply(reply)}
-      />
+      {replyingReview && (
+        <ReplyDialog
+          key={replyingReview.id}
+          review={replyingReview}
+          open={replyingId !== null}
+          saving={saving}
+          onOpenChange={(open) => {
+            if (!open) setReplyingId(null);
+          }}
+          onSave={(reply) => void saveReply(reply)}
+        />
+      )}
     </div>
   );
 }
