@@ -24,6 +24,9 @@ ensureTheoryGroupTables(db);
 ensureAttestationTables(db);
 
 const server = serve({
+  // Keep the development UI reachable from other devices on the local network.
+  hostname: "0.0.0.0",
+
   routes: {
     // Serve index.html for all unmatched routes.
     "/*": index,
