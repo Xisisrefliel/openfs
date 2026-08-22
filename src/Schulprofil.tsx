@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useCallback, useState } from "react";
 import {
   ArrowRight,
   CalendarDays,
@@ -67,7 +67,7 @@ function IconInput({
 }
 
 /** Controlled tag editor — Badge chips with X, Enter/Backspace to edit. */
-function TagEditor({
+const TagEditor = memo(function TagEditor({
   value,
   onChange,
   placeholder,
@@ -115,7 +115,7 @@ function TagEditor({
       />
     </div>
   );
-}
+});
 
 const CLOSED_HOURS = "Geschlossen";
 const DEFAULT_OPEN_TIME = "09:00";
@@ -179,14 +179,16 @@ function formatOpeningHours({
   return closed ? CLOSED_HOURS : `${opens} – ${closes}`;
 }
 
-function OpeningHoursControls({
+const OpeningHoursControls = memo(function OpeningHoursControls({
+  index,
   day,
   value,
   onChange,
 }: {
+  index: number;
   day: string;
   value: string;
-  onChange: (hours: string) => void;
+  onChange: (index: number, hours: string) => void;
 }) {
   const parsed = parseOpeningHours(value);
   const timeOptions = getTimeOptions(parsed.opens, parsed.closes);
@@ -198,6 +200,7 @@ function OpeningHoursControls({
         value={parsed.closed ? "closed" : "open"}
         onChange={(event) =>
           onChange(
+            index,
             formatOpeningHours({
               ...parsed,
               closed: event.target.value === "closed",
@@ -215,6 +218,7 @@ function OpeningHoursControls({
         disabled={parsed.closed}
         onChange={(event) =>
           onChange(
+            index,
             formatOpeningHours({
               ...parsed,
               opens: event.target.value,
@@ -235,6 +239,7 @@ function OpeningHoursControls({
         disabled={parsed.closed}
         onChange={(event) =>
           onChange(
+            index,
             formatOpeningHours({
               ...parsed,
               closes: event.target.value,
@@ -251,7 +256,7 @@ function OpeningHoursControls({
       </NativeSelect>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /* Page                                                                 */
@@ -273,15 +278,32 @@ export function Schulprofil() {
   const update = (patch: Partial<SchoolProfile>) =>
     setProfile((current) => ({ ...current, ...patch }));
 
-  const updateHours = (index: number, hours: string) => {
-    setDirty(true);
-    setProfile((current) => ({
-      ...current,
-      opening_hours: current.opening_hours.map((entry, i) =>
-        i === index ? { ...entry, hours } : entry,
-      ),
-    }));
-  };
+  const updateHours = useCallback(
+    (index: number, hours: string) => {
+      setDirty(true);
+      setProfile((current) => ({
+        ...current,
+        opening_hours: current.opening_hours.map((entry, i) =>
+          i === index ? { ...entry, hours } : entry,
+        ),
+      }));
+    },
+    [setProfile],
+  );
+  const updateServices = useCallback(
+    (services: string[]) => {
+      setDirty(true);
+      setProfile((current) => ({ ...current, services }));
+    },
+    [setProfile],
+  );
+  const updateHighlights = useCallback(
+    (highlights: string[]) => {
+      setDirty(true);
+      setProfile((current) => ({ ...current, highlights }));
+    },
+    [setProfile],
+  );
 
   const markDirty = () => setDirty(true);
 
@@ -453,9 +475,10 @@ export function Schulprofil() {
                   >
                     <span className="w-32 shrink-0 text-sm font-medium">{entry.day}</span>
                     <OpeningHoursControls
+                      index={i}
                       day={entry.day}
                       value={entry.hours}
-                      onChange={(hours) => updateHours(i, hours)}
+                      onChange={updateHours}
                     />
                   </div>
                 ))}
@@ -474,10 +497,7 @@ export function Schulprofil() {
               >
                 <TagEditor
                   value={profile.services}
-                  onChange={(services) => {
-                    update({ services });
-                    markDirty();
-                  }}
+                  onChange={updateServices}
                   placeholder="Leistung hinzufügen…"
                 />
               </Field>
@@ -495,10 +515,7 @@ export function Schulprofil() {
               >
                 <TagEditor
                   value={profile.highlights}
-                  onChange={(highlights) => {
-                    update({ highlights });
-                    markDirty();
-                  }}
+                  onChange={updateHighlights}
                   placeholder="Highlight hinzufügen…"
                 />
               </Field>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -257,7 +257,7 @@ const sections = [
 /* Hours editor                                                        */
 /* ------------------------------------------------------------------ */
 
-function HoursEditor({
+const HoursEditor = memo(function HoursEditor({
   initial,
   value,
   onChange,
@@ -319,7 +319,7 @@ function HoursEditor({
       ))}
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
@@ -393,26 +393,35 @@ export function Profil() {
   const [payments, setPayments] = useState<string[]>(["Banküberweisung", "Bar"]);
   const markDirty = () => setDirty(true);
 
-  const officeHours = schoolProfile.opening_hours.map((entry) => {
-    const match = entry.hours.match(/^(\d{2}:\d{2})\s*[–-]\s*(\d{2}:\d{2})(?:\s+(.+))?$/);
-    return {
-      day: entry.day,
-      open: match?.[1] ?? "",
-      close: match?.[2] ?? "",
-      note: match?.[3] ?? "",
-      closed: entry.hours === "Geschlossen" || !match,
-    };
-  });
+  const officeHours = useMemo(
+    () =>
+      schoolProfile.opening_hours.map((entry) => {
+        const match = entry.hours.match(
+          /^(\d{2}:\d{2})\s*[–-]\s*(\d{2}:\d{2})(?:\s+(.+))?$/,
+        );
+        return {
+          day: entry.day,
+          open: match?.[1] ?? "",
+          close: match?.[2] ?? "",
+          note: match?.[3] ?? "",
+          closed: entry.hours === "Geschlossen" || !match,
+        };
+      }),
+    [schoolProfile.opening_hours],
+  );
 
-  const updateOfficeHours = (rows: Hours[]) => {
-    const opening_hours: OpeningHoursEntry[] = rows.map((row) => ({
-      day: row.day,
-      hours: row.closed
-        ? "Geschlossen"
-        : `${row.open} – ${row.close}${row.note.trim() ? ` ${row.note.trim()}` : ""}`,
-    }));
-    setSchoolProfile((current) => ({ ...current, opening_hours }));
-  };
+  const updateOfficeHours = useCallback(
+    (rows: Hours[]) => {
+      const opening_hours: OpeningHoursEntry[] = rows.map((row) => ({
+        day: row.day,
+        hours: row.closed
+          ? "Geschlossen"
+          : `${row.open} – ${row.close}${row.note.trim() ? ` ${row.note.trim()}` : ""}`,
+      }));
+      setSchoolProfile((current) => ({ ...current, opening_hours }));
+    },
+    [setSchoolProfile],
+  );
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
