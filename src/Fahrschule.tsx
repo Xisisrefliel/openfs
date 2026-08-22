@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Building2,
-  Car,
   Clock,
-  GraduationCap,
   Globe,
   Mail,
   MapPin,
@@ -12,7 +10,6 @@ import {
   Plus,
   Star,
   Trash2,
-  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,11 +67,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-
-type IconCmp = React.ComponentType<{ className?: string }>;
+import {
+  panelActionsClass,
+  panelCardClass,
+  panelHeaderClass,
+  panelInteractiveClass,
+  Readout,
+} from "@/components/Panel";
 
 /* ------------------------------------------------------------------ */
 /* School summary (read-only — edited on /profil)                      */
@@ -91,28 +91,31 @@ function SchoolSummaryCard({ profile }: { profile: CompanyProfile | null }) {
     : [];
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
-            <Building2 className="size-6" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <CardTitle className="text-base">{profile?.name || "Fahrschule"}</CardTitle>
-            <CardDescription>Stammdaten der Fahrschule</CardDescription>
+    <Card className={panelCardClass}>
+      <CardHeader className={panelHeaderClass}>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Building2 className="size-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0">
+            <CardTitle className="truncate text-[15px] font-semibold tracking-[-0.01em]">
+              {profile?.name || "Fahrschule"}
+            </CardTitle>
+            <CardDescription className="text-xs">Unternehmensprofil</CardDescription>
           </div>
         </div>
       </CardHeader>
       {details.length > 0 && (
-        <CardContent>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-            {details.map(({ Icon, label, value }) => (
-              <div key={label} className="flex items-center gap-2.5">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                  <Icon className="size-4" />
-                </div>
-                <div className="flex min-w-0 flex-col">
-                  <dt className="text-xs text-muted-foreground">{label}</dt>
+        <CardContent className="py-0">
+          <dl className="grid grid-cols-1 divide-y divide-border/60 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+            {details.map(({ Icon, label, value }, index) => (
+              <div
+                key={label}
+                className={`flex min-w-0 items-center gap-2.5 py-3 sm:px-4 ${index === 0 ? "sm:pl-0" : ""}`}
+              >
+                <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <dt className="text-[11px] font-medium text-muted-foreground">
+                    {label}
+                  </dt>
                   <dd className="truncate text-sm font-medium">{value}</dd>
                 </div>
               </div>
@@ -128,40 +131,23 @@ function SchoolSummaryCard({ profile }: { profile: CompanyProfile | null }) {
 /* Quick stats                                                         */
 /* ------------------------------------------------------------------ */
 
-function StatCard({
-  Icon,
-  accent,
+function StatReadout({
   label,
   value,
   loading,
 }: {
-  Icon: IconCmp;
-  accent: string;
   label: string;
   value: number;
   loading: boolean;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-3">
-        <div
-          className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-lg",
-            accent,
-          )}
-        >
-          <Icon className="size-5" />
-        </div>
-        <div className="flex min-w-0 flex-col">
-          {loading ? (
-            <Skeleton className="h-6 w-10" />
-          ) : (
-            <span className="text-xl font-semibold tabular-nums">{value}</span>
-          )}
-          <span className="truncate text-xs text-muted-foreground">{label}</span>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="min-w-20 px-4 first:pl-0 last:pr-0">
+      {loading ? (
+        <Skeleton className="mb-1 h-4 w-8" />
+      ) : (
+        <Readout label={label} value={String(value)} />
+      )}
+    </div>
   );
 }
 
@@ -322,81 +308,77 @@ function BranchCard({
   ].filter((detail) => detail.value);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          <div
-            className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-lg",
-              branch.isMain
-                ? "bg-amber-500/10 text-amber-600"
-                : "bg-sky-500/10 text-sky-600",
-            )}
-          >
-            <Building2 className="size-6" />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <CardTitle className="text-base">{branch.name}</CardTitle>
-            <CardDescription>Standort</CardDescription>
+    <Card className={`group/card ${panelCardClass} ${panelInteractiveClass}`}>
+      <CardHeader className={`${panelHeaderClass} grid-cols-1 sm:grid-cols-[1fr_auto]`}>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Building2 className="size-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0">
+            <CardTitle className="truncate text-sm font-medium">{branch.name}</CardTitle>
+            <CardDescription className="truncate text-xs">
+              {branch.address}
+            </CardDescription>
           </div>
         </div>
-        <CardAction>
-          <div className="flex items-center gap-2">
+        <CardAction className="col-start-1 row-start-2 row-span-1 justify-self-start sm:col-start-2 sm:row-start-1 sm:row-span-2 sm:justify-self-end">
+          <div className="flex items-center gap-1.5">
             {branch.isMain && (
-              <Badge variant="secondary">
-                <Star data-icon="inline-start" />
+              <Badge variant="outline" className="gap-1.5 font-normal">
+                <span className="size-1.5 rounded-full bg-primary" />
                 Hauptstandort
               </Badge>
             )}
-            <Badge variant={branch.status === "offen" ? "secondary" : "outline"}>
+            <Badge variant="outline" className="gap-1.5 font-normal">
+              <span
+                className={`size-1.5 rounded-full ${branch.status === "offen" ? "bg-green-600 dark:bg-green-400" : "bg-muted-foreground"}`}
+              />
               {branch.status === "offen" ? "Offen" : "Geschlossen"}
             </Badge>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`${branch.name} bearbeiten`}
-              onClick={onEdit}
-            >
-              <Pencil />
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon-sm"
-              aria-label={`${branch.name} löschen`}
-              onClick={onDelete}
-            >
-              <Trash2 />
-            </Button>
+            <div className={`flex items-center ${panelActionsClass}`}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`${branch.name} bearbeiten`}
+                onClick={onEdit}
+              >
+                <Pencil />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-destructive"
+                aria-label={`${branch.name} löschen`}
+                onClick={onDelete}
+              >
+                <Trash2 />
+              </Button>
+            </div>
           </div>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-3 py-3">
         {details.length > 0 && (
-          <>
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
-              {details.map(({ Icon, label, value }) => (
-                <div key={label} className="flex items-center gap-2.5">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                    <Icon className="size-4" />
-                  </div>
-                  <div className="flex min-w-0 flex-col">
-                    <dt className="text-xs text-muted-foreground">{label}</dt>
-                    <dd className="truncate text-sm font-medium">{value}</dd>
-                  </div>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+            {details.map(({ Icon, label, value }) => (
+              <div key={label} className="flex min-w-0 items-center gap-2.5">
+                <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                <div className="flex min-w-0 flex-col">
+                  <dt className="text-[11px] font-medium text-muted-foreground">
+                    {label}
+                  </dt>
+                  <dd className="truncate text-sm">{value}</dd>
                 </div>
-              ))}
-            </dl>
-            {!branch.isMain && <Separator />}
-          </>
+              </div>
+            ))}
+          </dl>
         )}
         {!branch.isMain && (
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="w-fit"
+            className="w-fit text-muted-foreground"
             onClick={onMakeMain}
           >
             <Star data-icon="inline-start" />
@@ -480,66 +462,86 @@ export function Fahrschule() {
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-[3px] overflow-hidden bg-sidebar">
       <PageHeader
+        center={
+          <div className="hidden divide-x divide-border/70 lg:flex">
+            <StatReadout
+              label="Fahrschüler"
+              value={students.length}
+              loading={studentsLoading}
+            />
+            <StatReadout
+              label="Fahrlehrer/innen"
+              value={instructors.length}
+              loading={instructorsLoading}
+            />
+            <StatReadout
+              label="Fahrzeuge"
+              value={vehicles.length}
+              loading={vehiclesLoading}
+            />
+            <StatReadout
+              label="Standorte"
+              value={branches.length}
+              loading={branchesLoading}
+            />
+          </div>
+        }
         end={
           <Button type="button" size="sm" onClick={startCreating}>
             <Plus data-icon="inline-start" />
-            Standort hinzufügen
+            <span className="hidden sm:inline">Standort hinzufügen</span>
           </Button>
         }
       />
 
       <div className="min-h-0 flex-1 overflow-auto rounded-t-sm rounded-b-lg border border-border/70 bg-background p-4 2xl:p-6">
-        <div className="stagger-in flex flex-col gap-4 2xl:gap-5">
-          {/* School summary */}
+        <div className="stagger-in mx-auto flex max-w-[1180px] flex-col gap-5">
           <SchoolSummaryCard profile={profile} />
 
-          {/* Quick stats */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 2xl:gap-5">
-            <StatCard
-              Icon={Users}
-              accent="bg-emerald-500/10 text-emerald-600"
+          <div className="grid grid-cols-2 divide-x divide-y divide-border/70 rounded-lg border border-border/80 px-4 py-3 lg:hidden">
+            <StatReadout
               label="Fahrschüler"
               value={students.length}
               loading={studentsLoading}
             />
-            <StatCard
-              Icon={GraduationCap}
-              accent="bg-violet-500/10 text-violet-600"
+            <StatReadout
               label="Fahrlehrer/innen"
               value={instructors.length}
               loading={instructorsLoading}
             />
-            <StatCard
-              Icon={Car}
-              accent="bg-rose-500/10 text-rose-600"
+            <StatReadout
               label="Fahrzeuge"
               value={vehicles.length}
               loading={vehiclesLoading}
             />
-            <StatCard
-              Icon={Building2}
-              accent="bg-sky-500/10 text-sky-600"
+            <StatReadout
               label="Standorte"
               value={branches.length}
               loading={branchesLoading}
             />
           </div>
 
-          {/* Branches */}
-          <div className="flex flex-col gap-1">
-            <h2 className="text-sm font-semibold">Standorte</h2>
-            <p className="text-xs text-muted-foreground">
-              Filialen und Anmeldestellen Ihrer Fahrschule verwalten.
-            </p>
+          <div className="flex items-end justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <h2 className="text-[15px] font-semibold tracking-[-0.01em]">Standorte</h2>
+              <p className="text-xs text-muted-foreground">
+                Filialen und Anmeldestellen Ihrer Fahrschule verwalten.
+              </p>
+            </div>
+            {!branchesLoading && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {branches.length} {branches.length === 1 ? "Standort" : "Standorte"}
+              </span>
+            )}
           </div>
 
           {branchesLoading ? (
-            <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">
+            <div className="grid gap-3 md:grid-cols-2">
               <Skeleton className="h-56 rounded-xl" />
               <Skeleton className="h-56 rounded-xl" />
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 2xl:gap-5">
+            <div className="grid gap-3 md:grid-cols-2">
               {branches.map((branch) => (
                 <BranchCard
                   key={branch.id}
